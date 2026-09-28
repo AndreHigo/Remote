@@ -1,0 +1,180 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum RemoteSessionStatus {
+  REQUESTED
+  APPROVED
+  DENIED
+  ENDED
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  TECHNICIAN
+  VIEWER
+}
+
+enum CommandExecutionStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         UserRole @default(TECHNICIAN)
+  active       Boolean  @default(true)
+  twoFactorEnabled Boolean @default(false)
+  twoFactorSecret  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  remoteSessions    RemoteSession[]
+  auditEvents        AuditEvent[]
+  commandExecutions CommandExecution[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model Customer {
+  id           String   @id @default(cuid())
+  name         String
+  document     String
+  contactName  String
+  contactEmail String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  devices             Device[]
+  agentEnrollmentKeys AgentEnrollmentKey[]
+
+  @@index([name])
+}
+
+model AgentEnrollmentKey {
+  id         String    @id @default(cuid())
+  customerId String
+  name       String
+  keyHash    String    @unique
+  active     Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([active])
+}
+
+model Device {
+  id           String    @id @default(cuid())
+  customerId   String
+  displayName  String
+  remoteId     String    @unique
+  os           String
+  userName     String
+  localIp      String
+  biosSerial   String?
+  systemUuid   String?
+  primaryMac   String?
+  identityHash String?
+  tags         String[]  @default([])
+  lastSeenAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  customer          Customer            @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  remoteSessions    RemoteSession[]
+  auditEvents        AuditEvent[]
+  commandExecutions  CommandExecution[]
+  inventorySnapshots InventorySnapshot[]
+
+  @@index([customerId])
+  @@index([biosSerial])
+  @@index([systemUuid])
+  @@index([primaryMac])
+  @@index([identityHash])
+  @@index([lastSeenAt])
+}
+
+model RemoteSession {
+  id             String              @id @default(cuid())
+  deviceId       String
+  userId         String?
+  technicianName String
+  reason         String
+  status         RemoteSessionStatus @default(REQUESTED)
+  requestedAt    DateTime            @default(now())
+  endedAt        DateTime?
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([deviceId])
+  @@index([userId])
+  @@index([requestedAt])
+}
+
+model AuditEvent {
+  id        String   @id @default(cuid())
+  action    String
+  actor     String
+  targetId  String
+  deviceId  String?
+  userId    String?
+  createdAt DateTime @default(now())
+  metadata  Json     @default("{}")
+
+  device Device? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([targetId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model CommandExecution {
+  id          String                 @id @default(cuid())
+  deviceId    String
+  commandType String
+  status      CommandExecutionStatus @default(PENDING)
+  requestedBy String
+  userId      String?
+  requestedAt DateTime @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+  payload     Json                   @default("{}")
+  output      Json?
+  error       String?
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([deviceId])
+  @@index([userId])
+  @@index([status])
+}
+
+model InventorySnapshot {
+  id          String   @id @default(cuid())
+  deviceId    String
+  hardware    Json
+  software    Json
+  collectedAt DateTime @default(now())
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId])
+}

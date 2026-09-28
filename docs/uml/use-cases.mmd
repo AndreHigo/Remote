@@ -1,0 +1,27 @@
+flowchart TB
+    Admin["Administrador"]
+    Tecnico["Tecnico"]
+    Cliente["Cliente final"]
+
+    UC1(("Cadastrar empresa"))
+    UC2(("Convidar tecnico"))
+    UC3(("Cadastrar dispositivo"))
+    UC4(("Ver dispositivos online"))
+    UC5(("Iniciar acesso remoto"))
+    UC6(("Executar comando rapido"))
+    UC7(("Consultar inventario"))
+    UC8(("Auditar acessos"))
+    UC9(("Abrir chamado"))
+    UC10(("Autorizar acesso assistido"))
+
+    Admin --> UC1
+    Admin --> UC2
+    Admin --> UC8
+    Tecnico --> UC4
+    Tecnico --> UC5
+    Tecnico --> UC6
+    Tecnico --> UC7
+    Tecnico --> UC9
+    Cliente --> UC10
+    Cliente --> UC9
+

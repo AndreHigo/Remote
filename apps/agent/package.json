@@ -1,0 +1,23 @@
+{
+  "name": "@remoto/agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "register": "tsx src/index.ts register",
+    "heartbeat": "tsx src/index.ts heartbeat",
+    "inventory": "tsx src/index.ts inventory",
+    "commands": "tsx src/index.ts commands",
+    "loop": "tsx src/index.ts loop",
+    "config:init": "tsx src/index.ts config:init",
+    "status": "tsx src/index.ts status",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^24.1.0",
+    "tsx": "^4.20.3",
+    "typescript": "^5.9.2"
+  }
+}

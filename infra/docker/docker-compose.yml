@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: remoto-postgres
+    environment:
+      POSTGRES_DB: remoto
+      POSTGRES_USER: remoto
+      POSTGRES_PASSWORD: remoto
+    ports:
+      - "55432:5432"
+    volumes:
+      - remoto-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U remoto -d remoto"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  remoto-postgres-data:

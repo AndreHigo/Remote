@@ -1,0 +1,32 @@
+{
+  "name": "remoto",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Plataforma online de acesso remoto, suporte tecnico e gestao de dispositivos.",
+  "workspaces": [
+    "apps/*",
+    "services/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,green \"npm run dev -w services/api\" \"npm run dev -w apps/web\"",
+    "build": "npm run build -w services/api && npm run build -w apps/web && npm run build -w apps/agent",
+    "test:security": "npm run test:security -w services/api",
+    "typecheck": "npm run typecheck -w services/api && npm run typecheck -w apps/web && npm run typecheck -w apps/agent",
+    "db:up": "docker compose -f infra/docker/docker-compose.yml up -d postgres",
+    "db:push": "npm run db:push -w services/api",
+    "db:seed": "npm run db:seed -w services/api",
+    "deploy:preflight": "powershell -NoProfile -ExecutionPolicy Bypass -File infra/docker/preflight-production.ps1",
+    "agent:register": "npm run register -w apps/agent",
+    "agent:heartbeat": "npm run heartbeat -w apps/agent",
+    "agent:inventory": "npm run inventory -w apps/agent",
+    "agent:commands": "npm run commands -w apps/agent",
+    "agent:loop": "npm run loop -w apps/agent",
+    "agent:config:init": "npm run config:init -w apps/agent",
+    "agent:status": "npm run status -w apps/agent",
+    "agent:service:install": "powershell -NoProfile -ExecutionPolicy Bypass -File apps/agent/scripts/install-windows-service.ps1",
+    "agent:service:uninstall": "powershell -NoProfile -ExecutionPolicy Bypass -File apps/agent/scripts/install-windows-service.ps1 -Uninstall"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.0"
+  }
+}

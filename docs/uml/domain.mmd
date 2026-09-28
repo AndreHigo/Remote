@@ -1,0 +1,80 @@
+classDiagram
+    class Organization {
+        +uuid id
+        +string name
+        +string document
+        +Plan plan
+        +datetime createdAt
+    }
+
+    class User {
+        +uuid id
+        +string name
+        +string email
+        +UserRole role
+        +bool mfaEnabled
+    }
+
+    class Customer {
+        +uuid id
+        +string name
+        +string contactName
+        +string contactEmail
+    }
+
+    class Device {
+        +uuid id
+        +string displayName
+        +string remoteId
+        +DeviceStatus status
+        +string os
+        +datetime lastSeenAt
+    }
+
+    class DeviceGroup {
+        +uuid id
+        +string name
+    }
+
+    class RemoteSession {
+        +uuid id
+        +SessionStatus status
+        +datetime startedAt
+        +datetime endedAt
+        +string reason
+    }
+
+    class AuditEvent {
+        +uuid id
+        +string action
+        +string actorIp
+        +datetime createdAt
+        +json metadata
+    }
+
+    class CommandExecution {
+        +uuid id
+        +string commandType
+        +CommandStatus status
+        +datetime requestedAt
+    }
+
+    class InventorySnapshot {
+        +uuid id
+        +json hardware
+        +json software
+        +datetime collectedAt
+    }
+
+    Organization "1" --> "*" User
+    Organization "1" --> "*" Customer
+    Customer "1" --> "*" Device
+    DeviceGroup "1" --> "*" Device
+    User "1" --> "*" RemoteSession
+    Device "1" --> "*" RemoteSession
+    Device "1" --> "*" InventorySnapshot
+    Device "1" --> "*" CommandExecution
+    User "1" --> "*" CommandExecution
+    RemoteSession "1" --> "*" AuditEvent
+    User "1" --> "*" AuditEvent
+

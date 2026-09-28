@@ -1,0 +1,5 @@
+{
+  "apiUrl": "http://localhost:4100",
+  "agentKey": "COLE_A_CHAVE_DO_AGENTE_AQUI",
+  "stateFile": ".remoto-agent.json"
+}

@@ -1,0 +1,25 @@
+sequenceDiagram
+    participant T as Tecnico
+    participant W as Painel Web
+    participant A as API
+    participant R as Realtime
+    participant E as Motor Remoto
+    participant D as Dispositivo
+
+    T->>W: Seleciona dispositivo e solicita acesso
+    W->>A: POST /remote-sessions
+    A->>A: Valida permissao e politica
+    A->>R: Notifica dispositivo
+    R->>D: Pedido de acesso
+    alt Acesso assistido
+        D->>D: Exibe solicitacao ao usuario local
+        D->>R: Usuario aceitou
+    else Acesso nao assistido
+        D->>R: Politica permite acesso
+    end
+    R->>A: Confirmacao
+    A->>W: Retorna token/parametros de conexao
+    W->>E: Abre cliente remoto
+    E->>D: Estabelece sessao P2P ou relay
+    A->>A: Registra auditoria
+

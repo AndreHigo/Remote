@@ -1,0 +1,29 @@
+services:
+  rustdesk-hbbs:
+    image: rustdesk/rustdesk-server:latest
+    container_name: remoto-rustdesk-hbbs
+    restart: unless-stopped
+    command: hbbs -r ${RUSTDESK_RELAY_HOST:?Defina RUSTDESK_RELAY_HOST com o DNS ou IP publico do relay}:21117
+    volumes:
+      - remoto-rustdesk-data:/root
+    ports:
+      - "${RUSTDESK_HBBS_TCP_PORT:-21115}:21115"
+      - "${RUSTDESK_ID_SERVER_PORT:-21116}:21116/tcp"
+      - "${RUSTDESK_ID_SERVER_PORT:-21116}:21116/udp"
+      - "${RUSTDESK_HBBS_WS_PORT:-21118}:21118"
+    depends_on:
+      - rustdesk-hbbr
+
+  rustdesk-hbbr:
+    image: rustdesk/rustdesk-server:latest
+    container_name: remoto-rustdesk-hbbr
+    restart: unless-stopped
+    command: hbbr
+    volumes:
+      - remoto-rustdesk-data:/root
+    ports:
+      - "${RUSTDESK_RELAY_PORT:-21117}:21117"
+      - "${RUSTDESK_HBBR_WS_PORT:-21119}:21119"
+
+volumes:
+  remoto-rustdesk-data:

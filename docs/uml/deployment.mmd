@@ -1,0 +1,37 @@
+flowchart TB
+    subgraph Cloud["Cloud Remoto"]
+        LB["Load Balancer"]
+        Web["Web App"]
+        API["API"]
+        RT["Realtime"]
+        DB[("PostgreSQL")]
+        OBJ[("Object Storage")]
+        ID["ID Server"]
+        RELAY["Relay Server"]
+        OBS["Logs e metricas"]
+    end
+
+    subgraph Tecnico["Maquina do tecnico"]
+        Browser["Browser"]
+        Client["Cliente remoto"]
+    end
+
+    subgraph Cliente["Dispositivo do cliente"]
+        Agent["Agent"]
+        Engine["Motor remoto"]
+    end
+
+    Browser --> LB
+    LB --> Web
+    Web --> API
+    API --> DB
+    API --> OBJ
+    API --> RT
+    API --> OBS
+    Agent --> RT
+    Agent --> API
+    Client --> ID
+    Client --> RELAY
+    Engine --> ID
+    Engine --> RELAY
+
