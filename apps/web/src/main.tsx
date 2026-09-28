@@ -960,11 +960,19 @@ function LoginScreen({ onLogin }: { onLogin: (response: LoginResponse) => void }
   return (
     <main className="loginShell">
       <section className="loginPanel">
-        <div className="brand loginBrand">
-          <span className="brandMark">R</span>
-          <div>
-            <strong>Remoto</strong>
-            <small>Console tecnico</small>
+        <div className="loginAside">
+          <div className="brand loginBrand">
+            <span className="brandMark">R</span>
+            <div>
+              <strong>Remoto</strong>
+              <small>Console de operacoes</small>
+            </div>
+          </div>
+
+          <div className="loginBrandCopy">
+            <p>CONTROLE REMOTO</p>
+            <h2>Acesse seus dispositivos com contexto.</h2>
+            <span>Presenca, inventario e sessoes em um unico workspace.</span>
           </div>
         </div>
 
