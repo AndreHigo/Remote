@@ -114,6 +114,17 @@ begin
   end;
 end;
 
+procedure StopExistingService;
+var
+  PowerShellPath: string;
+  Parameters: string;
+  ResultCode: Integer;
+begin
+  PowerShellPath := ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe');
+  Parameters := '-NoProfile -Command "Stop-Service -Name ''RemotoAgent'' -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 2"';
+  Exec(PowerShellPath, Parameters, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+end;
+
 procedure InitializeWizard;
 begin
   ConnectionPage := CreateInputQueryPage(wpSelectDir,
@@ -128,6 +139,9 @@ end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
+  if CurStep = ssInstall then begin
+    StopExistingService;
+  end;
   if CurStep = ssPostInstall then begin
     InstallAgentService;
   end;
