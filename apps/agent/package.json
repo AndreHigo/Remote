@@ -13,7 +13,8 @@
     "config:init": "tsx src/index.ts config:init",
     "status": "tsx src/index.ts status",
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "package:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-windows-package.ps1"
   },
   "devDependencies": {
     "@types/node": "^24.1.0",

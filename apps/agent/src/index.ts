@@ -6,7 +6,9 @@ import path from "node:path";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
-const CONFIG_FILE = process.env.REMOTO_AGENT_CONFIG ?? path.join(process.cwd(), ".remoto-agent.config.json");
+const packagedProcess = process as NodeJS.Process & { pkg?: unknown };
+const runtimeRoot = packagedProcess.pkg ? path.dirname(process.execPath) : process.cwd();
+const CONFIG_FILE = process.env.REMOTO_AGENT_CONFIG ?? path.join(runtimeRoot, ".remoto-agent.config.json");
 const DEMO_AGENT_KEY = "REMOTO-DEMO-AGENT-KEY";
 
 interface AgentConfigFile {

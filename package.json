@@ -24,7 +24,8 @@
     "agent:config:init": "npm run config:init -w apps/agent",
     "agent:status": "npm run status -w apps/agent",
     "agent:service:install": "powershell -NoProfile -ExecutionPolicy Bypass -File apps/agent/scripts/install-windows-service.ps1",
-    "agent:service:uninstall": "powershell -NoProfile -ExecutionPolicy Bypass -File apps/agent/scripts/install-windows-service.ps1 -Uninstall"
+    "agent:service:uninstall": "powershell -NoProfile -ExecutionPolicy Bypass -File apps/agent/scripts/install-windows-service.ps1 -Uninstall",
+    "agent:package:windows": "npm run package:windows -w apps/agent"
   },
   "devDependencies": {
     "concurrently": "^9.2.0"
