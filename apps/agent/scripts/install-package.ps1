@@ -26,10 +26,11 @@ function Invoke-Sc {
 Assert-Administrator
 $AgentRoot = (Resolve-Path $PSScriptRoot).Path
 $AgentExe = Join-Path $AgentRoot "RemotoAgent.exe"
+$ServiceExe = Join-Path $AgentRoot "RemotoAgentService.exe"
 $ConfigPath = Join-Path $AgentRoot ".remoto-agent.config.json"
 
-if (-not (Test-Path $AgentExe)) {
-  throw "RemotoAgent.exe nao encontrado em $AgentRoot."
+if (-not (Test-Path $AgentExe) -or -not (Test-Path $ServiceExe)) {
+  throw "Arquivos do Remoto Agent nao encontrados em $AgentRoot."
 }
 
 if ([string]::IsNullOrWhiteSpace($ApiUrl)) {
@@ -42,20 +43,27 @@ if ([string]::IsNullOrWhiteSpace($ApiUrl) -or [string]::IsNullOrWhiteSpace($Agen
   throw "URL da API e chave sao obrigatorias."
 }
 
-@{
+$configJson = @{
   apiUrl = $ApiUrl.TrimEnd("/")
   agentKey = $AgentKey.Trim()
   stateFile = ".remoto-agent.state.json"
-} | ConvertTo-Json | Set-Content -Path $ConfigPath -Encoding UTF8
+} | ConvertTo-Json
+[System.IO.File]::WriteAllText($ConfigPath, $configJson, [System.Text.UTF8Encoding]::new($false))
 
-try { Invoke-Sc @("stop", $ServiceName) } catch { }
-try { Invoke-Sc @("delete", $ServiceName) } catch { }
+$existingService = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+if ($existingService) {
+  if ($existingService.Status -ne "Stopped") {
+    Stop-Service -Name $ServiceName -Force -ErrorAction SilentlyContinue
+  }
+  & sc.exe delete $ServiceName | Out-Host
+  Start-Sleep -Milliseconds 500
+}
 
-$binPath = '"{0}" loop' -f $AgentExe
-Invoke-Sc @("create", $ServiceName, "binPath=", $binPath, "start=", "auto", "DisplayName=", "Remoto Agent")
+$binPath = '"{0}"' -f $ServiceExe
+New-Service -Name $ServiceName -BinaryPathName $binPath -DisplayName "Remoto Agent" -Description "Agente Remoto para presenca, inventario e acesso assistido." -StartupType Automatic | Out-Null
 Invoke-Sc @("description", $ServiceName, "Agente Remoto para presenca, inventario e acesso assistido.")
 Invoke-Sc @("failure", $ServiceName, "reset=", "86400", "actions=", "restart/5000/restart/15000/restart/60000")
-Invoke-Sc @("start", $ServiceName)
+Start-Service -Name $ServiceName
 
 Write-Output "Remoto Agent instalado e iniciado."
 Write-Output "Config: $ConfigPath"
