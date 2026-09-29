@@ -116,12 +116,18 @@ end;
 
 procedure StopExistingService;
 var
+  ScPath: string;
   PowerShellPath: string;
   Parameters: string;
   ResultCode: Integer;
 begin
+  ScPath := ExpandConstant('{sys}\sc.exe');
+  Exec(ScPath, 'stop RemotoAgent', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
   PowerShellPath := ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe');
-  Parameters := '-NoProfile -Command "Stop-Service -Name ''RemotoAgent'' -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 2"';
+  Parameters := '-NoProfile -Command "$svc=Get-Service -Name ''RemotoAgent'' -ErrorAction SilentlyContinue; ' +
+    '$deadline=(Get-Date).AddSeconds(10); while ($svc -and $svc.Status -ne ''Stopped'' -and (Get-Date) -lt $deadline) ' +
+    '{ Start-Sleep -Milliseconds 250; $svc=Get-Service -Name ''RemotoAgent'' -ErrorAction SilentlyContinue }"';
   Exec(PowerShellPath, Parameters, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
 

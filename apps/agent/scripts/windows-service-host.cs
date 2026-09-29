@@ -28,13 +28,13 @@ public sealed class RemotoAgentService : ServiceBase
     protected override void OnStop()
     {
         stopping = true;
-        StopAgent();
+        StopAgent(false);
     }
 
     protected override void OnShutdown()
     {
         stopping = true;
-        StopAgent();
+        StopAgent(false);
         base.OnShutdown();
     }
 
@@ -94,23 +94,23 @@ public sealed class RemotoAgentService : ServiceBase
         });
     }
 
-    private void StopAgent()
+    private void StopAgent(bool waitForExit)
     {
+        Process processToStop;
         lock (sync)
         {
-            if (child == null) return;
-            try
-            {
-                if (!child.HasExited) child.Kill();
-                child.WaitForExit(5000);
-            }
-            catch { }
-            finally
-            {
-                child.Dispose();
-                child = null;
-            }
+            processToStop = child;
+            child = null;
         }
+
+        if (processToStop == null) return;
+        try
+        {
+            if (!processToStop.HasExited) processToStop.Kill();
+            if (waitForExit) processToStop.WaitForExit(5000);
+        }
+        catch { }
+        finally { processToStop.Dispose(); }
     }
 
     private static void AppendLog(string path, string message)
