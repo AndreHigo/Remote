@@ -926,6 +926,12 @@ h3 { color: #24343b; font-size: 13px; }
 .compactDetails div { padding: 7px 0; }
 .compactDetails dd { line-height: 1.35; white-space: normal; }
 .commandButtons { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.deviceAdminActions { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; align-items: end; margin-top: 12px; }
+.deviceAdminActions label { display: grid; gap: 6px; min-width: 0; }
+.deviceAdminActions label span { color: #89979c; font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.deviceAdminActions select { min-height: 32px; border: 1px solid #d5e0e2; border-radius: 7px; background: #fff; color: var(--ink); padding: 0 8px; font-size: 11px; }
+.danger { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid #efc7c4; border-radius: 7px; background: #fff8f7; color: #a4433d; }
+.danger:hover { border-color: #db9d98; background: #fff1ef; }
 .commandList, .keyList, .auditList { padding: 0; list-style: none; }
 .commandList { margin: 12px 0 0; }
 .commandList li { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; padding: 8px 0; border-top: 1px solid #edf1f2; font-size: 11px; }
@@ -1074,6 +1080,8 @@ h3 { color: #24343b; font-size: 13px; }
   .details { grid-template-columns: 1fr 1fr; }
   .keyForm, .customerForm { grid-template-columns: 1fr; }
   .keyForm button, .customerForm button { width: 100%; justify-content: center; }
+  .deviceAdminActions { grid-template-columns: 1fr; }
+  .deviceAdminActions button { width: 100%; }
   .customerList li { grid-template-columns: 1fr 34px; }
   .customerUsage { grid-column: 1; }
   .keyReveal { align-items: stretch; flex-direction: column; }

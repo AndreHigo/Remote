@@ -122,6 +122,10 @@ const customerSchema = z.object({
   contactEmail: z.string().trim().email().max(160)
 });
 
+const moveDeviceSchema = z.object({
+  customerId: z.string().trim().min(1)
+});
+
 app.get("/health", (_request, response) => {
   response.json({ ok: true, service: "remoto-api" });
 });
@@ -487,6 +491,41 @@ app.get("/devices/:id", async (request, response) => {
 app.get("/devices/:id/inventory", async (request, response) => {
   const deviceId = z.string().parse(request.params.id);
   response.json(await repository.listInventory(deviceId));
+});
+
+app.patch("/devices/:id/customer", requireRole(["owner", "admin"]), async (request, response) => {
+  const parsed = moveDeviceSchema.safeParse(request.body);
+  if (!parsed.success) {
+    response.status(400).json({ message: "Informe um cliente valido", issues: parsed.error.issues });
+    return;
+  }
+
+  const result = await repository.moveDevice({
+    id: z.string().parse(request.params.id),
+    customerId: parsed.data.customerId,
+    user: (request as AuthenticatedRequest).user
+  });
+  if (result.kind === "device_not_found") {
+    response.status(404).json({ message: "Dispositivo nao encontrado" });
+    return;
+  }
+  if (result.kind === "customer_not_found") {
+    response.status(404).json({ message: "Cliente de destino nao encontrado" });
+    return;
+  }
+  response.json(result.device);
+});
+
+app.delete("/devices/:id", requireRole(["owner", "admin"]), async (request, response) => {
+  const deleted = await repository.deleteDevice({
+    id: z.string().parse(request.params.id),
+    user: (request as AuthenticatedRequest).user
+  });
+  if (!deleted) {
+    response.status(404).json({ message: "Dispositivo nao encontrado" });
+    return;
+  }
+  response.json(deleted);
 });
 
 app.get("/devices/:id/commands", async (request, response) => {

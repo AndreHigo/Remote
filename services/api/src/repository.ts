@@ -292,6 +292,59 @@ export const repository = {
     return device ? toDeviceView(device) : null;
   },
 
+  async moveDevice(input: { id: string; customerId: string; user: AuthUser }) {
+    const [device, customer] = await Promise.all([
+      prisma.device.findUnique({ where: { id: input.id } }),
+      prisma.customer.findUnique({ where: { id: input.customerId } })
+    ]);
+    if (!device) return { kind: "device_not_found" as const };
+    if (!customer) return { kind: "customer_not_found" as const };
+    if (device.customerId === customer.id) {
+      const current = await prisma.device.findUnique({
+        where: { id: device.id },
+        include: { customer: { select: { name: true } } }
+      });
+      return current ? { kind: "unchanged" as const, device: toDeviceView(current) } : { kind: "device_not_found" as const };
+    }
+
+    const updated = await prisma.device.update({
+      where: { id: device.id },
+      data: { customerId: customer.id },
+      include: { customer: { select: { name: true } } }
+    });
+
+    await addAudit(
+      "device.customer.moved",
+      input.user.name,
+      updated.id,
+      { fromCustomerId: device.customerId, toCustomerId: customer.id, toCustomerName: customer.name },
+      updated.id,
+      input.user.id
+    );
+
+    return { kind: "moved" as const, device: toDeviceView(updated) };
+  },
+
+  async deleteDevice(input: { id: string; user: AuthUser }) {
+    const device = await prisma.device.findUnique({ where: { id: input.id } });
+    if (!device) return null;
+
+    await prisma.$transaction(async (transaction) => {
+      await transaction.device.delete({ where: { id: device.id } });
+      await transaction.auditEvent.create({
+        data: {
+          action: "device.deleted",
+          actor: input.user.name,
+          targetId: device.id,
+          userId: input.user.id,
+          metadata: { customerId: device.customerId, displayName: device.displayName }
+        }
+      });
+    });
+
+    return { id: device.id, displayName: device.displayName };
+  },
+
   async registerDevice(input: {
     customerId: string;
     displayName: string;

@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import {
   Activity,
+  ArrowRightLeft,
   ArrowUpRight,
   Ban,
   ChevronRight,
@@ -72,6 +73,7 @@ interface TwoFactorSetup {
 
 interface Device {
   id: string;
+  customerId: string;
   customerName: string;
   displayName: string;
   remoteId: string;
@@ -206,6 +208,19 @@ async function postJson<T>(path: string, token: string, body?: unknown): Promise
       ...(token ? { Authorization: `Bearer ${token}` } : {})
     },
     body: body ? JSON.stringify(body) : undefined
+  });
+
+  const payload = (await response.json().catch(() => ({}))) as { message?: string } & T;
+  if (!response.ok) throw new Error(payload.message ?? `Falha na API: ${response.status}`);
+  return payload as T;
+}
+
+async function patchJson<T>(path: string, token: string, body: unknown): Promise<T> {
+  const response = await fetch(`${API_URL}${path}`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify(body)
   });
 
   const payload = (await response.json().catch(() => ({}))) as { message?: string } & T;
@@ -544,6 +559,33 @@ function App() {
     }
   }
 
+  async function moveDevice(device: Device, customerId: string) {
+    const target = customers.find((customer) => customer.id === customerId);
+    if (!target || target.id === device.customerId) return;
+    if (!window.confirm(`Mover ${device.displayName} de ${device.customerName} para ${target.name}? O agente precisara usar uma chave do novo cliente.`)) return;
+
+    try {
+      await patchJson<Device>(`/devices/${device.id}/customer`, token, { customerId: target.id });
+      await refresh();
+      setStatusMessage(`${device.displayName} movido para ${target.name}`);
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "Nao foi possivel mover o dispositivo");
+    }
+  }
+
+  async function deleteDevice(device: Device) {
+    if (!window.confirm(`Excluir ${device.displayName}? Se o agente continuar instalado com uma chave ativa, ele podera se cadastrar novamente.`)) return;
+
+    try {
+      await deleteJson<{ id: string; displayName: string }>(`/devices/${device.id}`, token);
+      setSelectedDeviceId(null);
+      await refresh();
+      setStatusMessage(`${device.displayName} excluido`);
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "Nao foi possivel excluir o dispositivo");
+    }
+  }
+
   function openOnboarding() {
     setOnboardingCustomerId((current) => current || customers[0]?.id || "");
     setOnboardingKeyName("Novo computador");
@@ -678,6 +720,8 @@ function App() {
     onHeartbeat={(deviceId) => void sendHeartbeat(deviceId)}
     onRequestSession={requestSession}
     onRequestCommand={(device, commandType) => void requestCommand(device, commandType)}
+    onMoveDevice={(device, customerId) => void moveDevice(device, customerId)}
+    onDeleteDevice={(device) => void deleteDevice(device)}
     onNewCustomerNameChange={setNewCustomerName}
     onNewCustomerDocumentChange={setNewCustomerDocument}
     onNewCustomerContactNameChange={setNewCustomerContactName}
@@ -751,6 +795,8 @@ interface OperationsConsoleProps {
   onHeartbeat: (deviceId: string) => void;
   onRequestSession: (device: Device) => void;
   onRequestCommand: (device: Device, commandType: CommandExecution["commandType"]) => void;
+  onMoveDevice: (device: Device, customerId: string) => void;
+  onDeleteDevice: (device: Device) => void;
   onNewCustomerNameChange: (value: string) => void;
   onNewCustomerDocumentChange: (value: string) => void;
   onNewCustomerContactNameChange: (value: string) => void;
@@ -816,6 +862,8 @@ function OperationsConsole(props: OperationsConsoleProps) {
     onHeartbeat,
     onRequestSession,
     onRequestCommand,
+    onMoveDevice,
+    onDeleteDevice,
     onNewCustomerNameChange,
     onNewCustomerDocumentChange,
     onNewCustomerContactNameChange,
@@ -849,6 +897,11 @@ function OperationsConsole(props: OperationsConsoleProps) {
     onCreateOnboardingKey,
     onCopyOnboardingKey
   } = props;
+
+  const [moveCustomerId, setMoveCustomerId] = React.useState(selectedDevice?.customerId ?? "");
+  React.useEffect(() => {
+    setMoveCustomerId(selectedDevice?.customerId ?? "");
+  }, [selectedDevice?.customerId, selectedDevice?.id]);
 
   const sectionTitle = activeSection === "security" ? "Seguranca" : activeSection === "activity" ? "Atividade" : "Dispositivos";
   const initials = user.name
@@ -1013,6 +1066,15 @@ function OperationsConsole(props: OperationsConsoleProps) {
                       <div><dt>Sistema</dt><dd>{selectedDevice.os}</dd></div>
                     </dl>
                     <div className="tags">{selectedDevice.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>
+
+                    {canManageKeys ? <section className="subsection deviceAdminBox">
+                      <div className="subsectionHeader"><div><h3>Administrar dispositivo</h3><p>Mova ou remova este computador do workspace.</p></div><ArrowRightLeft size={17} /></div>
+                      <div className="deviceAdminActions">
+                        <label><span>Cliente responsavel</span><select value={moveCustomerId} onChange={(event) => setMoveCustomerId(event.target.value)}>{customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}</select></label>
+                        <button className="secondary compact" type="button" onClick={() => onMoveDevice(selectedDevice, moveCustomerId)} disabled={!moveCustomerId || moveCustomerId === selectedDevice.customerId}><ArrowRightLeft size={14} />Mover</button>
+                        <button className="danger compact" type="button" onClick={() => onDeleteDevice(selectedDevice)}><Trash2 size={14} />Excluir</button>
+                      </div>
+                    </section> : null}
 
                     <section className="subsection inventoryBox">
                       <div className="subsectionHeader"><div><h3>Inventario</h3><p>{latestInventory ? `Coletado em ${new Date(latestInventory.collectedAt).toLocaleString("pt-BR")}` : "Nenhum inventario coletado ainda."}</p></div><Monitor size={17} /></div>
