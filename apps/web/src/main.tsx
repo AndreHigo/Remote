@@ -16,6 +16,7 @@ import {
   Search,
   ShieldCheck,
   SlidersHorizontal,
+  Trash2,
   UserRound,
   Wifi,
   WifiOff,
@@ -47,6 +48,11 @@ interface AuthUser {
 interface Customer {
   id: string;
   name: string;
+  document: string;
+  contactName: string;
+  contactEmail: string;
+  deviceCount: number;
+  agentKeyCount: number;
 }
 
 interface LoginResponse {
@@ -186,8 +192,9 @@ async function getJson<T>(path: string, token: string): Promise<T> {
     credentials: "include",
     headers: token ? { Authorization: `Bearer ${token}` } : undefined
   });
-  if (!response.ok) throw new Error(`Falha na API: ${response.status}`);
-  return response.json() as Promise<T>;
+  const payload = (await response.json().catch(() => ({}))) as { message?: string };
+  if (!response.ok) throw new Error(payload.message ?? `Falha na API: ${response.status}`);
+  return payload as T;
 }
 
 async function postJson<T>(path: string, token: string, body?: unknown): Promise<T> {
@@ -201,8 +208,21 @@ async function postJson<T>(path: string, token: string, body?: unknown): Promise
     body: body ? JSON.stringify(body) : undefined
   });
 
-  if (!response.ok) throw new Error(`Falha na API: ${response.status}`);
-  return response.json() as Promise<T>;
+  const payload = (await response.json().catch(() => ({}))) as { message?: string } & T;
+  if (!response.ok) throw new Error(payload.message ?? `Falha na API: ${response.status}`);
+  return payload as T;
+}
+
+async function deleteJson<T>(path: string, token: string): Promise<T> {
+  const response = await fetch(`${API_URL}${path}`, {
+    method: "DELETE",
+    credentials: "include",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined
+  });
+
+  const payload = (await response.json().catch(() => ({}))) as { message?: string } & T;
+  if (!response.ok) throw new Error(payload.message ?? `Falha na API: ${response.status}`);
+  return payload as T;
 }
 
 function App() {
@@ -216,6 +236,10 @@ function App() {
   const [devices, setDevices] = React.useState<Device[]>([]);
   const [auditEvents, setAuditEvents] = React.useState<AuditEvent[]>([]);
   const [customers, setCustomers] = React.useState<Customer[]>([]);
+  const [newCustomerName, setNewCustomerName] = React.useState("");
+  const [newCustomerDocument, setNewCustomerDocument] = React.useState("");
+  const [newCustomerContactName, setNewCustomerContactName] = React.useState("");
+  const [newCustomerContactEmail, setNewCustomerContactEmail] = React.useState("");
   const [agentKeys, setAgentKeys] = React.useState<AgentKey[]>([]);
   const [newKeyName, setNewKeyName] = React.useState("");
   const [newKeyCustomerId, setNewKeyCustomerId] = React.useState("");
@@ -475,6 +499,51 @@ function App() {
     setStatusMessage("Chave criada. Copie o segredo agora; ele nao sera exibido novamente.");
   }
 
+  async function createCustomer() {
+    if (
+      newCustomerName.trim().length < 2 ||
+      newCustomerDocument.trim().length < 3 ||
+      newCustomerContactName.trim().length < 2 ||
+      !newCustomerContactEmail.includes("@")
+    ) {
+      setStatusMessage("Preencha os dados do cliente corretamente");
+      return;
+    }
+
+    try {
+      const created = await postJson<Customer>("/customers", token, {
+        name: newCustomerName.trim(),
+        document: newCustomerDocument.trim(),
+        contactName: newCustomerContactName.trim(),
+        contactEmail: newCustomerContactEmail.trim()
+      });
+      setCustomers((current) => [...current, created].sort((left, right) => left.name.localeCompare(right.name)));
+      setNewCustomerName("");
+      setNewCustomerDocument("");
+      setNewCustomerContactName("");
+      setNewCustomerContactEmail("");
+      setNewKeyCustomerId((current) => current || created.id);
+      setOnboardingCustomerId((current) => current || created.id);
+      setStatusMessage("Cliente cadastrado");
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "Nao foi possivel cadastrar o cliente");
+    }
+  }
+
+  async function deleteCustomer(customer: Customer) {
+    if (!window.confirm(`Excluir o cliente ${customer.name}?`)) return;
+
+    try {
+      await deleteJson<Customer>(`/customers/${customer.id}`, token);
+      setCustomers((current) => current.filter((item) => item.id !== customer.id));
+      setNewKeyCustomerId((current) => (current === customer.id ? "" : current));
+      setOnboardingCustomerId((current) => (current === customer.id ? "" : current));
+      setStatusMessage(`Cliente ${customer.name} excluido`);
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "Nao foi possivel excluir o cliente");
+    }
+  }
+
   function openOnboarding() {
     setOnboardingCustomerId((current) => current || customers[0]?.id || "");
     setOnboardingKeyName("Novo computador");
@@ -577,6 +646,10 @@ function App() {
     latestInventory={latestInventory}
     commands={commands}
     customers={customers}
+    newCustomerName={newCustomerName}
+    newCustomerDocument={newCustomerDocument}
+    newCustomerContactName={newCustomerContactName}
+    newCustomerContactEmail={newCustomerContactEmail}
     agentKeys={agentKeys}
     newKeyName={newKeyName}
     newKeyCustomerId={newKeyCustomerId}
@@ -605,6 +678,12 @@ function App() {
     onHeartbeat={(deviceId) => void sendHeartbeat(deviceId)}
     onRequestSession={requestSession}
     onRequestCommand={(device, commandType) => void requestCommand(device, commandType)}
+    onNewCustomerNameChange={setNewCustomerName}
+    onNewCustomerDocumentChange={setNewCustomerDocument}
+    onNewCustomerContactNameChange={setNewCustomerContactName}
+    onNewCustomerContactEmailChange={setNewCustomerContactEmail}
+    onCreateCustomer={() => void createCustomer()}
+    onDeleteCustomer={(customer) => void deleteCustomer(customer)}
     onKeyNameChange={setNewKeyName}
     onKeyCustomerChange={setNewKeyCustomerId}
     onCreateKey={() => void createAgentKey()}
@@ -640,6 +719,10 @@ interface OperationsConsoleProps {
   latestInventory: InventorySnapshot | undefined;
   commands: CommandExecution[];
   customers: Customer[];
+  newCustomerName: string;
+  newCustomerDocument: string;
+  newCustomerContactName: string;
+  newCustomerContactEmail: string;
   agentKeys: AgentKey[];
   newKeyName: string;
   newKeyCustomerId: string;
@@ -668,6 +751,12 @@ interface OperationsConsoleProps {
   onHeartbeat: (deviceId: string) => void;
   onRequestSession: (device: Device) => void;
   onRequestCommand: (device: Device, commandType: CommandExecution["commandType"]) => void;
+  onNewCustomerNameChange: (value: string) => void;
+  onNewCustomerDocumentChange: (value: string) => void;
+  onNewCustomerContactNameChange: (value: string) => void;
+  onNewCustomerContactEmailChange: (value: string) => void;
+  onCreateCustomer: () => void;
+  onDeleteCustomer: (customer: Customer) => void;
   onKeyNameChange: (value: string) => void;
   onKeyCustomerChange: (value: string) => void;
   onCreateKey: () => void;
@@ -703,6 +792,10 @@ function OperationsConsole(props: OperationsConsoleProps) {
     latestInventory,
     commands,
     customers,
+    newCustomerName,
+    newCustomerDocument,
+    newCustomerContactName,
+    newCustomerContactEmail,
     agentKeys,
     newKeyName,
     newKeyCustomerId,
@@ -723,6 +816,12 @@ function OperationsConsole(props: OperationsConsoleProps) {
     onHeartbeat,
     onRequestSession,
     onRequestCommand,
+    onNewCustomerNameChange,
+    onNewCustomerDocumentChange,
+    onNewCustomerContactNameChange,
+    onNewCustomerContactEmailChange,
+    onCreateCustomer,
+    onDeleteCustomer,
     onKeyNameChange,
     onKeyCustomerChange,
     onCreateKey,
@@ -943,6 +1042,24 @@ function OperationsConsole(props: OperationsConsoleProps) {
 
         {activeSection === "security" && canManageKeys ? (
           <section className="securityView">
+            <section className="panel customerPanel">
+              <div className="panelHeader"><div><p className="eyebrow">Cadastro operacional</p><h2>Clientes</h2><p>Organize dispositivos e chaves por cliente.</p></div><UserRound size={20} /></div>
+              <div className="customerForm">
+                <label><span>Nome</span><input value={newCustomerName} onChange={(event) => onNewCustomerNameChange(event.target.value)} placeholder="Nome da empresa" /></label>
+                <label><span>CNPJ / documento</span><input value={newCustomerDocument} onChange={(event) => onNewCustomerDocumentChange(event.target.value)} placeholder="00.000.000/0001-00" /></label>
+                <label><span>Contato</span><input value={newCustomerContactName} onChange={(event) => onNewCustomerContactNameChange(event.target.value)} placeholder="Nome do responsável" /></label>
+                <label><span>Email do contato</span><input value={newCustomerContactEmail} onChange={(event) => onNewCustomerContactEmailChange(event.target.value)} type="email" placeholder="contato@empresa.com" /></label>
+                <button className="primary compact" type="button" onClick={onCreateCustomer}><Plus size={15} />Cadastrar cliente</button>
+              </div>
+              <ul className="customerList">{customers.map((customer) => {
+                const canDelete = customer.deviceCount === 0 && customer.agentKeyCount === 0;
+                return <li key={customer.id}>
+                  <span><strong>{customer.name}</strong><small>{customer.document} / {customer.contactName} / {customer.contactEmail}</small></span>
+                  <span className="customerUsage">{customer.deviceCount} dispositivos · {customer.agentKeyCount} chaves</span>
+                  <button className="iconButton compact" type="button" onClick={() => onDeleteCustomer(customer)} disabled={!canDelete} aria-label={`Excluir ${customer.name}`} title={canDelete ? "Excluir cliente" : "Remova dispositivos e chaves antes de excluir"}><Trash2 size={15} /></button>
+                </li>;
+              })}</ul>
+            </section>
             <section className="panel keyPanel">
               <div className="panelHeader"><div><p className="eyebrow">Acesso de agentes</p><h2>Chaves por cliente</h2><p>Crie credenciais separadas e revogue acessos antigos.</p></div><KeyRound size={20} /></div>
               <div className="keyForm">

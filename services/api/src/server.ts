@@ -115,6 +115,13 @@ const agentKeySchema = z.object({
   name: z.string().min(3).max(80)
 });
 
+const customerSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  document: z.string().trim().min(3).max(40),
+  contactName: z.string().trim().min(2).max(120),
+  contactEmail: z.string().trim().email().max(160)
+});
+
 app.get("/health", (_request, response) => {
   response.json({ ok: true, service: "remoto-api" });
 });
@@ -388,8 +395,41 @@ app.get("/summary", async (_request, response) => {
   response.json(await repository.summary());
 });
 
-app.get("/customers", async (_request, response) => {
+app.get("/customers", requireRole(["owner", "admin"]), async (_request, response) => {
   response.json(await repository.listCustomers());
+});
+
+app.post("/customers", requireRole(["owner", "admin"]), async (request, response) => {
+  const parsed = customerSchema.safeParse(request.body);
+  if (!parsed.success) {
+    response.status(400).json({ message: "Dados invalidos", issues: parsed.error.issues });
+    return;
+  }
+
+  const customer = await repository.createCustomer({
+    ...parsed.data,
+    user: (request as AuthenticatedRequest).user
+  });
+  response.status(201).json(customer);
+});
+
+app.delete("/customers/:id", requireRole(["owner", "admin"]), async (request, response) => {
+  const customerId = z.string().parse(request.params.id);
+  const result = await repository.deleteCustomer({
+    id: customerId,
+    user: (request as AuthenticatedRequest).user
+  });
+
+  if (!result) {
+    response.status(404).json({ message: "Cliente nao encontrado" });
+    return;
+  }
+  if (result.conflict) {
+    response.status(409).json({ message: result.message });
+    return;
+  }
+
+  response.json(result.customer);
 });
 
 app.get("/agent-keys", requireRole(["owner", "admin"]), async (_request, response) => {

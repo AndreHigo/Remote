@@ -197,8 +197,72 @@ export const repository = {
     };
   },
 
-  listCustomers() {
-    return prisma.customer.findMany({ orderBy: { name: "asc" } });
+  async listCustomers() {
+    const customers = await prisma.customer.findMany({
+      orderBy: { name: "asc" },
+      include: { _count: { select: { devices: true, agentEnrollmentKeys: true } } }
+    });
+
+    return customers.map(({ _count, ...customer }) => ({
+      ...customer,
+      deviceCount: _count.devices,
+      agentKeyCount: _count.agentEnrollmentKeys
+    }));
+  },
+
+  async createCustomer(input: {
+    name: string;
+    document: string;
+    contactName: string;
+    contactEmail: string;
+    user: AuthUser;
+  }) {
+    const customer = await prisma.customer.create({
+      data: {
+        name: input.name,
+        document: input.document,
+        contactName: input.contactName,
+        contactEmail: input.contactEmail
+      }
+    });
+
+    await addAudit(
+      "customer.created",
+      input.user.name,
+      customer.id,
+      { customerId: customer.id, customerName: customer.name },
+      undefined,
+      input.user.id
+    );
+
+    return { ...customer, deviceCount: 0, agentKeyCount: 0 };
+  },
+
+  async deleteCustomer(input: { id: string; user: AuthUser }) {
+    const customer = await prisma.customer.findUnique({
+      where: { id: input.id },
+      include: { _count: { select: { devices: true, agentEnrollmentKeys: true } } }
+    });
+    if (!customer) return null;
+
+    if (customer._count.devices > 0 || customer._count.agentEnrollmentKeys > 0) {
+      return {
+        conflict: true as const,
+        message: "Nao e possivel excluir este cliente enquanto houver dispositivos ou chaves vinculadas."
+      };
+    }
+
+    await prisma.customer.delete({ where: { id: customer.id } });
+    await addAudit(
+      "customer.deleted",
+      input.user.name,
+      customer.id,
+      { customerId: customer.id, customerName: customer.name },
+      undefined,
+      input.user.id
+    );
+
+    return { conflict: false as const, customer };
   },
 
   async listDevices() {
