@@ -11,6 +11,7 @@ import {
   LogOut,
   Monitor,
   Play,
+  Plus,
   RefreshCcw,
   Search,
   ShieldCheck,
@@ -232,6 +233,11 @@ function App() {
   const [connectDevice, setConnectDevice] = React.useState<Device | null>(null);
   const [connectReason, setConnectReason] = React.useState("");
   const [connectionLoading, setConnectionLoading] = React.useState(false);
+  const [onboardingOpen, setOnboardingOpen] = React.useState(false);
+  const [onboardingCustomerId, setOnboardingCustomerId] = React.useState("");
+  const [onboardingKeyName, setOnboardingKeyName] = React.useState("Novo computador");
+  const [onboardingKey, setOnboardingKey] = React.useState<CreatedAgentKey | null>(null);
+  const [onboardingLoading, setOnboardingLoading] = React.useState(false);
   const [statusMessage, setStatusMessage] = React.useState("Carregando painel...");
   const [loading, setLoading] = React.useState(true);
 
@@ -312,6 +318,8 @@ function App() {
     setDeviceFilter("all");
     setConnectDevice(null);
     setConnectReason("");
+    setOnboardingOpen(false);
+    setOnboardingKey(null);
   }
 
   const refresh = React.useCallback(async () => {
@@ -345,7 +353,7 @@ function App() {
   const canManageKeys = user?.role === "owner" || user?.role === "admin";
 
   React.useEffect(() => {
-    if (!token || !canManageKeys) {
+    if (!user || !canManageKeys) {
       setCustomers([]);
       setAgentKeys([]);
       return;
@@ -363,6 +371,7 @@ function App() {
         setAgentKeys(nextKeys);
         setTwoFactorStatus(nextTwoFactorStatus);
         setNewKeyCustomerId((current) => current || nextCustomers[0]?.id || "");
+        setOnboardingCustomerId((current) => current || nextCustomers[0]?.id || "");
       })
       .catch(() => {
         if (active) setStatusMessage("Nao foi possivel carregar as chaves do agente");
@@ -371,10 +380,10 @@ function App() {
     return () => {
       active = false;
     };
-  }, [canManageKeys, token]);
+  }, [canManageKeys, user?.id]);
 
   React.useEffect(() => {
-    if (!token || !selectedDevice?.id) {
+    if (!user || !selectedDevice?.id) {
       setInventorySnapshots([]);
       return;
     }
@@ -401,7 +410,7 @@ function App() {
     return () => {
       active = false;
     };
-  }, [selectedDevice?.id, token]);
+  }, [selectedDevice?.id, token, user?.id]);
 
   async function sendHeartbeat(deviceId: string) {
     setStatusMessage("Enviando heartbeat...");
@@ -464,6 +473,41 @@ function App() {
     setNewKeyName("");
     setRevealedAgentKey(created.key);
     setStatusMessage("Chave criada. Copie o segredo agora; ele nao sera exibido novamente.");
+  }
+
+  function openOnboarding() {
+    setOnboardingCustomerId((current) => current || customers[0]?.id || "");
+    setOnboardingKeyName("Novo computador");
+    setOnboardingKey(null);
+    setOnboardingOpen(true);
+  }
+
+  async function createOnboardingKey() {
+    if (!onboardingCustomerId || onboardingKeyName.trim().length < 3) {
+      setStatusMessage("Informe cliente e nome para o computador");
+      return;
+    }
+
+    setOnboardingLoading(true);
+    try {
+      const created = await postJson<CreatedAgentKey>("/agent-keys", token, {
+        customerId: onboardingCustomerId,
+        name: onboardingKeyName.trim()
+      });
+      setAgentKeys((current) => [created, ...current]);
+      setOnboardingKey(created);
+      setStatusMessage("Chave de cadastro criada");
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "Nao foi possivel criar a chave");
+    } finally {
+      setOnboardingLoading(false);
+    }
+  }
+
+  async function copyOnboardingKey() {
+    if (!onboardingKey?.key) return;
+    await navigator.clipboard.writeText(onboardingKey.key);
+    setStatusMessage("Chave de cadastro copiada");
   }
 
   async function revokeAgentKey(key: AgentKey) {
@@ -545,6 +589,11 @@ function App() {
     connectDevice={connectDevice}
     connectReason={connectReason}
     connectionLoading={connectionLoading}
+    onboardingOpen={onboardingOpen}
+    onboardingCustomerId={onboardingCustomerId}
+    onboardingKeyName={onboardingKeyName}
+    onboardingKey={onboardingKey}
+    onboardingLoading={onboardingLoading}
     loading={loading}
     statusMessage={statusMessage}
     onSectionChange={setActiveSection}
@@ -568,6 +617,12 @@ function App() {
     onConnectReasonChange={setConnectReason}
     onCloseConnection={() => { setConnectDevice(null); setConnectReason(""); }}
     onConfirmConnection={() => void confirmConnection()}
+    onOpenOnboarding={openOnboarding}
+    onCloseOnboarding={() => { setOnboardingOpen(false); setOnboardingKey(null); }}
+    onOnboardingCustomerChange={setOnboardingCustomerId}
+    onOnboardingKeyNameChange={setOnboardingKeyName}
+    onCreateOnboardingKey={() => void createOnboardingKey()}
+    onCopyOnboardingKey={() => void copyOnboardingKey()}
   />;
 }
 
@@ -597,6 +652,11 @@ interface OperationsConsoleProps {
   connectDevice: Device | null;
   connectReason: string;
   connectionLoading: boolean;
+  onboardingOpen: boolean;
+  onboardingCustomerId: string;
+  onboardingKeyName: string;
+  onboardingKey: CreatedAgentKey | null;
+  onboardingLoading: boolean;
   loading: boolean;
   statusMessage: string;
   onSectionChange: (section: AppSection) => void;
@@ -620,6 +680,12 @@ interface OperationsConsoleProps {
   onConnectReasonChange: (value: string) => void;
   onCloseConnection: () => void;
   onConfirmConnection: () => void;
+  onOpenOnboarding: () => void;
+  onCloseOnboarding: () => void;
+  onOnboardingCustomerChange: (value: string) => void;
+  onOnboardingKeyNameChange: (value: string) => void;
+  onCreateOnboardingKey: () => void;
+  onCopyOnboardingKey: () => void;
 }
 
 function OperationsConsole(props: OperationsConsoleProps) {
@@ -669,9 +735,20 @@ function OperationsConsole(props: OperationsConsoleProps) {
     connectDevice,
     connectReason,
     connectionLoading,
+    onboardingOpen,
+    onboardingCustomerId,
+    onboardingKeyName,
+    onboardingKey,
+    onboardingLoading,
     onConnectReasonChange,
     onCloseConnection,
-    onConfirmConnection
+    onConfirmConnection,
+    onOpenOnboarding,
+    onCloseOnboarding,
+    onOnboardingCustomerChange,
+    onOnboardingKeyNameChange,
+    onCreateOnboardingKey,
+    onCopyOnboardingKey
   } = props;
 
   const sectionTitle = activeSection === "security" ? "Seguranca" : activeSection === "activity" ? "Atividade" : "Dispositivos";
@@ -759,6 +836,7 @@ function OperationsConsole(props: OperationsConsoleProps) {
                 <Search size={17} />
                 <input value={deviceQuery} onChange={(event) => onDeviceQueryChange(event.target.value)} placeholder="Buscar dispositivo, cliente ou IP" aria-label="Buscar dispositivos" />
               </div>
+              {canManageKeys ? <button className="primary addDeviceButton" type="button" onClick={onOpenOnboarding}><Plus size={16} />Adicionar computador</button> : null}
               <div className="filterGroup" aria-label="Filtrar dispositivos">
                 <SlidersHorizontal size={16} />
                 {(["all", "online", "offline"] as DeviceFilter[]).map((filter) => (
@@ -897,6 +975,38 @@ function OperationsConsole(props: OperationsConsoleProps) {
               <label className="reasonField"><span>Motivo do acesso</span><textarea value={connectReason} onChange={(event) => onConnectReasonChange(event.target.value)} rows={3} placeholder="Ex.: validar falha no caixa" autoFocus /></label>
               <p className="modalNote">A solicitacao sera registrada na atividade e abrira o cliente RustDesk quando autorizada.</p>
               <div className="modalActions"><button className="secondary" type="button" onClick={onCloseConnection}>Cancelar</button><button className="primary" type="button" onClick={onConfirmConnection} disabled={connectionLoading || connectReason.trim().length < 4}><Play size={16} />{connectionLoading ? "Registrando..." : "Registrar e abrir"}</button></div>
+            </section>
+          </div>
+        ) : null}
+
+        {onboardingOpen ? (
+          <div className="modalBackdrop" role="presentation" onMouseDown={onCloseOnboarding}>
+            <section className="onboardingModal" role="dialog" aria-modal="true" aria-labelledby="onboarding-title" onMouseDown={(event) => event.stopPropagation()}>
+              <div className="modalHeader">
+                <div><p className="eyebrow">Cadastro de equipamento</p><h2 id="onboarding-title">Adicionar computador</h2></div>
+                <button className="iconButton" type="button" onClick={onCloseOnboarding} aria-label="Fechar" title="Fechar"><X size={17} /></button>
+              </div>
+
+              {!onboardingKey ? (
+                <>
+                  <p className="modalIntro">Gere uma chave exclusiva para vincular o próximo computador ao cliente correto.</p>
+                  <div className="onboardingForm">
+                    <label><span>Cliente</span><select value={onboardingCustomerId} onChange={(event) => onOnboardingCustomerChange(event.target.value)}>{customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}</select></label>
+                    <label><span>Nome da instalação</span><input value={onboardingKeyName} onChange={(event) => onOnboardingKeyNameChange(event.target.value)} placeholder="Ex.: Caixa 03" /></label>
+                  </div>
+                  <div className="modalInfo"><strong>Como vai funcionar</strong><span>Depois de gerar a chave, o agente instalado no computador fará o cadastro automaticamente e ele aparecerá nesta lista.</span></div>
+                  <div className="modalActions"><button className="secondary" type="button" onClick={onCloseOnboarding}>Cancelar</button><button className="primary" type="button" onClick={onCreateOnboardingKey} disabled={onboardingLoading || !onboardingCustomerId || onboardingKeyName.trim().length < 3}><KeyRound size={16} />{onboardingLoading ? "Gerando..." : "Gerar chave"}</button></div>
+                </>
+              ) : (
+                <>
+                  <div className="onboardingSuccess"><span className="successMark">✓</span><div><strong>Chave criada para {onboardingKey.customerName}</strong><span>Copie agora. Por segurança, ela não será exibida novamente.</span></div></div>
+                  <div className="onboardingKeyBox"><code>{onboardingKey.key}</code><button className="iconButton compact" type="button" onClick={onCopyOnboardingKey} aria-label="Copiar chave de cadastro" title="Copiar chave"><Copy size={15} /></button></div>
+                  <div className="modalInfo warning"><strong>Próximo passo</strong><span>O instalador Windows ainda está sendo preparado. Por enquanto, o agente de desenvolvimento precisa ser executado no computador remoto.</span></div>
+                  <pre className="setupCommand">{[`$env:REMOTO_API_URL="${API_URL}"`, `$env:REMOTO_AGENT_KEY="${onboardingKey.key}"`, "npm run agent:register"].join("\n")}</pre>
+                  <a className="agentSourceLink" href="https://github.com/AndreHigo/Remote/tree/main/apps/agent" target="_blank" rel="noreferrer">Abrir código do agente de desenvolvimento <ArrowUpRight size={14} /></a>
+                  <div className="modalActions"><button className="primary" type="button" onClick={onCloseOnboarding}>Concluir</button></div>
+                </>
+              )}
             </section>
           </div>
         ) : null}
