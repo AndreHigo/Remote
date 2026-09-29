@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
   [string]$ServiceName = "RemotoAgent",
-  [string]$AgentRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path,
+  [string]$AgentRoot = "",
   [string]$NodePath = "",
   [switch]$Uninstall
 )
@@ -25,6 +25,9 @@ function Invoke-Sc {
 }
 
 Assert-Administrator
+if ([string]::IsNullOrWhiteSpace($AgentRoot)) {
+  $AgentRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+}
 $AgentRoot = (Resolve-Path $AgentRoot).Path
 
 if ($Uninstall) {
