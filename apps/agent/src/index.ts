@@ -84,16 +84,14 @@ async function main() {
 
   if (command === "heartbeat") {
     const state = (await loadState()) ?? (await registerAndSave());
-    const device = await heartbeat(state.deviceId);
+    const device = await heartbeatWithRecovery(state);
     printDevice("heartbeat", device);
     return;
   }
 
   if (command === "inventory") {
     const state = (await loadState()) ?? (await registerAndSave());
-    const inventory = await collectInventory();
-    const snapshot = await sendInventory(state.deviceId, inventory);
-    console.log(`inventario: ${state.displayName} snapshot=${snapshot.id} collectedAt=${snapshot.collectedAt}`);
+    await collectAndSendInventory(state);
     return;
   }
 
@@ -124,6 +122,28 @@ async function registerAndSave() {
   return state;
 }
 
+async function refreshState(state: AgentState) {
+  const refreshed = await registerAndSave();
+  state.deviceId = refreshed.deviceId;
+  state.remoteId = refreshed.remoteId;
+  state.displayName = refreshed.displayName;
+}
+
+function isMissingDeviceError(error: unknown) {
+  return error instanceof Error && /API 404:.*Dispositivo nao encontrado/i.test(error.message);
+}
+
+async function heartbeatWithRecovery(state: AgentState) {
+  try {
+    return await heartbeat(state.deviceId);
+  } catch (error) {
+    if (!isMissingDeviceError(error)) throw error;
+    console.log("dispositivo ausente na API; refazendo o cadastro automaticamente");
+    await refreshState(state);
+    return heartbeat(state.deviceId);
+  }
+}
+
 async function registerDevice() {
   const payload = await getDevicePayload();
   return post<DeviceResponse>("/agent/devices/register", payload);
@@ -143,7 +163,15 @@ async function sendInventory(deviceId: string, inventory: Awaited<ReturnType<typ
 
 async function collectAndSendInventory(state: AgentState) {
   const inventory = await collectInventory();
-  const snapshot = await sendInventory(state.deviceId, inventory);
+  let snapshot: InventoryResponse;
+  try {
+    snapshot = await sendInventory(state.deviceId, inventory);
+  } catch (error) {
+    if (!isMissingDeviceError(error)) throw error;
+    console.log("dispositivo ausente na API; refazendo o cadastro antes do inventario");
+    await refreshState(state);
+    snapshot = await sendInventory(state.deviceId, inventory);
+  }
   console.log(`inventario: ${state.displayName} snapshot=${snapshot.id} collectedAt=${snapshot.collectedAt}`);
 }
 
@@ -180,7 +208,7 @@ async function runLoop(state: AgentState) {
   );
 
   await runSafely("heartbeat", async () => {
-    const device = await heartbeat(state.deviceId);
+    const device = await heartbeatWithRecovery(state);
     printDevice("heartbeat", device);
   });
   await runSafely("commands", async () => {
@@ -194,7 +222,7 @@ async function runLoop(state: AgentState) {
   const timers = [
     setInterval(() => {
       void runSafely("heartbeat", async () => {
-        const device = await heartbeat(state.deviceId);
+        const device = await heartbeatWithRecovery(state);
         printDevice("heartbeat", device);
       });
     }, config.heartbeatIntervalSeconds * 1000),
@@ -356,7 +384,15 @@ async function executeCommand(deviceId: string, pendingCommand: CommandResponse)
 }
 
 async function processCommands(state: AgentState) {
-  const commands = await claimCommands(state.deviceId);
+  let commands: CommandResponse[];
+  try {
+    commands = await claimCommands(state.deviceId);
+  } catch (error) {
+    if (!isMissingDeviceError(error)) throw error;
+    console.log("dispositivo ausente na API; refazendo o cadastro antes dos comandos");
+    await refreshState(state);
+    commands = await claimCommands(state.deviceId);
+  }
 
   for (const pendingCommand of commands) {
     const result = await executeCommand(state.deviceId, pendingCommand);

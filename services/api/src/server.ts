@@ -185,6 +185,17 @@ app.post("/agent/devices/register", authenticateAgent, async (request, response)
   }
 
   const agent = (request as AuthenticatedAgentRequest).agent;
+  const existingRemoteId = await prisma.device.findUnique({
+    where: { remoteId: parsed.data.remoteId },
+    select: { customerId: true }
+  });
+  if (existingRemoteId && existingRemoteId.customerId !== agent.customerId) {
+    response.status(409).json({
+      message: "Este computador ja esta vinculado a outro cliente. Use uma chave do mesmo cliente ou revincule o dispositivo pelo painel."
+    });
+    return;
+  }
+
   const device = await repository.registerDevice({
     customerId: agent.customerId,
     ...parsed.data,
