@@ -39,6 +39,21 @@ jobs:
           RUSTDESK_RELAY_HOST: 127.0.0.1
         run: docker compose -f infra/docker/docker-compose.rustdesk.yml config
 
+      - name: Validate production compose
+        env:
+          WEB_DOMAIN: remoto.test.example
+          ACME_EMAIL: ci@example.com
+          POSTGRES_DB: remoto
+          POSTGRES_USER: remoto
+          POSTGRES_PASSWORD: ci-postgres-password-123456789
+          JWT_SECRET: ci-jwt-secret-123456789012345678901234
+          TOTP_ENCRYPTION_KEY: ci-totp-secret-123456789012345678901234
+          BOOTSTRAP_ADMIN_NAME: CI Admin
+          BOOTSTRAP_ADMIN_EMAIL: ci-admin@example.com
+          BOOTSTRAP_ADMIN_PASSWORD: ci-bootstrap-password
+          RUSTDESK_RELAY_HOST: relay.remoto.test.example
+        run: docker compose -f infra/docker/docker-compose.production.yml config
+
       - name: Dependency audit report
         continue-on-error: true
         run: npm audit --audit-level=high

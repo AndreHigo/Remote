@@ -126,6 +126,22 @@ const moveDeviceSchema = z.object({
   customerId: z.string().trim().min(1)
 });
 
+const userCreateSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  email: z.string().trim().email().max(160),
+  password: z.string().min(8).max(200),
+  role: z.enum(["owner", "admin", "technician", "viewer"])
+});
+
+const userUpdateSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  email: z.string().trim().email().max(160),
+  role: z.enum(["owner", "admin", "technician", "viewer"]),
+  active: z.boolean()
+});
+
+const passwordResetSchema = z.object({ password: z.string().min(8).max(200) });
+
 app.get("/health", (_request, response) => {
   response.json({ ok: true, service: "remoto-api" });
 });
@@ -198,8 +214,12 @@ app.post("/agent/devices/register", authenticateAgent, async (request, response)
   const agent = (request as AuthenticatedAgentRequest).agent;
   const existingRemoteId = await prisma.device.findUnique({
     where: { remoteId: parsed.data.remoteId },
-    select: { customerId: true }
+    select: { customerId: true, archivedAt: true }
   });
+  if (existingRemoteId?.archivedAt) {
+    response.status(410).json({ message: "Este computador esta arquivado. Restaure-o no painel antes de usar o agente novamente." });
+    return;
+  }
   if (existingRemoteId && existingRemoteId.customerId !== agent.customerId) {
     response.status(409).json({
       message: "Este computador ja esta vinculado a outro cliente. Use uma chave do mesmo cliente ou revincule o dispositivo pelo painel."
@@ -417,6 +437,76 @@ app.post("/customers", requireRole(["owner", "admin"]), async (request, response
   response.status(201).json(customer);
 });
 
+app.patch("/customers/:id", requireRole(["owner", "admin"]), async (request, response) => {
+  const parsed = customerSchema.safeParse(request.body);
+  if (!parsed.success) {
+    response.status(400).json({ message: "Dados invalidos", issues: parsed.error.issues });
+    return;
+  }
+
+  const customer = await repository.updateCustomer({
+    id: z.string().parse(request.params.id),
+    ...parsed.data,
+    user: (request as AuthenticatedRequest).user
+  });
+  if (!customer) {
+    response.status(404).json({ message: "Cliente nao encontrado" });
+    return;
+  }
+  response.json(customer);
+});
+
+app.get("/users", requireRole(["owner", "admin"]), async (_request, response) => {
+  response.json(await repository.listUsers());
+});
+
+app.post("/users", requireRole(["owner", "admin"]), async (request, response) => {
+  const parsed = userCreateSchema.safeParse(request.body);
+  if (!parsed.success) {
+    response.status(400).json({ message: "Dados invalidos", issues: parsed.error.issues });
+    return;
+  }
+
+  const result = await repository.createUser({ ...parsed.data, user: (request as AuthenticatedRequest).user });
+  if ("forbidden" in result && result.forbidden) {
+    response.status(403).json({ message: "Somente o owner pode criar outro owner" });
+    return;
+  }
+  if (result.conflict) {
+    response.status(409).json({ message: "Ja existe um usuario com este email" });
+    return;
+  }
+  response.status(201).json(result.user);
+});
+
+app.patch("/users/:id", requireRole(["owner", "admin"]), async (request, response) => {
+  const parsed = userUpdateSchema.safeParse(request.body);
+  if (!parsed.success) {
+    response.status(400).json({ message: "Dados invalidos", issues: parsed.error.issues });
+    return;
+  }
+
+  const result = await repository.updateUser({ id: z.string().parse(request.params.id), ...parsed.data, user: (request as AuthenticatedRequest).user });
+  if (result.kind === "not_found") return void response.status(404).json({ message: "Usuario nao encontrado" });
+  if (result.kind === "forbidden") return void response.status(403).json({ message: "Voce nao pode alterar este usuario" });
+  if (result.kind === "self_deactivate") return void response.status(400).json({ message: "Nao e possivel desativar o proprio usuario" });
+  if (result.kind === "last_owner") return void response.status(409).json({ message: "O workspace precisa manter pelo menos um owner ativo" });
+  if (result.kind === "conflict") return void response.status(409).json({ message: "Ja existe um usuario com este email" });
+  response.json(result.user);
+});
+
+app.post("/users/:id/reset-password", requireRole(["owner", "admin"]), async (request, response) => {
+  const parsed = passwordResetSchema.safeParse(request.body);
+  if (!parsed.success) {
+    response.status(400).json({ message: "A senha deve ter pelo menos 8 caracteres", issues: parsed.error.issues });
+    return;
+  }
+  const reset = await repository.resetUserPassword({ id: z.string().parse(request.params.id), password: parsed.data.password, user: (request as AuthenticatedRequest).user });
+  if (reset.kind === "not_found") return void response.status(404).json({ message: "Usuario nao encontrado" });
+  if (reset.kind === "forbidden") return void response.status(403).json({ message: "Somente o owner pode redefinir a senha de outro owner" });
+  response.json({ ok: true });
+});
+
 app.delete("/customers/:id", requireRole(["owner", "admin"]), async (request, response) => {
   const customerId = z.string().parse(request.params.id);
   const result = await repository.deleteCustomer({
@@ -477,6 +567,10 @@ app.get("/devices", async (_request, response) => {
   response.json(await repository.listDevices());
 });
 
+app.get("/devices/archived", requireRole(["owner", "admin"]), async (_request, response) => {
+  response.json(await repository.listArchivedDevices());
+});
+
 app.get("/devices/:id", async (request, response) => {
   const deviceId = z.string().parse(request.params.id);
   const device = await repository.getDevice(deviceId);
@@ -526,6 +620,18 @@ app.delete("/devices/:id", requireRole(["owner", "admin"]), async (request, resp
     return;
   }
   response.json(deleted);
+});
+
+app.post("/devices/:id/archive", requireRole(["owner", "admin"]), async (request, response) => {
+  const archived = await repository.archiveDevice({ id: z.string().parse(request.params.id), user: (request as AuthenticatedRequest).user });
+  if (!archived) return void response.status(404).json({ message: "Dispositivo nao encontrado" });
+  response.json(archived);
+});
+
+app.post("/devices/:id/restore", requireRole(["owner", "admin"]), async (request, response) => {
+  const restored = await repository.restoreDevice({ id: z.string().parse(request.params.id), user: (request as AuthenticatedRequest).user });
+  if (!restored) return void response.status(404).json({ message: "Dispositivo arquivado nao encontrado" });
+  response.json(restored);
 });
 
 app.get("/devices/:id/commands", async (request, response) => {
@@ -614,6 +720,20 @@ app.post("/remote-sessions/:id/end", requireRole(["owner", "admin", "technician"
   }
 
   response.json(session);
+});
+
+app.post("/remote-sessions/:id/approve", requireRole(["owner", "admin"]), async (request, response) => {
+  const result = await repository.approveRemoteSession({ id: z.string().parse(request.params.id), user: (request as AuthenticatedRequest).user });
+  if (!result) return void response.status(404).json({ message: "Sessao nao encontrada" });
+  if (result.kind === "unchanged") return void response.status(409).json({ message: `Sessao ja esta ${result.status}` });
+  response.json(result.session);
+});
+
+app.post("/remote-sessions/:id/deny", requireRole(["owner", "admin"]), async (request, response) => {
+  const result = await repository.denyRemoteSession({ id: z.string().parse(request.params.id), user: (request as AuthenticatedRequest).user });
+  if (!result) return void response.status(404).json({ message: "Sessao nao encontrada" });
+  if (result.kind === "unchanged") return void response.status(409).json({ message: `Sessao ja esta ${result.status}` });
+  response.json(result);
 });
 
 app.get("/remote-sessions", async (_request, response) => {

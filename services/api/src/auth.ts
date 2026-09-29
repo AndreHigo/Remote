@@ -51,6 +51,7 @@ export function clearSessionCookie(response: Response) {
 
 interface TokenPayload extends AuthUser {
   exp: number;
+  sessionVersion: number;
 }
 
 export async function login(email: string, password: string, totpCode?: string) {
@@ -74,7 +75,8 @@ export async function login(email: string, password: string, totpCode?: string) 
     user: authUser,
     token: signToken({
       ...authUser,
-      exp: Math.floor(Date.now() / 1000) + TOKEN_TTL_SECONDS
+      exp: Math.floor(Date.now() / 1000) + TOKEN_TTL_SECONDS,
+      sessionVersion: user.sessionVersion
     })
   };
 }
@@ -168,7 +170,7 @@ export async function authenticate(request: Request, response: Response, next: N
   }
 
   const user = await prisma.user.findUnique({ where: { id: payload.id } });
-  if (!user || !user.active) {
+  if (!user || !user.active || user.sessionVersion !== payload.sessionVersion) {
     response.status(401).json({ message: "Usuario inativo ou inexistente" });
     return;
   }

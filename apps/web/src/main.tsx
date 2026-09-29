@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import {
   Activity,
+  Archive,
   ArrowRightLeft,
   ArrowUpRight,
   Ban,
@@ -11,9 +12,11 @@ import {
   LockKeyhole,
   LogOut,
   Monitor,
+  Pencil,
   Play,
   Plus,
   RefreshCcw,
+  RotateCcw,
   Search,
   ShieldCheck,
   SlidersHorizontal,
@@ -44,6 +47,12 @@ interface AuthUser {
   name: string;
   email: string;
   role: "owner" | "admin" | "technician" | "viewer";
+}
+
+interface ManagedUser extends AuthUser {
+  active: boolean;
+  twoFactorEnabled: boolean;
+  createdAt: string;
 }
 
 interface Customer {
@@ -87,6 +96,7 @@ interface Device {
   tags: string[];
   status: DeviceStatus;
   secondsSinceLastSeen: number | null;
+  archivedAt?: string | null;
 }
 
 interface AuditEvent {
@@ -149,6 +159,19 @@ interface RemoteSessionResponse {
     uri: string;
     command: string;
   };
+}
+
+interface RemoteSession {
+  id: string;
+  deviceId: string;
+  deviceName: string;
+  customerName: string;
+  remoteId: string;
+  technicianName: string;
+  reason: string;
+  status: "requested" | "approved" | "denied" | "ended";
+  requestedAt: string;
+  endedAt: string | null;
 }
 
 interface AgentKey {
@@ -250,12 +273,20 @@ function App() {
   const [summary, setSummary] = React.useState<Summary | null>(null);
   const [devices, setDevices] = React.useState<Device[]>([]);
   const [auditEvents, setAuditEvents] = React.useState<AuditEvent[]>([]);
+  const [sessions, setSessions] = React.useState<RemoteSession[]>([]);
   const [customers, setCustomers] = React.useState<Customer[]>([]);
   const [newCustomerName, setNewCustomerName] = React.useState("");
   const [newCustomerDocument, setNewCustomerDocument] = React.useState("");
   const [newCustomerContactName, setNewCustomerContactName] = React.useState("");
   const [newCustomerContactEmail, setNewCustomerContactEmail] = React.useState("");
+  const [editingCustomerId, setEditingCustomerId] = React.useState<string | null>(null);
   const [agentKeys, setAgentKeys] = React.useState<AgentKey[]>([]);
+  const [managedUsers, setManagedUsers] = React.useState<ManagedUser[]>([]);
+  const [archivedDevices, setArchivedDevices] = React.useState<Device[]>([]);
+  const [newUserName, setNewUserName] = React.useState("");
+  const [newUserEmail, setNewUserEmail] = React.useState("");
+  const [newUserPassword, setNewUserPassword] = React.useState("");
+  const [newUserRole, setNewUserRole] = React.useState<ManagedUser["role"]>("technician");
   const [newKeyName, setNewKeyName] = React.useState("");
   const [newKeyCustomerId, setNewKeyCustomerId] = React.useState("");
   const [revealedAgentKey, setRevealedAgentKey] = React.useState<string | null>(null);
@@ -344,6 +375,8 @@ function App() {
     setSummary(null);
     setDevices([]);
     setAuditEvents([]);
+    setSessions([]);
+    setArchivedDevices([]);
     setCustomers([]);
     setAgentKeys([]);
     setRevealedAgentKey(null);
@@ -366,15 +399,17 @@ function App() {
 
     setLoading(true);
     try {
-      const [nextSummary, nextDevices, nextAuditEvents] = await Promise.all([
+      const [nextSummary, nextDevices, nextAuditEvents, nextSessions] = await Promise.all([
         getJson<Summary>("/summary", token),
         getJson<Device[]>("/devices", token),
-        getJson<AuditEvent[]>("/audit-events", token)
+        getJson<AuditEvent[]>("/audit-events", token),
+        getJson<RemoteSession[]>("/remote-sessions", token)
       ]);
 
       setSummary(nextSummary);
       setDevices(nextDevices);
       setAuditEvents(nextAuditEvents);
+      setSessions(nextSessions);
       setSelectedDeviceId((current) => current ?? nextDevices[0]?.id ?? null);
       setStatusMessage("Painel atualizado");
     } catch (error) {
@@ -402,18 +437,22 @@ function App() {
     Promise.all([
       getJson<Customer[]>("/customers", token),
       getJson<AgentKey[]>("/agent-keys", token),
+      getJson<ManagedUser[]>("/users", token),
+      getJson<Device[]>("/devices/archived", token),
       getJson<TwoFactorStatus>("/auth/2fa/status", token)
     ])
-      .then(([nextCustomers, nextKeys, nextTwoFactorStatus]) => {
+      .then(([nextCustomers, nextKeys, nextUsers, nextArchivedDevices, nextTwoFactorStatus]) => {
         if (!active) return;
         setCustomers(nextCustomers);
         setAgentKeys(nextKeys);
+        setManagedUsers(nextUsers);
+        setArchivedDevices(nextArchivedDevices);
         setTwoFactorStatus(nextTwoFactorStatus);
         setNewKeyCustomerId((current) => current || nextCustomers[0]?.id || "");
         setOnboardingCustomerId((current) => current || nextCustomers[0]?.id || "");
       })
       .catch(() => {
-        if (active) setStatusMessage("Nao foi possivel carregar as chaves do agente");
+        if (active) setStatusMessage("Nao foi possivel carregar a administracao");
       });
 
     return () => {
@@ -477,16 +516,42 @@ function App() {
       });
       setConnectDevice(null);
       setConnectReason("");
-      if (session.connection?.uri) {
-        setStatusMessage("Sessao registrada. Abrindo RustDesk...");
-        window.location.assign(session.connection.uri);
-        return;
-      }
       await refresh();
+      setStatusMessage("Solicitacao registrada. Aguardando aprovacao administrativa.");
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : "Nao foi possivel abrir a sessao");
     } finally {
       setConnectionLoading(false);
+    }
+  }
+
+  async function approveRemoteSession(session: RemoteSession) {
+    try {
+      const approved = await postJson<RemoteSessionResponse>(`/remote-sessions/${session.id}/approve`, token);
+      await refresh();
+      if (approved.connection?.uri) window.location.assign(approved.connection.uri);
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "Nao foi possivel aprovar a sessao");
+    }
+  }
+
+  async function denyRemoteSession(session: RemoteSession) {
+    try {
+      await postJson(`/remote-sessions/${session.id}/deny`, token);
+      await refresh();
+      setStatusMessage("Sessao negada");
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "Nao foi possivel negar a sessao");
+    }
+  }
+
+  async function endRemoteSession(session: RemoteSession) {
+    try {
+      await postJson(`/remote-sessions/${session.id}/end`, token);
+      await refresh();
+      setStatusMessage("Sessao encerrada");
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "Nao foi possivel encerrar a sessao");
     }
   }
 
@@ -537,11 +602,48 @@ function App() {
       setNewCustomerDocument("");
       setNewCustomerContactName("");
       setNewCustomerContactEmail("");
+      setEditingCustomerId(null);
       setNewKeyCustomerId((current) => current || created.id);
       setOnboardingCustomerId((current) => current || created.id);
       setStatusMessage("Cliente cadastrado");
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : "Nao foi possivel cadastrar o cliente");
+    }
+  }
+
+  function beginCustomerEdit(customer: Customer) {
+    setEditingCustomerId(customer.id);
+    setNewCustomerName(customer.name);
+    setNewCustomerDocument(customer.document);
+    setNewCustomerContactName(customer.contactName);
+    setNewCustomerContactEmail(customer.contactEmail);
+  }
+
+  async function saveCustomer() {
+    if (!editingCustomerId) {
+      await createCustomer();
+      return;
+    }
+    if (newCustomerName.trim().length < 2 || newCustomerDocument.trim().length < 3 || newCustomerContactName.trim().length < 2 || !newCustomerContactEmail.includes("@")) {
+      setStatusMessage("Preencha os dados do cliente corretamente");
+      return;
+    }
+    try {
+      const updated = await patchJson<Customer>(`/customers/${editingCustomerId}`, token, {
+        name: newCustomerName.trim(),
+        document: newCustomerDocument.trim(),
+        contactName: newCustomerContactName.trim(),
+        contactEmail: newCustomerContactEmail.trim()
+      });
+      setCustomers((current) => current.map((customer) => customer.id === updated.id ? updated : customer).sort((left, right) => left.name.localeCompare(right.name)));
+      setNewCustomerName("");
+      setNewCustomerDocument("");
+      setNewCustomerContactName("");
+      setNewCustomerContactEmail("");
+      setEditingCustomerId(null);
+      setStatusMessage("Cliente atualizado");
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "Nao foi possivel atualizar o cliente");
     }
   }
 
@@ -573,6 +675,50 @@ function App() {
     }
   }
 
+  async function createManagedUser() {
+    if (newUserName.trim().length < 2 || !newUserEmail.includes("@") || newUserPassword.length < 8) {
+      setStatusMessage("Informe nome, email e senha com pelo menos 8 caracteres");
+      return;
+    }
+    try {
+      const created = await postJson<ManagedUser>("/users", token, { name: newUserName.trim(), email: newUserEmail.trim(), password: newUserPassword, role: newUserRole });
+      setManagedUsers((current) => [...current, created].sort((left, right) => left.name.localeCompare(right.name)));
+      setNewUserName("");
+      setNewUserEmail("");
+      setNewUserPassword("");
+      setStatusMessage("Usuario criado");
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "Nao foi possivel criar o usuario");
+    }
+  }
+
+  async function toggleManagedUser(userToUpdate: ManagedUser) {
+    if (userToUpdate.id === user?.id && userToUpdate.active) return;
+    try {
+      const updated = await patchJson<ManagedUser>(`/users/${userToUpdate.id}`, token, {
+        name: userToUpdate.name,
+        email: userToUpdate.email,
+        role: userToUpdate.role,
+        active: !userToUpdate.active
+      });
+      setManagedUsers((current) => current.map((item) => item.id === updated.id ? updated : item));
+      setStatusMessage(updated.active ? "Usuario ativado" : "Usuario desativado");
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "Nao foi possivel atualizar o usuario");
+    }
+  }
+
+  async function resetManagedUserPassword(userToUpdate: ManagedUser) {
+    const password = window.prompt(`Nova senha para ${userToUpdate.email} (minimo 8 caracteres):`);
+    if (!password) return;
+    try {
+      await postJson<{ ok: boolean }>(`/users/${userToUpdate.id}/reset-password`, token, { password });
+      setStatusMessage("Senha redefinida");
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "Nao foi possivel redefinir a senha");
+    }
+  }
+
   async function deleteDevice(device: Device) {
     if (!window.confirm(`Excluir ${device.displayName}? Se o agente continuar instalado com uma chave ativa, ele podera se cadastrar novamente.`)) return;
 
@@ -583,6 +729,29 @@ function App() {
       setStatusMessage(`${device.displayName} excluido`);
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : "Nao foi possivel excluir o dispositivo");
+    }
+  }
+
+  async function archiveDevice(device: Device) {
+    if (!window.confirm(`Arquivar ${device.displayName}? O agente deixara de atualizar este registro ate ele ser restaurado.`)) return;
+    try {
+      await postJson(`/devices/${device.id}/archive`, token);
+      await refresh();
+      setStatusMessage(`${device.displayName} arquivado`);
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "Nao foi possivel arquivar o dispositivo");
+    }
+  }
+
+  async function restoreDevice(device: Device) {
+    try {
+      await postJson<Device>(`/devices/${device.id}/restore`, token);
+      const nextArchived = await getJson<Device[]>("/devices/archived", token);
+      setArchivedDevices(nextArchived);
+      await refresh();
+      setStatusMessage(`${device.displayName} restaurado`);
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "Nao foi possivel restaurar o dispositivo");
     }
   }
 
@@ -685,6 +854,7 @@ function App() {
     deviceQuery={deviceQuery}
     deviceFilter={deviceFilter}
     auditEvents={auditEvents}
+    sessions={sessions}
     latestInventory={latestInventory}
     commands={commands}
     customers={customers}
@@ -720,14 +890,36 @@ function App() {
     onHeartbeat={(deviceId) => void sendHeartbeat(deviceId)}
     onRequestSession={requestSession}
     onRequestCommand={(device, commandType) => void requestCommand(device, commandType)}
+    onApproveRemoteSession={(session) => void approveRemoteSession(session)}
+    onDenyRemoteSession={(session) => void denyRemoteSession(session)}
+    onEndRemoteSession={(session) => void endRemoteSession(session)}
     onMoveDevice={(device, customerId) => void moveDevice(device, customerId)}
     onDeleteDevice={(device) => void deleteDevice(device)}
+    onArchiveDevice={(device) => void archiveDevice(device)}
+    archivedDevices={archivedDevices}
+    onRestoreDevice={(device) => void restoreDevice(device)}
     onNewCustomerNameChange={setNewCustomerName}
     onNewCustomerDocumentChange={setNewCustomerDocument}
     onNewCustomerContactNameChange={setNewCustomerContactName}
     onNewCustomerContactEmailChange={setNewCustomerContactEmail}
     onCreateCustomer={() => void createCustomer()}
+    editingCustomerId={editingCustomerId}
+    onBeginCustomerEdit={beginCustomerEdit}
+    onCancelCustomerEdit={() => { setEditingCustomerId(null); setNewCustomerName(""); setNewCustomerDocument(""); setNewCustomerContactName(""); setNewCustomerContactEmail(""); }}
+    onSaveCustomer={() => void saveCustomer()}
     onDeleteCustomer={(customer) => void deleteCustomer(customer)}
+    managedUsers={managedUsers}
+    newUserName={newUserName}
+    newUserEmail={newUserEmail}
+    newUserPassword={newUserPassword}
+    newUserRole={newUserRole}
+    onNewUserNameChange={setNewUserName}
+    onNewUserEmailChange={setNewUserEmail}
+    onNewUserPasswordChange={setNewUserPassword}
+    onNewUserRoleChange={setNewUserRole}
+    onCreateManagedUser={() => void createManagedUser()}
+    onToggleManagedUser={(managedUser) => void toggleManagedUser(managedUser)}
+    onResetManagedUserPassword={(managedUser) => void resetManagedUserPassword(managedUser)}
     onKeyNameChange={setNewKeyName}
     onKeyCustomerChange={setNewKeyCustomerId}
     onCreateKey={() => void createAgentKey()}
@@ -760,6 +952,7 @@ interface OperationsConsoleProps {
   deviceQuery: string;
   deviceFilter: DeviceFilter;
   auditEvents: AuditEvent[];
+  sessions: RemoteSession[];
   latestInventory: InventorySnapshot | undefined;
   commands: CommandExecution[];
   customers: Customer[];
@@ -795,14 +988,36 @@ interface OperationsConsoleProps {
   onHeartbeat: (deviceId: string) => void;
   onRequestSession: (device: Device) => void;
   onRequestCommand: (device: Device, commandType: CommandExecution["commandType"]) => void;
+  onApproveRemoteSession: (session: RemoteSession) => void;
+  onDenyRemoteSession: (session: RemoteSession) => void;
+  onEndRemoteSession: (session: RemoteSession) => void;
   onMoveDevice: (device: Device, customerId: string) => void;
   onDeleteDevice: (device: Device) => void;
+  onArchiveDevice: (device: Device) => void;
+  archivedDevices: Device[];
+  onRestoreDevice: (device: Device) => void;
   onNewCustomerNameChange: (value: string) => void;
   onNewCustomerDocumentChange: (value: string) => void;
   onNewCustomerContactNameChange: (value: string) => void;
   onNewCustomerContactEmailChange: (value: string) => void;
   onCreateCustomer: () => void;
+  editingCustomerId: string | null;
+  onBeginCustomerEdit: (customer: Customer) => void;
+  onCancelCustomerEdit: () => void;
+  onSaveCustomer: () => void;
   onDeleteCustomer: (customer: Customer) => void;
+  managedUsers: ManagedUser[];
+  newUserName: string;
+  newUserEmail: string;
+  newUserPassword: string;
+  newUserRole: ManagedUser["role"];
+  onNewUserNameChange: (value: string) => void;
+  onNewUserEmailChange: (value: string) => void;
+  onNewUserPasswordChange: (value: string) => void;
+  onNewUserRoleChange: (value: ManagedUser["role"]) => void;
+  onCreateManagedUser: () => void;
+  onToggleManagedUser: (user: ManagedUser) => void;
+  onResetManagedUserPassword: (user: ManagedUser) => void;
   onKeyNameChange: (value: string) => void;
   onKeyCustomerChange: (value: string) => void;
   onCreateKey: () => void;
@@ -835,6 +1050,7 @@ function OperationsConsole(props: OperationsConsoleProps) {
     deviceQuery,
     deviceFilter,
     auditEvents,
+    sessions,
     latestInventory,
     commands,
     customers,
@@ -862,14 +1078,36 @@ function OperationsConsole(props: OperationsConsoleProps) {
     onHeartbeat,
     onRequestSession,
     onRequestCommand,
+    onApproveRemoteSession,
+    onDenyRemoteSession,
+    onEndRemoteSession,
     onMoveDevice,
     onDeleteDevice,
+    onArchiveDevice,
+    archivedDevices,
+    onRestoreDevice,
     onNewCustomerNameChange,
     onNewCustomerDocumentChange,
     onNewCustomerContactNameChange,
     onNewCustomerContactEmailChange,
     onCreateCustomer,
+    editingCustomerId,
+    onBeginCustomerEdit,
+    onCancelCustomerEdit,
+    onSaveCustomer,
     onDeleteCustomer,
+    managedUsers,
+    newUserName,
+    newUserEmail,
+    newUserPassword,
+    newUserRole,
+    onNewUserNameChange,
+    onNewUserEmailChange,
+    onNewUserPasswordChange,
+    onNewUserRoleChange,
+    onCreateManagedUser,
+    onToggleManagedUser,
+    onResetManagedUserPassword,
     onKeyNameChange,
     onKeyCustomerChange,
     onCreateKey,
@@ -1072,7 +1310,8 @@ function OperationsConsole(props: OperationsConsoleProps) {
                       <div className="deviceAdminActions">
                         <label><span>Cliente responsavel</span><select value={moveCustomerId} onChange={(event) => setMoveCustomerId(event.target.value)}>{customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}</select></label>
                         <button className="secondary compact" type="button" onClick={() => onMoveDevice(selectedDevice, moveCustomerId)} disabled={!moveCustomerId || moveCustomerId === selectedDevice.customerId}><ArrowRightLeft size={14} />Mover</button>
-                        <button className="danger compact" type="button" onClick={() => onDeleteDevice(selectedDevice)}><Trash2 size={14} />Excluir</button>
+                        <button className="secondary compact" type="button" onClick={() => onArchiveDevice(selectedDevice)}><Archive size={14} />Arquivar</button>
+                        <button className="danger compact" type="button" onClick={() => onDeleteDevice(selectedDevice)}><Trash2 size={14} />Excluir definitivo</button>
                       </div>
                     </section> : null}
 
@@ -1111,16 +1350,35 @@ function OperationsConsole(props: OperationsConsoleProps) {
                 <label><span>CNPJ / documento</span><input value={newCustomerDocument} onChange={(event) => onNewCustomerDocumentChange(event.target.value)} placeholder="00.000.000/0001-00" /></label>
                 <label><span>Contato</span><input value={newCustomerContactName} onChange={(event) => onNewCustomerContactNameChange(event.target.value)} placeholder="Nome do responsável" /></label>
                 <label><span>Email do contato</span><input value={newCustomerContactEmail} onChange={(event) => onNewCustomerContactEmailChange(event.target.value)} type="email" placeholder="contato@empresa.com" /></label>
-                <button className="primary compact" type="button" onClick={onCreateCustomer}><Plus size={15} />Cadastrar cliente</button>
+                <span className="customerFormActions"><button className="primary compact" type="button" onClick={onSaveCustomer}>{editingCustomerId ? <Pencil size={15} /> : <Plus size={15} />}{editingCustomerId ? "Salvar cliente" : "Cadastrar cliente"}</button>{editingCustomerId ? <button className="secondary compact" type="button" onClick={onCancelCustomerEdit}>Cancelar</button> : null}</span>
               </div>
               <ul className="customerList">{customers.map((customer) => {
                 const canDelete = customer.deviceCount === 0 && customer.agentKeyCount === 0;
                 return <li key={customer.id}>
                   <span><strong>{customer.name}</strong><small>{customer.document} / {customer.contactName} / {customer.contactEmail}</small></span>
                   <span className="customerUsage">{customer.deviceCount} dispositivos · {customer.agentKeyCount} chaves</span>
-                  <button className="iconButton compact" type="button" onClick={() => onDeleteCustomer(customer)} disabled={!canDelete} aria-label={`Excluir ${customer.name}`} title={canDelete ? "Excluir cliente" : "Remova dispositivos e chaves antes de excluir"}><Trash2 size={15} /></button>
+                  <span className="customerActions"><button className="iconButton compact" type="button" onClick={() => onBeginCustomerEdit(customer)} aria-label={`Editar ${customer.name}`} title="Editar cliente"><Pencil size={15} /></button><button className="iconButton compact" type="button" onClick={() => onDeleteCustomer(customer)} disabled={!canDelete} aria-label={`Excluir ${customer.name}`} title={canDelete ? "Excluir cliente" : "Remova dispositivos e chaves antes de excluir"}><Trash2 size={15} /></button></span>
                 </li>;
               })}</ul>
+            </section>
+            <section className="panel userPanel">
+              <div className="panelHeader"><div><p className="eyebrow">Acesso ao console</p><h2>Usuarios e permissoes</h2><p>Crie contas, controle funcoes e bloqueie acessos.</p></div><ShieldCheck size={20} /></div>
+              <div className="userForm">
+                <label><span>Nome</span><input value={newUserName} onChange={(event) => onNewUserNameChange(event.target.value)} placeholder="Nome do operador" /></label>
+                <label><span>Email</span><input value={newUserEmail} onChange={(event) => onNewUserEmailChange(event.target.value)} type="email" placeholder="operador@empresa.com" /></label>
+                <label><span>Senha inicial</span><input value={newUserPassword} onChange={(event) => onNewUserPasswordChange(event.target.value)} type="password" placeholder="Minimo 8 caracteres" /></label>
+                <label><span>Funcao</span><select value={newUserRole} onChange={(event) => onNewUserRoleChange(event.target.value as ManagedUser["role"])}><option value="admin">Administrador</option><option value="technician">Tecnico</option><option value="viewer">Visualizador</option>{user.role === "owner" ? <option value="owner">Owner</option> : null}</select></label>
+                <button className="primary compact" type="button" onClick={onCreateManagedUser}><Plus size={15} />Criar usuario</button>
+              </div>
+              <ul className="userList">{managedUsers.map((managedUser) => <li key={managedUser.id}>
+                <span><strong>{managedUser.name}</strong><small>{managedUser.email} / {managedUser.role} / 2FA {managedUser.twoFactorEnabled ? "ativo" : "pendente"}</small></span>
+                <span className={`commandStatus ${managedUser.active ? "succeeded" : "failed"}`}>{managedUser.active ? "Ativo" : "Bloqueado"}</span>
+                <span className="customerActions"><button className="secondary compact" type="button" onClick={() => onResetManagedUserPassword(managedUser)}>Redefinir senha</button><button className="iconButton compact" type="button" onClick={() => onToggleManagedUser(managedUser)} disabled={managedUser.id === user.id} aria-label={`${managedUser.active ? "Bloquear" : "Ativar"} ${managedUser.name}`} title={managedUser.active ? "Bloquear usuario" : "Ativar usuario"}>{managedUser.active ? <Ban size={15} /> : <ShieldCheck size={15} />}</button></span>
+              </li>)}</ul>
+            </section>
+            <section className="panel archivedPanel">
+              <div className="panelHeader"><div><p className="eyebrow">Ciclo de vida</p><h2>Dispositivos arquivados</h2><p>Restaurar libera o agente para voltar a atualizar o computador.</p></div><Archive size={20} /></div>
+              {archivedDevices.length === 0 ? <p className="empty">Nenhum dispositivo arquivado.</p> : <ul className="archivedList">{archivedDevices.map((device) => <li key={device.id}><span><strong>{device.displayName}</strong><small>{device.customerName} / ID {device.remoteId}</small></span><button className="secondary compact" type="button" onClick={() => onRestoreDevice(device)}><RotateCcw size={14} />Restaurar</button></li>)}</ul>}
             </section>
             <section className="panel keyPanel">
               <div className="panelHeader"><div><p className="eyebrow">Acesso de agentes</p><h2>Chaves por cliente</h2><p>Crie credenciais separadas e revogue acessos antigos.</p></div><KeyRound size={20} /></div>
@@ -1141,7 +1399,10 @@ function OperationsConsole(props: OperationsConsoleProps) {
           </section>
         ) : null}
 
-        {activeSection === "activity" ? <section className="panel auditPanel activityView"><div className="panelHeader"><div><p className="eyebrow">Historico do workspace</p><h2>Atividade recente</h2><p>Acoes registradas pela API e pelos operadores.</p></div><Activity size={20} /></div>{auditEvents.length === 0 ? <div className="emptyState"><Activity size={24} /><strong>Sem eventos ainda</strong><span>Heartbeats e sessoes aparecerao aqui.</span></div> : <ul className="auditList">{auditEvents.map((event) => <li key={event.id}><span className="activityIcon"><Activity size={16} /></span><div><strong>{event.action}</strong><span>{event.actor} / alvo {event.targetId}</span></div><time>{new Date(event.createdAt).toLocaleString("pt-BR")}</time></li>)}</ul>}</section> : null}
+        {activeSection === "activity" ? <section className="activityView">
+          <section className="panel sessionPanel"><div className="panelHeader"><div><p className="eyebrow">Controle de acesso</p><h2>Sessoes remotas</h2><p>Solicitacoes precisam de aprovacao antes de abrir o RustDesk.</p></div><Play size={20} /></div>{sessions.length === 0 ? <div className="emptyState"><Play size={24} /><strong>Sem sessoes registradas</strong><span>Os pedidos de acesso aparecerao aqui.</span></div> : <ul className="sessionList">{sessions.map((session) => <li key={session.id}><div><strong>{session.deviceName}</strong><span>{session.customerName} / {session.technicianName} / {session.reason}</span><small>{new Date(session.requestedAt).toLocaleString("pt-BR")}</small></div><span className={`commandStatus ${session.status === "approved" ? "succeeded" : session.status === "denied" ? "failed" : ""}`}>{session.status}</span><span className="sessionActions">{canManageKeys && session.status === "requested" ? <><button className="primary compact" type="button" onClick={() => onApproveRemoteSession(session)}><Play size={14} />Aprovar</button><button className="danger compact" type="button" onClick={() => onDenyRemoteSession(session)}><Ban size={14} />Negar</button></> : null}{session.status === "approved" ? <button className="secondary compact" type="button" onClick={() => onEndRemoteSession(session)}>Encerrar</button> : null}</span></li>)}</ul>}</section>
+          <section className="panel auditPanel"><div className="panelHeader"><div><p className="eyebrow">Historico do workspace</p><h2>Atividade recente</h2><p>Acoes registradas pela API e pelos operadores.</p></div><Activity size={20} /></div>{auditEvents.length === 0 ? <div className="emptyState"><Activity size={24} /><strong>Sem eventos ainda</strong><span>Heartbeats e sessoes aparecerao aqui.</span></div> : <ul className="auditList">{auditEvents.map((event) => <li key={event.id}><span className="activityIcon"><Activity size={16} /></span><div><strong>{event.action}</strong><span>{event.actor} / alvo {event.targetId}</span></div><time>{new Date(event.createdAt).toLocaleString("pt-BR")}</time></li>)}</ul>}</section>
+        </section> : null}
 
         {connectDevice ? (
           <div className="modalBackdrop" role="presentation" onMouseDown={onCloseConnection}>
@@ -1153,7 +1414,7 @@ function OperationsConsole(props: OperationsConsoleProps) {
               <div className="connectionTarget"><span className={`deviceIcon ${connectDevice.status}`}><Monitor size={19} /></span><div><strong>{connectDevice.displayName}</strong><span>{connectDevice.customerName} / ID {connectDevice.remoteId}</span></div><span className={`status ${connectDevice.status}`}>{connectDevice.status === "online" ? "Online" : "Offline"}</span></div>
               <label className="reasonField"><span>Motivo do acesso</span><textarea value={connectReason} onChange={(event) => onConnectReasonChange(event.target.value)} rows={3} placeholder="Ex.: validar falha no caixa" autoFocus /></label>
               <p className="modalNote">A solicitacao sera registrada na atividade e abrira o cliente RustDesk quando autorizada.</p>
-              <div className="modalActions"><button className="secondary" type="button" onClick={onCloseConnection}>Cancelar</button><button className="primary" type="button" onClick={onConfirmConnection} disabled={connectionLoading || connectReason.trim().length < 4}><Play size={16} />{connectionLoading ? "Registrando..." : "Registrar e abrir"}</button></div>
+              <div className="modalActions"><button className="secondary" type="button" onClick={onCloseConnection}>Cancelar</button><button className="primary" type="button" onClick={onConfirmConnection} disabled={connectionLoading || connectReason.trim().length < 4}><Play size={16} />{connectionLoading ? "Registrando..." : "Solicitar acesso"}</button></div>
             </section>
           </div>
         ) : null}

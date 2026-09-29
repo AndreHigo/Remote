@@ -26,6 +26,9 @@ $required = @(
   "POSTGRES_PASSWORD",
   "JWT_SECRET",
   "TOTP_ENCRYPTION_KEY",
+  "BOOTSTRAP_ADMIN_NAME",
+  "BOOTSTRAP_ADMIN_EMAIL",
+  "BOOTSTRAP_ADMIN_PASSWORD",
   "RUSTDESK_RELAY_HOST"
 )
 
@@ -36,6 +39,8 @@ foreach ($name in $required) {
 if ($values["POSTGRES_PASSWORD"].Length -lt 20) { throw "POSTGRES_PASSWORD deve ter pelo menos 20 caracteres" }
 if ($values["JWT_SECRET"].Length -lt 32) { throw "JWT_SECRET deve ter pelo menos 32 caracteres" }
 if ($values["TOTP_ENCRYPTION_KEY"].Length -lt 32) { throw "TOTP_ENCRYPTION_KEY deve ter pelo menos 32 caracteres" }
+if ($values["BOOTSTRAP_ADMIN_PASSWORD"].Length -lt 12) { throw "BOOTSTRAP_ADMIN_PASSWORD deve ter pelo menos 12 caracteres" }
+if ($values["BOOTSTRAP_ADMIN_EMAIL"] -notmatch "^[^@\s]+@[^@\s]+\.[^@\s]+$") { throw "BOOTSTRAP_ADMIN_EMAIL invalido" }
 if ($values["WEB_DOMAIN"] -match "^https?://") { throw "WEB_DOMAIN deve ser somente o hostname, sem http:// ou https://" }
 
 $unsafeValues = @("example.com", "troque", "change-this", "localhost", "127.0.0.1")

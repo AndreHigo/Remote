@@ -109,9 +109,11 @@ Isso evita gastar meses reinventando streaming remoto, NAT traversal, relay e in
 4. Empacotar o agente e RustDesk em instalador Windows assinado.
 5. Testar conexao de tela entre duas maquinas externas.
 
-O botao `Conectar` ja registra a sessao e chama o protocolo `rustdesk://`. A conexao de tela depende de RustDesk instalado no computador do tecnico e no dispositivo remoto, ambos apontando para o mesmo `hbbs`/`hbbr`. Contas administrativas ja podem ativar 2FA TOTP no painel; em producao, configure `TOTP_ENCRYPTION_KEY` separado do `JWT_SECRET`.
+O botao `Conectar` registra uma solicitacao de sessao; um owner ou admin precisa aprovar antes de abrir o protocolo `rustdesk://`. A conexao de tela depende de RustDesk instalado no computador do tecnico e no dispositivo remoto, ambos apontando para o mesmo `hbbs`/`hbbr`. Contas administrativas ja podem ativar 2FA TOTP no painel; em producao, configure `TOTP_ENCRYPTION_KEY` separado do `JWT_SECRET`.
 
 A API possui `/health` para liveness e `/ready` para readiness com verificacao do PostgreSQL. O workflow em `.github/workflows/ci.yml` valida testes, tipos, build e os Compose antes de qualquer deploy.
+
+Antes da primeira subida da stack de producao, preencha `infra/docker/production.env` a partir do exemplo e execute `npm run deploy:preflight -- -Build`. A stack executa as migracoes, cria o primeiro owner de forma idempotente com `BOOTSTRAP_ADMIN_*` e so depois inicia a API.
 
 ## Modo de trabalho
 

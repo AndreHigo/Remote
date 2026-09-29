@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import type { AuthUser, CommandType, DeviceView } from "./domain.js";
 import type { Prisma } from "./generated/prisma/client.js";
 import { prisma } from "./db.js";
+import { hashPassword } from "./password.js";
 
 const ONLINE_WINDOW_MS = 90_000;
 
@@ -103,7 +104,7 @@ async function findDeviceByIdentity(input: {
 
   for (const candidate of identityCandidates) {
     const device = await prisma.device.findFirst({
-      where: { [candidate.field]: candidate.value, customerId: input.customerId }
+      where: { [candidate.field]: candidate.value, customerId: input.customerId, archivedAt: null }
     });
 
     if (device) {
@@ -200,7 +201,7 @@ export const repository = {
   async listCustomers() {
     const customers = await prisma.customer.findMany({
       orderBy: { name: "asc" },
-      include: { _count: { select: { devices: true, agentEnrollmentKeys: true } } }
+      include: { _count: { select: { devices: { where: { archivedAt: null } }, agentEnrollmentKeys: true } } }
     });
 
     return customers.map(({ _count, ...customer }) => ({
@@ -238,10 +239,161 @@ export const repository = {
     return { ...customer, deviceCount: 0, agentKeyCount: 0 };
   },
 
+  async updateCustomer(input: {
+    id: string;
+    name: string;
+    document: string;
+    contactName: string;
+    contactEmail: string;
+    user: AuthUser;
+  }) {
+    const current = await prisma.customer.findUnique({ where: { id: input.id } });
+    if (!current) return null;
+
+    const customer = await prisma.customer.update({
+      where: { id: input.id },
+      data: {
+        name: input.name,
+        document: input.document,
+        contactName: input.contactName,
+        contactEmail: input.contactEmail
+      },
+      include: { _count: { select: { devices: { where: { archivedAt: null } }, agentEnrollmentKeys: true } } }
+    });
+
+    await addAudit(
+      "customer.updated",
+      input.user.name,
+      customer.id,
+      { customerId: customer.id, customerName: customer.name },
+      undefined,
+      input.user.id
+    );
+
+    const { _count, ...value } = customer;
+    return { ...value, deviceCount: _count.devices, agentKeyCount: _count.agentEnrollmentKeys };
+  },
+
+  async listUsers() {
+    const users = await prisma.user.findMany({ orderBy: { name: "asc" } });
+    return users.map((user) => ({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role.toLowerCase(),
+      active: user.active,
+      twoFactorEnabled: user.twoFactorEnabled,
+      createdAt: user.createdAt.toISOString()
+    }));
+  },
+
+  async createUser(input: {
+    name: string;
+    email: string;
+    password: string;
+    role: "owner" | "admin" | "technician" | "viewer";
+    user: AuthUser;
+  }) {
+    if (input.role === "owner" && input.user.role !== "owner") return { conflict: false as const, forbidden: true as const };
+    const existing = await prisma.user.findUnique({ where: { email: input.email.toLowerCase() } });
+    if (existing) return { conflict: true as const };
+
+    const created = await prisma.user.create({
+      data: {
+        name: input.name,
+        email: input.email.toLowerCase(),
+        passwordHash: await hashPassword(input.password),
+        role: input.role.toUpperCase() as "OWNER" | "ADMIN" | "TECHNICIAN" | "VIEWER"
+      }
+    });
+
+    await addAudit(
+      "user.created",
+      input.user.name,
+      created.id,
+      { email: created.email, role: input.role },
+      undefined,
+      input.user.id
+    );
+
+    return { conflict: false as const, user: {
+      id: created.id,
+      name: created.name,
+      email: created.email,
+      role: created.role.toLowerCase(),
+      active: created.active,
+      twoFactorEnabled: created.twoFactorEnabled,
+      createdAt: created.createdAt.toISOString()
+    } };
+  },
+
+  async updateUser(input: {
+    id: string;
+    name: string;
+    email: string;
+    role: "owner" | "admin" | "technician" | "viewer";
+    active: boolean;
+    user: AuthUser;
+  }) {
+    const current = await prisma.user.findUnique({ where: { id: input.id } });
+    if (!current) return { kind: "not_found" as const };
+    if (current.role === "OWNER" && input.user.role !== "owner") return { kind: "forbidden" as const };
+    if (input.id === input.user.id && !input.active) return { kind: "self_deactivate" as const };
+    if (input.role === "owner" && input.user.role !== "owner") return { kind: "forbidden" as const };
+    if (current.role === "OWNER" && (input.role !== "owner" || !input.active)) {
+      const activeOwners = await prisma.user.count({ where: { role: "OWNER", active: true } });
+      if (activeOwners <= 1) return { kind: "last_owner" as const };
+    }
+
+    const duplicate = await prisma.user.findFirst({
+      where: { email: input.email.toLowerCase(), id: { not: input.id } }
+    });
+    if (duplicate) return { kind: "conflict" as const };
+
+    const updated = await prisma.user.update({
+      where: { id: input.id },
+      data: {
+        name: input.name,
+        email: input.email.toLowerCase(),
+        role: input.role.toUpperCase() as "OWNER" | "ADMIN" | "TECHNICIAN" | "VIEWER",
+        active: input.active,
+        sessionVersion: { increment: 1 }
+      }
+    });
+
+    await addAudit(
+      "user.updated",
+      input.user.name,
+      updated.id,
+      { email: updated.email, role: updated.role.toLowerCase(), active: updated.active },
+      undefined,
+      input.user.id
+    );
+
+    return { kind: "updated" as const, user: {
+      id: updated.id,
+      name: updated.name,
+      email: updated.email,
+      role: updated.role.toLowerCase(),
+      active: updated.active,
+      twoFactorEnabled: updated.twoFactorEnabled,
+      createdAt: updated.createdAt.toISOString()
+    } };
+  },
+
+  async resetUserPassword(input: { id: string; password: string; user: AuthUser }) {
+    const current = await prisma.user.findUnique({ where: { id: input.id } });
+    if (!current) return { kind: "not_found" as const };
+    if (current.role === "OWNER" && input.user.role !== "owner") return { kind: "forbidden" as const };
+    await prisma.user.update({ where: { id: input.id }, data: { passwordHash: await hashPassword(input.password), sessionVersion: { increment: 1 } } });
+    await addAudit("user.password.reset", input.user.name, input.id, { email: current.email }, undefined, input.user.id);
+    return { kind: "reset" as const, ok: true };
+  },
+
   async deleteCustomer(input: { id: string; user: AuthUser }) {
     const customer = await prisma.customer.findUnique({
       where: { id: input.id },
-      include: { _count: { select: { devices: true, agentEnrollmentKeys: true } } }
+      include: { _count: { select: { devices: { where: { archivedAt: null } }, agentEnrollmentKeys: true } } }
     });
     if (!customer) return null;
 
@@ -267,6 +419,7 @@ export const repository = {
 
   async listDevices() {
     const devices = await prisma.device.findMany({
+      where: { archivedAt: null },
       include: { customer: { select: { name: true } } },
       orderBy: { displayName: "asc" }
     });
@@ -276,7 +429,7 @@ export const repository = {
 
   async getDevice(deviceId: string) {
     const device = await prisma.device.findUnique({
-      where: { id: deviceId },
+      where: { id: deviceId, archivedAt: null },
       include: { customer: { select: { name: true } } }
     });
 
@@ -285,11 +438,45 @@ export const repository = {
 
   async getAgentDevice(input: { deviceId: string; customerId: string }) {
     const device = await prisma.device.findFirst({
-      where: { id: input.deviceId, customerId: input.customerId },
+      where: { id: input.deviceId, customerId: input.customerId, archivedAt: null },
       include: { customer: { select: { name: true } } }
     });
 
     return device ? toDeviceView(device) : null;
+  },
+
+  async listArchivedDevices() {
+    const devices = await prisma.device.findMany({
+      where: { archivedAt: { not: null } },
+      include: { customer: { select: { name: true } } },
+      orderBy: { archivedAt: "desc" }
+    });
+    return devices.map((device) => ({ ...toDeviceView(device), archivedAt: device.archivedAt?.toISOString() ?? null }));
+  },
+
+  async archiveDevice(input: { id: string; user: AuthUser }) {
+    const current = await prisma.device.findUnique({ where: { id: input.id } });
+    if (!current) return null;
+    if (current.archivedAt) return { id: current.id, displayName: current.displayName, archived: true as const };
+
+    const device = await prisma.device.update({
+      where: { id: current.id },
+      data: { archivedAt: now(), lastSeenAt: null }
+    });
+    await addAudit("device.archived", input.user.name, device.id, { customerId: device.customerId, displayName: device.displayName }, undefined, input.user.id);
+    return { id: device.id, displayName: device.displayName, archived: true as const };
+  },
+
+  async restoreDevice(input: { id: string; user: AuthUser }) {
+    const current = await prisma.device.findUnique({ where: { id: input.id } });
+    if (!current) return null;
+    const device = await prisma.device.update({
+      where: { id: current.id },
+      data: { archivedAt: null },
+      include: { customer: { select: { name: true } } }
+    });
+    await addAudit("device.restored", input.user.name, device.id, { customerId: device.customerId, displayName: device.displayName }, device.id, input.user.id);
+    return toDeviceView(device);
   },
 
   async moveDevice(input: { id: string; customerId: string; user: AuthUser }) {
@@ -604,19 +791,62 @@ export const repository = {
       ...session,
       requestedAt: session.requestedAt.toISOString(),
       endedAt: toIso(session.endedAt),
-      status: session.status.toLowerCase(),
-      connection: {
-        protocol: "rustdesk",
-        uri: `rustdesk://connection/new/${encodeURIComponent(device.remoteId)}`,
-        command: `rustdesk.exe --connect "${device.remoteId}"`
+      status: session.status.toLowerCase()
+    };
+  },
+
+  async approveRemoteSession(input: { id: string; user: AuthUser }) {
+    const current = await prisma.remoteSession.findUnique({
+      where: { id: input.id },
+      include: { device: true }
+    });
+    if (!current) return null;
+    if (current.status !== "REQUESTED") return { kind: "unchanged" as const, status: current.status.toLowerCase() };
+
+    const session = await prisma.remoteSession.update({
+      where: { id: current.id },
+      data: { status: "APPROVED" },
+      include: { device: true }
+    });
+    await addAudit("remote-session.approved", input.user.name, session.deviceId, { sessionId: session.id }, session.deviceId, input.user.id);
+    return {
+      kind: "approved" as const,
+      session: {
+        ...session,
+        requestedAt: session.requestedAt.toISOString(),
+        endedAt: toIso(session.endedAt),
+        status: session.status.toLowerCase(),
+        connection: {
+          protocol: "rustdesk",
+          uri: `rustdesk://connection/new/${encodeURIComponent(session.device.remoteId)}`,
+          command: `rustdesk.exe --connect "${session.device.remoteId}"`
+        }
       }
     };
   },
 
+  async denyRemoteSession(input: { id: string; user: AuthUser }) {
+    const current = await prisma.remoteSession.findUnique({ where: { id: input.id } });
+    if (!current) return null;
+    if (current.status !== "REQUESTED") return { kind: "unchanged" as const, status: current.status.toLowerCase() };
+
+    const session = await prisma.remoteSession.update({ where: { id: current.id }, data: { status: "DENIED" } });
+    await addAudit("remote-session.denied", input.user.name, session.deviceId, { sessionId: session.id }, session.deviceId, input.user.id);
+    return { kind: "denied" as const, status: session.status.toLowerCase() };
+  },
+
   async listSessions() {
-    const sessions = await prisma.remoteSession.findMany({ orderBy: { requestedAt: "desc" } });
+    const sessions = await prisma.remoteSession.findMany({
+      orderBy: { requestedAt: "desc" },
+      take: 50,
+      include: { device: { select: { displayName: true, remoteId: true, customer: { select: { name: true } } } } }
+    });
     return sessions.map((session) => ({
       ...session,
+      deviceName: session.device.displayName,
+      customerName: session.device.customer.name,
+      remoteId: session.device.remoteId,
+      device: undefined,
       requestedAt: session.requestedAt.toISOString(),
       endedAt: toIso(session.endedAt),
       status: session.status.toLowerCase()
@@ -676,7 +906,7 @@ export const repository = {
   async summary() {
     const [customers, devices, sessions] = await Promise.all([
       prisma.customer.count(),
-      prisma.device.findMany({ select: { lastSeenAt: true } }),
+      prisma.device.findMany({ where: { archivedAt: null }, select: { lastSeenAt: true } }),
       prisma.remoteSession.count()
     ]);
 

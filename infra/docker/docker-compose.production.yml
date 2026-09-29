@@ -29,6 +29,23 @@ services:
       postgres:
         condition: service_healthy
 
+  bootstrap:
+    build:
+      context: ../..
+      dockerfile: infra/docker/api.Dockerfile
+      target: runtime
+    restart: "no"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:?Defina BOOTSTRAP_ADMIN_EMAIL}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?Defina BOOTSTRAP_ADMIN_PASSWORD}
+      BOOTSTRAP_ADMIN_NAME: ${BOOTSTRAP_ADMIN_NAME:?Defina BOOTSTRAP_ADMIN_NAME}
+    command: ["node", "services/api/dist/bootstrap.js"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
   api:
     build:
       context: ../..
@@ -51,7 +68,7 @@ services:
       timeout: 5s
       retries: 12
     depends_on:
-      migrate:
+      bootstrap:
         condition: service_completed_successfully
 
   web:

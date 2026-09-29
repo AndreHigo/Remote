@@ -35,6 +35,7 @@ model User {
   passwordHash String
   role         UserRole @default(TECHNICIAN)
   active       Boolean  @default(true)
+  sessionVersion Int     @default(0)
   twoFactorEnabled Boolean @default(false)
   twoFactorSecret  String?
   createdAt    DateTime @default(now())
@@ -92,6 +93,7 @@ model Device {
   identityHash String?
   tags         String[]  @default([])
   lastSeenAt   DateTime?
+  archivedAt   DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -107,6 +109,7 @@ model Device {
   @@index([primaryMac])
   @@index([identityHash])
   @@index([lastSeenAt])
+  @@index([archivedAt])
 }
 
 model RemoteSession {
