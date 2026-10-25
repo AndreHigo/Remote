@@ -22,7 +22,7 @@ import {
 } from "./auth.js";
 import { prisma } from "./db.js";
 import { repository } from "./repository.js";
-import { createRateLimiter } from "./rate-limit.js";
+import { createRateLimiter, getRateLimitStoreStatus } from "./rate-limit.js";
 
 const app = express();
 const port = Number(process.env.PORT ?? 4100);
@@ -163,7 +163,12 @@ app.get("/health", (_request, response) => {
 app.get("/ready", async (_request, response) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
-    response.json({ ok: true, service: "remoto-api", database: "ready" });
+    const rateLimitStore = await getRateLimitStoreStatus();
+    if (rateLimitStore === "unavailable") {
+      response.status(503).json({ ok: false, service: "remoto-api", database: "ready", rateLimit: "unavailable" });
+      return;
+    }
+    response.json({ ok: true, service: "remoto-api", database: "ready", rateLimit: rateLimitStore });
   } catch {
     response.status(503).json({ ok: false, service: "remoto-api", database: "unavailable" });
   }

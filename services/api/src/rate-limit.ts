@@ -76,6 +76,20 @@ export function createRateLimiter(options: RateLimitOptions) {
   };
 }
 
+export async function getRateLimitStoreStatus(): Promise<"redis" | "memory" | "unavailable"> {
+  const redisUrl = process.env.REDIS_URL;
+  if (!redisUrl) return process.env.NODE_ENV === "production" ? "unavailable" : "memory";
+
+  try {
+    const client = getRedisClient(redisUrl);
+    if (!client.isOpen) await client.connect();
+    await client.ping();
+    return "redis";
+  } catch {
+    return "unavailable";
+  }
+}
+
 function consumeMemory(entries: Map<string, RateLimitEntry>, maxEntries: number, key: string, windowMs: number) {
   const now = Date.now();
   const current = entries.get(key);

@@ -5,6 +5,7 @@
 - A API usa um contador atomico com `INCR` e `PEXPIRE` no Redis quando `REDIS_URL` esta configurada.
 - A chave persistida e um hash SHA-256 do nome do limite e da identidade, sem gravar IP, email ou chave de agente em texto.
 - Em producao, `REDIS_URL` e obrigatoria no processo da API, no Compose e no preflight.
+- O endpoint `/ready` verifica PostgreSQL e Redis; o container fica fora do pool saudavel se o rate limit distribuido nao estiver acessivel.
 - Se Redis nao estiver configurado, o desenvolvimento local continua usando o fallback em memoria. Se estiver configurado e indisponivel, a producao falha fechado com `rate_limit_unavailable`.
 
 ## Validacao
