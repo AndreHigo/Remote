@@ -91,7 +91,7 @@ jobs:
           Get-Content -LiteralPath release-manifest.txt
 
       - name: Upload installers
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: remoto-windows-${{ github.ref_name }}
           path: |
@@ -109,7 +109,7 @@ jobs:
       contents: write
     steps:
       - name: Download signed artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: remoto-windows-${{ github.ref_name }}
           path: release
