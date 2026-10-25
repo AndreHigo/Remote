@@ -2,8 +2,8 @@
 
 ## Estado atual
 
-- commit de referencia: `ea202b8`;
-- CI remoto verde no GitHub Actions: [Remoto CI 40218670514](https://github.com/AndreHigo/Remote/actions/runs/40218670514);
+- commit de referencia: `5606083`;
+- CI remoto verde no GitHub Actions: [Remoto CI 40219712552](https://github.com/AndreHigo/Remote/actions/runs/40219712552);
 - o CI passou nos testes de seguranca, agente, desktop-control e realtime;
 - typecheck, build, preflight dos Compose e empacotamento Windows do Agent e do Operator passaram;
 - o pacote Windows inclui o diagnostico automatico do host e a criacao da tarefa interativa de logon;
@@ -13,6 +13,7 @@
 - o autostart interativo do modo jogo usa a tarefa `RemotoAgentDesktop` com logon interativo e remove o fallback legado quando o Agendador de Tarefas esta disponivel;
 - os endpoints de sessao e comandos limitam motivo, chaves e payloads operacionais antes de persistir ou encaminhar dados;
 - o smoke test local pode ser repetido com `npm run smoke:local`, validando Postgres, API, relay, cadastro do agente e conexao do host.
+- o procedimento de restauracao do backup criptografado esta versionado em `infra/docker/restore-postgres.ps1` e exige `-ConfirmRestore`.
 
 ## Validacao local
 
@@ -26,7 +27,7 @@ npx prisma validate --schema services/api/prisma/schema.prisma
 npx prisma migrate diff --from-migrations services/api/prisma/migrations --to-schema services/api/prisma/schema.prisma --script
 ```
 
-O CI do commit `ea202b8` tambem passou na auditoria de dependencias, nos testes de seguranca, no typecheck, no build, no preflight dos Compose e no empacotamento Windows do Agent e do Operator.
+O CI do commit `5606083` tambem passou na auditoria de dependencias, nos testes de seguranca, no typecheck, no build, no preflight dos Compose e no empacotamento Windows do Agent e do Operator.
 
 A auditoria estrutural de seguranca do commit `8053b42` terminou sem achados validados nas superficies criticas revisadas. A cobertura foi source-backed e parcial: ainda nao substitui homologacao em duas maquinas, teste pela internet ou revisao independente em ambiente de producao. O limite de payload adicionado em `d1c6fe6` foi validado separadamente por testes e typecheck.
 

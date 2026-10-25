@@ -66,3 +66,11 @@ Com a stack em execucao, gere um backup local do banco antes de mudancas:
 ```powershell
 powershell -ExecutionPolicy Bypass -File infra/docker/backup-postgres.ps1
 ```
+
+Para restaurar, confirme explicitamente a operacao destrutiva e informe o arquivo cifrado:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File infra/docker/restore-postgres.ps1 -BackupPath .\backups\remoto-20261025-170000.sql.enc -ConfirmRestore
+```
+
+O restore verifica o cabecalho `RMBK1`, a chave HMAC e a descriptografia antes de enviar o SQL ao PostgreSQL. Execute primeiro em uma base de homologacao e mantenha o arquivo de ambiente correspondente ao backup.

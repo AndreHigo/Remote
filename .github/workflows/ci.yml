@@ -137,7 +137,9 @@ jobs:
             "apps/agent/scripts/install-package.ps1",
             "apps/agent/scripts/uninstall-package.ps1",
             "apps/agent/scripts/install-windows-service.ps1",
-            "scripts/smoke-local.ps1"
+            "scripts/smoke-local.ps1",
+            "infra/docker/backup-postgres.ps1",
+            "infra/docker/restore-postgres.ps1"
           )
           foreach ($file in $files) {
             [scriptblock]::Create((Get-Content -LiteralPath $file -Raw)) | Out-Null
