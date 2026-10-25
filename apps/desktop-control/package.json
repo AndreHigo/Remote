@@ -5,7 +5,7 @@
   "type": "module",
   "exports": {
     "./realtime": {
-      "types": "./dist/realtime.d.ts",
+      "types": "./src/realtime.ts",
       "default": "./dist/realtime.js"
     }
   },

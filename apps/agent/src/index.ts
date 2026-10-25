@@ -17,6 +17,7 @@ interface AgentConfigFile {
   apiUrl?: string;
   agentKey?: string;
   stateFile?: string;
+  ffmpegPath?: string;
 }
 
 interface AgentConfig {
@@ -27,6 +28,7 @@ interface AgentConfig {
   commandIntervalSeconds: number;
   inventoryIntervalSeconds: number;
   remoteSessionIntervalSeconds: number;
+  ffmpegPath?: string;
 }
 
 let config: AgentConfig;
@@ -285,7 +287,7 @@ async function reportRemoteSessions(state: AgentState) {
     if (session.mode !== "game" || activeRemoteSessions.has(session.sessionId)) continue;
     try {
       const connection = await connectRemoteSession(session, {
-        capture: { quality: "auto", encoder: "cpu" },
+        capture: { quality: "auto", encoder: "cpu", ffmpegPath: config.ffmpegPath },
         onClosed: (reason) => {
           activeRemoteSessions.delete(session.sessionId);
           console.log(`sessao remota encerrada: ${session.sessionId} (${reason})`);
@@ -663,7 +665,8 @@ async function loadConfig(): Promise<AgentConfig> {
     heartbeatIntervalSeconds: readInterval("REMOTO_AGENT_HEARTBEAT_SECONDS", 30),
     commandIntervalSeconds: readInterval("REMOTO_AGENT_COMMAND_SECONDS", 10),
     inventoryIntervalSeconds: readInterval("REMOTO_AGENT_INVENTORY_SECONDS", 300),
-    remoteSessionIntervalSeconds: readInterval("REMOTO_AGENT_SESSION_SECONDS", 5)
+    remoteSessionIntervalSeconds: readInterval("REMOTO_AGENT_SESSION_SECONDS", 5),
+    ffmpegPath: process.env.REMOTO_FFMPEG_PATH ?? fileConfig.ffmpegPath
   };
 }
 

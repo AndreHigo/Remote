@@ -1,4 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
 
 export type VideoQuality = "auto" | "low" | "balanced" | "high";
 export type VideoEncoder = "cpu" | "nvidia" | "amd" | "intel";
@@ -10,6 +12,7 @@ export interface CaptureProfile {
   height?: number;
   fps?: number;
   bitrateKbps?: number;
+  ffmpegPath?: string;
 }
 
 export interface CaptureProcess {
@@ -65,7 +68,7 @@ export function startWindowsCapture(profile: CaptureProfile = defaultProfile): C
     throw new Error("A captura gdigrab esta disponivel apenas no Windows.");
   }
 
-  const executable = process.env.REMOTO_FFMPEG_PATH ?? "ffmpeg.exe";
+  const executable = profile.ffmpegPath ?? process.env.REMOTO_FFMPEG_PATH ?? findFfmpegExecutable();
   const child = spawn(executable, buildWindowsCaptureArgs(profile), {
     stdio: "pipe",
     windowsHide: true
@@ -77,6 +80,17 @@ export function startWindowsCapture(profile: CaptureProfile = defaultProfile): C
       if (!child.killed) child.kill();
     }
   };
+}
+
+function findFfmpegExecutable() {
+  const candidates = [
+    path.join(path.dirname(process.execPath), "ffmpeg.exe"),
+    path.join(process.env.ProgramFiles ?? "C:\\Program Files", "ffmpeg", "bin", "ffmpeg.exe"),
+    path.join(process.env.ProgramFiles ?? "C:\\Program Files", "FFmpeg", "bin", "ffmpeg.exe"),
+    path.join(process.env.ProgramData ?? "C:\\ProgramData", "chocolatey", "bin", "ffmpeg.exe"),
+    path.join(process.env.LOCALAPPDATA ?? "", "Microsoft", "WinGet", "Packages", "Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe", "ffmpeg-8.1.2-full_build", "bin", "ffmpeg.exe")
+  ];
+  return candidates.find((candidate) => fs.existsSync(candidate)) ?? "ffmpeg.exe";
 }
 
 function encoderName(encoder: VideoEncoder) {

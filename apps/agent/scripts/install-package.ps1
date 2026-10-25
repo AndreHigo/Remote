@@ -47,6 +47,13 @@ $configJson = @{
   apiUrl = $ApiUrl.TrimEnd("/")
   agentKey = $AgentKey.Trim()
   stateFile = ".remoto-agent.state.json"
+  ffmpegPath = $(
+    if ($env:REMOTO_FFMPEG_PATH) { $env:REMOTO_FFMPEG_PATH }
+    else {
+      $ffmpeg = Get-Command ffmpeg.exe -ErrorAction SilentlyContinue
+      if ($ffmpeg) { $ffmpeg.Source } else { $null }
+    }
+  )
 } | ConvertTo-Json
 [System.IO.File]::WriteAllText($ConfigPath, $configJson, [System.Text.UTF8Encoding]::new($false))
 

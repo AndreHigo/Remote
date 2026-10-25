@@ -60,6 +60,11 @@ export async function connectRemoteSession(
           try {
             input = new WindowsInputBridge();
             capture = startWindowsCapture(options.capture);
+            let captureError = "";
+            capture.process.stderr.setEncoding("utf8");
+            capture.process.stderr.on("data", (chunk: string) => {
+              captureError = `${captureError}${chunk}`.slice(-2000);
+            });
             capture.process.on("data", (chunk) => {
               if (socket.readyState !== WebSocket.OPEN) return;
               // Drop stale chunks instead of building a queue that makes gameplay lag.
@@ -67,6 +72,9 @@ export async function connectRemoteSession(
               socket.send(chunk);
             });
             capture.process.once("error", (error) => closeWithReason(`captura: ${error.message}`));
+            capture.process.once("close", (code) => {
+              if (code !== null && code !== 0) closeWithReason(`captura encerrou (${code}): ${captureError.trim() || "erro do FFmpeg"}`);
+            });
           } catch (error) {
             closeWithReason(error instanceof Error ? error.message : String(error));
             fail(error instanceof Error ? error : new Error(String(error)));
