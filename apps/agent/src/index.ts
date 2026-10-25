@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { connectRemoteSession, type RealtimeConnection } from "@remoto/desktop-control/realtime";
-import { resolveFfmpegExecutable } from "@remoto/desktop-control/capture";
+import { inspectFfmpegCapabilities, resolveFfmpegExecutable } from "@remoto/desktop-control/capture";
 import { validateEndpointUrl } from "./url-policy.js";
 import { buildCaptureReadiness, readCaptureProfile } from "./capture-config.js";
 
@@ -424,7 +424,17 @@ async function collectInventory() {
         agent: "remoto-agent-cli",
         agentVersion: "0.1.0"
       },
-      capture: buildCaptureReadiness(config.captureProfile, Boolean(resolveFfmpegExecutable(config.ffmpegPath))),
+      capture: (() => {
+        const capabilities = inspectFfmpegCapabilities(config.ffmpegPath, config.captureProfile);
+        return buildCaptureReadiness(config.captureProfile, {
+          ffmpegAvailable: capabilities.available,
+          videoEncoderAvailable: capabilities.videoEncoderAvailable,
+          cpuEncoderAvailable: capabilities.cpuEncoderAvailable,
+          resolvedEncoder: capabilities.selectedEncoder,
+          resolvedCaptureMethod: capabilities.selectedCaptureMethod,
+          availableCaptureMethods: capabilities.captureMethods
+        });
+      })(),
       installed: []
     }
   };

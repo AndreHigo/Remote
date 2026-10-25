@@ -29,11 +29,23 @@ test("rejeita perfil e limites invalidos", () => {
 
 test("expõe prontidao do modo jogo sem esconder o fallback de CPU", () => {
   const profile = readCaptureProfile({ captureQuality: "balanced", captureEncoder: "cpu", captureFps: "60" });
-  assert.deepEqual(buildCaptureReadiness(profile, true), {
+  assert.deepEqual(buildCaptureReadiness(profile, {
+    ffmpegAvailable: true,
+    videoEncoderAvailable: true,
+    cpuEncoderAvailable: true,
+    resolvedEncoder: "cpu",
+    resolvedCaptureMethod: "gdigrab",
+    availableCaptureMethods: ["gdigrab"]
+  }), {
     gameModeReady: true,
     ffmpegAvailable: true,
+    videoEncoderAvailable: true,
+    cpuEncoderAvailable: true,
     encoder: "cpu",
+    resolvedEncoder: "cpu",
     captureMethod: "auto",
+    resolvedCaptureMethod: "gdigrab",
+    availableCaptureMethods: ["gdigrab"],
     quality: "balanced",
     width: undefined,
     height: undefined,
@@ -41,15 +53,34 @@ test("expõe prontidao do modo jogo sem esconder o fallback de CPU", () => {
     bitrateKbps: undefined,
     cpuFallback: true
   });
-  assert.equal(buildCaptureReadiness(profile, false).gameModeReady, false);
+  assert.equal(buildCaptureReadiness(profile).gameModeReady, false);
 });
 
 test("nao marca qualidade auto como fallback de CPU antes da deteccao do encoder", () => {
   const profile = readCaptureProfile({});
-  assert.equal(buildCaptureReadiness(profile, true).cpuFallback, false);
+  assert.equal(buildCaptureReadiness(profile, {
+    ffmpegAvailable: true,
+    videoEncoderAvailable: true,
+    cpuEncoderAvailable: true,
+    resolvedEncoder: "nvidia",
+    resolvedCaptureMethod: "ddagrab",
+    availableCaptureMethods: ["gdigrab", "ddagrab"]
+  }).cpuFallback, false);
 });
 
 test("permite escolher o metodo de captura pelo ambiente", () => {
   assert.equal(readCaptureProfile({}, { REMOTO_CAPTURE_METHOD: "ddagrab" }).captureMethod, "ddagrab");
   assert.throws(() => readCaptureProfile({}, { REMOTO_CAPTURE_METHOD: "desktop-duplication" }), /REMOTO_CAPTURE_METHOD/);
+});
+
+test("aceita ddagrab quando ele e o unico metodo disponivel", () => {
+  const profile = readCaptureProfile({});
+  assert.equal(buildCaptureReadiness(profile, {
+    ffmpegAvailable: true,
+    videoEncoderAvailable: true,
+    cpuEncoderAvailable: true,
+    resolvedEncoder: "cpu",
+    resolvedCaptureMethod: "ddagrab",
+    availableCaptureMethods: ["ddagrab"]
+  }).gameModeReady, true);
 });

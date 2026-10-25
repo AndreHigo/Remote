@@ -13,8 +13,13 @@ export interface CaptureConfigValues {
 export interface CaptureReadiness {
   gameModeReady: boolean;
   ffmpegAvailable: boolean;
+  videoEncoderAvailable: boolean;
+  cpuEncoderAvailable: boolean;
   encoder: VideoEncoder;
+  resolvedEncoder: Exclude<VideoEncoder, "auto">;
   captureMethod: CaptureMethod;
+  resolvedCaptureMethod: Exclude<CaptureMethod, "auto">;
+  availableCaptureMethods: Array<Exclude<CaptureMethod, "auto">>;
   quality: VideoQuality;
   width?: number;
   height?: number;
@@ -43,18 +48,33 @@ export function readCaptureProfile(fileConfig: CaptureConfigValues, environment:
   };
 }
 
-export function buildCaptureReadiness(profile: CaptureProfile, ffmpegAvailable: boolean): CaptureReadiness {
+export function buildCaptureReadiness(
+  profile: CaptureProfile,
+  capabilities: Pick<CaptureReadiness, "ffmpegAvailable" | "videoEncoderAvailable" | "cpuEncoderAvailable" | "resolvedEncoder" | "resolvedCaptureMethod" | "availableCaptureMethods"> = {
+    ffmpegAvailable: false,
+    videoEncoderAvailable: false,
+    cpuEncoderAvailable: false,
+    resolvedEncoder: "cpu",
+    resolvedCaptureMethod: "gdigrab",
+    availableCaptureMethods: []
+  }
+): CaptureReadiness {
   return {
-    gameModeReady: ffmpegAvailable,
-    ffmpegAvailable,
+    gameModeReady: capabilities.ffmpegAvailable && capabilities.videoEncoderAvailable && capabilities.availableCaptureMethods.includes(capabilities.resolvedCaptureMethod),
+    ffmpegAvailable: capabilities.ffmpegAvailable,
+    videoEncoderAvailable: capabilities.videoEncoderAvailable,
+    cpuEncoderAvailable: capabilities.cpuEncoderAvailable,
     encoder: profile.encoder,
+    resolvedEncoder: capabilities.resolvedEncoder,
     captureMethod: profile.captureMethod ?? "auto",
+    resolvedCaptureMethod: capabilities.resolvedCaptureMethod,
+    availableCaptureMethods: capabilities.availableCaptureMethods,
     quality: profile.quality,
     width: profile.width,
     height: profile.height,
     fps: profile.fps,
     bitrateKbps: profile.bitrateKbps,
-    cpuFallback: profile.encoder === "cpu"
+    cpuFallback: capabilities.resolvedEncoder === "cpu"
   };
 }
 

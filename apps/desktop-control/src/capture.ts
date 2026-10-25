@@ -22,6 +22,17 @@ export interface CaptureProcess {
   stop(): void;
 }
 
+export interface FfmpegCapabilities {
+  executable: string | null;
+  available: boolean;
+  videoEncoderAvailable: boolean;
+  cpuEncoderAvailable: boolean;
+  hardwareEncoders: Array<Exclude<VideoEncoder, "auto" | "cpu">>;
+  captureMethods: Array<Exclude<CaptureMethod, "auto">>;
+  selectedEncoder: Exclude<VideoEncoder, "auto">;
+  selectedCaptureMethod: Exclude<CaptureMethod, "auto">;
+}
+
 const defaultProfile: Required<Pick<CaptureProfile, "quality" | "encoder">> = {
   quality: "auto",
   encoder: "auto"
@@ -89,6 +100,60 @@ export function startWindowsCapture(profile: CaptureProfile = defaultProfile): C
   };
 }
 
+export function inspectFfmpegCapabilities(preferredPath?: string, profile: CaptureProfile = defaultProfile): FfmpegCapabilities {
+  const executable = resolveFfmpegExecutable(preferredPath);
+  if (!executable) {
+    return {
+      executable: null,
+      available: false,
+      videoEncoderAvailable: false,
+      cpuEncoderAvailable: false,
+      hardwareEncoders: [],
+      captureMethods: [],
+      selectedEncoder: "cpu",
+      selectedCaptureMethod: "gdigrab"
+    };
+  }
+
+  const encodersOutput = runFfmpegProbe(executable, ["-hide_banner", "-encoders"]);
+  const filtersOutput = runFfmpegProbe(executable, ["-hide_banner", "-filters"]);
+  const formatsOutput = runFfmpegProbe(executable, ["-hide_banner", "-formats"]);
+  const hardwareEncoders = ([
+    ["nvidia", "h264_nvenc"],
+    ["amd", "h264_amf"],
+    ["intel", "h264_qsv"]
+  ] as const)
+    .filter(([, name]) => new RegExp(`\\b${name}\\b`).test(encodersOutput))
+    .map(([encoder]) => encoder);
+  const availableEncoders = [
+    ...hardwareEncoders.map((encoder) => encoderName(encoder)),
+    ...( /\blibx264\b/.test(encodersOutput) ? ["libx264"] : [])
+  ];
+  const captureMethods = [
+    ...( /(?:^|\s)gdigrab(?:\s|$)/m.test(formatsOutput) ? ["gdigrab" as const] : []),
+    ...( /(?:^|\s)ddagrab(?:\s|$)/m.test(filtersOutput) ? ["ddagrab" as const] : [])
+  ];
+  const cpuEncoderAvailable = availableEncoders.includes("libx264");
+  const videoEncoderAvailable = cpuEncoderAvailable || hardwareEncoders.length > 0;
+  const selectedEncoder = videoEncoderAvailable
+    ? selectCaptureEncoder(profile.encoder, availableEncoders)
+    : "cpu";
+  const selectedCaptureMethod = captureMethods.length > 0
+    ? selectCaptureMethod(profile.captureMethod ?? "auto", captureMethods)
+    : "gdigrab";
+
+  return {
+    executable,
+    available: true,
+    videoEncoderAvailable,
+    cpuEncoderAvailable,
+    hardwareEncoders,
+    captureMethods,
+    selectedEncoder,
+    selectedCaptureMethod
+  };
+}
+
 export function selectCaptureEncoder(requested: VideoEncoder, availableEncoders: Iterable<string>): Exclude<VideoEncoder, "auto"> {
   const available = new Set(availableEncoders);
   if (requested !== "auto" && requested !== "cpu") {
@@ -137,6 +202,20 @@ function resolveCaptureMethod(requested: CaptureMethod, executable: string): Exc
     return selectCaptureMethod(requested, available);
   } catch {
     return "gdigrab";
+  }
+}
+
+function runFfmpegProbe(executable: string, args: string[]) {
+  try {
+    return execFileSync(executable, args, {
+      encoding: "utf8",
+      timeout: 2_000,
+      windowsHide: true,
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+  } catch (error) {
+    const output = error as { stdout?: string; stderr?: string };
+    return `${output.stdout ?? ""}\n${output.stderr ?? ""}`;
   }
 }
 
