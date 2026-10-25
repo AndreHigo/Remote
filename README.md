@@ -86,6 +86,7 @@ npm run agent:status
 npm run agent:service:install
 npm run agent:service:uninstall
 npm run operator:package:windows
+npm run smoke:local
 ```
 
 Servidor RustDesk OSS de laboratorio:
