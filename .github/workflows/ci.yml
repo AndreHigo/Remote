@@ -53,6 +53,7 @@ jobs:
           POSTGRES_USER: remoto
           POSTGRES_PASSWORD: ci-postgres-password-123456789
           JWT_SECRET: ci-jwt-secret-123456789012345678901234
+          DESKTOP_SESSION_SECRET: ci-desktop-session-secret-123456789012345678901234
           TOTP_ENCRYPTION_KEY: ci-totp-secret-123456789012345678901234
           REALTIME_INTERNAL_SECRET: ci-realtime-secret-123456789012345678901234
           REALTIME_ALLOWED_ORIGINS: https://remoto.test.example
@@ -63,5 +64,4 @@ jobs:
         run: docker compose -f infra/docker/docker-compose.production.yml config
 
       - name: Dependency audit report
-        continue-on-error: true
         run: npm audit --audit-level=high
