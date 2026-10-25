@@ -240,7 +240,8 @@ app.post(
 app.post("/auth/logout", authenticate, async (request, response) => {
   const user = (request as AuthenticatedRequest).user;
   await prisma.user.update({ where: { id: user.id }, data: { sessionVersion: { increment: 1 } } });
-  await repository.revokeUserRemoteSessions({ userId: user.id, actor: user.name, reason: "logout" });
+  const revokedSessions = await repository.revokeUserRemoteSessions({ userId: user.id, actor: user.name, reason: "logout" });
+  void Promise.all(revokedSessions.map((sessionId) => closeRealtimeSession(sessionId)));
   clearSessionCookie(response);
   response.json({ ok: true });
 });
@@ -337,6 +338,19 @@ app.post("/agent/devices/register", authenticateAgent, async (request, response)
       });
     }
     throw error;
+  }
+
+  if (device && "kind" in device && device.kind === "identity-conflict") {
+    if (claimedKey) {
+      await prisma.agentEnrollmentKey.updateMany({
+        where: { id: agent.id, boundRemoteId: parsed.data.remoteId },
+        data: { boundRemoteId: null }
+      });
+    }
+    response.status(409).json({
+      message: "A identidade informada ja pertence a outro computador. Use a chave criada para esse computador ou gere uma nova chave."
+    });
+    return;
   }
 
   if (!device) {
@@ -600,7 +614,9 @@ app.post("/auth/2fa/enable", requireRole(["owner", "admin", "technician"]), asyn
       metadata: { email: user.email }
     }
   });
-  response.json({ enabled: true, sessionRevoked: true });
+  const revokedSessions = await repository.revokeUserRemoteSessions({ userId: user.id, actor: user.name, reason: "2fa-enabled" });
+  void Promise.all(revokedSessions.map((sessionId) => closeRealtimeSession(sessionId)));
+  response.json({ enabled: true, sessionRevoked: true, remoteSessionsRevoked: revokedSessions.length });
 });
 
 app.post("/auth/2fa/disable", requireRole(["owner", "admin", "technician"]), async (request, response) => {
@@ -629,7 +645,9 @@ app.post("/auth/2fa/disable", requireRole(["owner", "admin", "technician"]), asy
       metadata: { email: user.email }
     }
   });
-  response.json({ enabled: false, sessionRevoked: true });
+  const revokedSessions = await repository.revokeUserRemoteSessions({ userId: user.id, actor: user.name, reason: "2fa-disabled" });
+  void Promise.all(revokedSessions.map((sessionId) => closeRealtimeSession(sessionId)));
+  response.json({ enabled: false, sessionRevoked: true, remoteSessionsRevoked: revokedSessions.length });
 });
 
 app.get("/summary", async (request, response) => {
@@ -777,7 +795,9 @@ app.post("/agent-keys/:id/revoke", requireRole(["owner", "admin"]), async (reque
     return;
   }
 
-  response.json(revoked);
+  const { sessionIds, ...view } = revoked;
+  void Promise.all(sessionIds.map((sessionId) => closeRealtimeSession(sessionId)));
+  response.json(view);
 });
 
 app.get("/devices", async (request, response) => {

@@ -19,7 +19,9 @@
   }
 
   handle_path /realtime/* {
-    reverse_proxy realtime:4200
+    reverse_proxy realtime:4200 {
+      header_up X-Remoto-Client-IP {remote_host}
+    }
   }
 
   handle {

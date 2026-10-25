@@ -137,7 +137,7 @@ async function findDeviceByIdentity(input: {
     });
 
     if (device) {
-      return { id: device.id, matchedBy: candidate.field, tags: device.tags };
+      return { id: device.id, remoteId: device.remoteId, matchedBy: candidate.field, tags: device.tags };
     }
   }
 
@@ -205,10 +205,38 @@ export const repository = {
     });
     if (!current || current.customer.workspaceId !== input.user.workspaceId) return null;
 
+    const device = current.boundRemoteId
+      ? await prisma.device.findFirst({
+          where: { customerId: current.customerId, remoteId: current.boundRemoteId, archivedAt: null },
+          select: { id: true }
+        })
+      : null;
+    const activeSessions = device
+      ? await prisma.remoteSession.findMany({ where: { deviceId: device.id, status: { not: "ENDED" } }, select: { id: true, deviceId: true } })
+      : [];
+
     const key = await prisma.agentEnrollmentKey.update({
       where: { id: input.id },
       data: { active: false }
     });
+
+    if (activeSessions.length > 0) {
+      const endedAt = now();
+      await prisma.remoteSession.updateMany({
+        where: { id: { in: activeSessions.map((session) => session.id) }, status: { not: "ENDED" } },
+        data: { status: "ENDED", endedAt, connectionTokenUsedAt: endedAt }
+      });
+      for (const session of activeSessions) {
+        await addAudit(
+          "remote-session.revoked",
+          input.user.name,
+          session.deviceId,
+          { sessionId: session.id, reason: "agent-key-revoked" },
+          session.deviceId,
+          input.user.id
+        );
+      }
+    }
 
     await addAudit(
       "agent-key.revoked",
@@ -227,7 +255,8 @@ export const repository = {
       active: key.active,
       boundRemoteId: key.boundRemoteId,
       createdAt: key.createdAt.toISOString(),
-      lastUsedAt: toIso(key.lastUsedAt)
+      lastUsedAt: toIso(key.lastUsedAt),
+      sessionIds: activeSessions.map((session) => session.id)
     };
   },
 
@@ -639,6 +668,9 @@ export const repository = {
     if (!customer) return null;
 
     const existingDevice = await findDeviceByIdentity(input);
+    if (existingDevice && existingDevice.remoteId !== input.remoteId) {
+      return { kind: "identity-conflict" as const, matchedBy: existingDevice.matchedBy };
+    }
     const deviceData = {
       customerId: input.customerId,
       displayName: input.displayName,
@@ -758,7 +790,7 @@ export const repository = {
 
   async listInventory(deviceId: string, user?: AuthUser) {
     if (user) {
-      const device = await prisma.device.findFirst({ where: { id: deviceId, customer: { workspaceId: user.workspaceId } }, select: { id: true } });
+      const device = await prisma.device.findFirst({ where: { id: deviceId, archivedAt: null, customer: { workspaceId: user.workspaceId } }, select: { id: true } });
       if (!device) return [];
     }
     const snapshots = await prisma.inventorySnapshot.findMany({
@@ -1292,7 +1324,7 @@ export const repository = {
       where: { userId: input.userId, status: { not: "ENDED" } },
       select: { id: true, deviceId: true }
     });
-    if (activeSessions.length === 0) return 0;
+    if (activeSessions.length === 0) return [];
 
     await prisma.remoteSession.updateMany({
       where: { userId: input.userId, status: { not: "ENDED" } },
@@ -1308,7 +1340,7 @@ export const repository = {
         input.userId
       );
     }
-    return activeSessions.length;
+    return activeSessions.map((session) => session.id);
   },
 
   async listAuditEvents(user: AuthUser) {

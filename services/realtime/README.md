@@ -19,6 +19,8 @@ Responsabilidades:
 - `REALTIME_MAX_FRAME_BYTES`: limite de cada frame binario;
 - `REALTIME_MAX_BUFFERED_BYTES`: limite de fila por cliente antes de descartar frames;
 - `REALTIME_MAX_PENDING_HANDSHAKES`: limite de autenticacoes simultaneas por endereco.
+- `REALTIME_MAX_PENDING_HANDSHAKES_TOTAL`: limite global de autenticacoes pendentes.
+- `REALTIME_TRUST_PROXY_CLIENT_IP`: usa o cabecalho sanitizado pelo Caddy para separar clientes atras do proxy.
 - `REALTIME_MAX_INPUT_EVENTS_PER_SECOND`: limite de eventos de teclado e mouse por cliente, padrao `1000`.
 
 A API usa `POST /internal/sessions/{id}/close` com `X-Realtime-Secret` para encerrar imediatamente uma sessao administrativa. Essa rota nao e publica e retorna `404` quando a sala nao esta ativa.

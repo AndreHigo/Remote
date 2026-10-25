@@ -228,6 +228,9 @@ begin
   if (not ExecResult) or (ServiceInstallResult <> 0) then begin
     MsgBox('O agente foi copiado, mas o servico nao pode ser iniciado. Codigo: ' +
       IntToStr(ServiceInstallResult) + '.', mbError, MB_OK);
+  end else begin
+    { O perfil contem uma chave bearer de uso inicial; remova a copia de origem apos o cadastro. }
+    DeleteFile(ExpandConstant('{src}\remoto-agent-profile.json'));
   end;
 end;
 

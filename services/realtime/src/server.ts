@@ -9,7 +9,9 @@ const maxBufferedBytes = Number(process.env.REALTIME_MAX_BUFFERED_BYTES ?? 16 * 
 const maxFrameRate = positiveLimit(process.env.REALTIME_MAX_FRAME_RATE, 120);
 const maxFrameBytesPerSecond = positiveLimit(process.env.REALTIME_MAX_FRAME_BYTES_PER_SECOND, 64 * 1024 * 1024);
 const maxInputEventsPerSecond = positiveLimit(process.env.REALTIME_MAX_INPUT_EVENTS_PER_SECOND, 1_000);
-const maxPendingHandshakesPerAddress = Number(process.env.REALTIME_MAX_PENDING_HANDSHAKES ?? 8);
+const maxPendingHandshakesPerAddress = positiveLimit(process.env.REALTIME_MAX_PENDING_HANDSHAKES, 8);
+const maxPendingHandshakesTotal = positiveLimit(process.env.REALTIME_MAX_PENDING_HANDSHAKES_TOTAL, 256);
+const trustProxyClientIp = process.env.REALTIME_TRUST_PROXY_CLIENT_IP === "true";
 const maxConnections = Number(process.env.REALTIME_MAX_CONNECTIONS ?? 256);
 const maxRooms = Number(process.env.REALTIME_MAX_ROOMS ?? 128);
 const apiUrl = process.env.REALTIME_API_URL ?? "http://localhost:4100";
@@ -48,6 +50,7 @@ interface Room {
 export function createRealtimeServer() {
   const rooms = new Map<string, Room>();
   const pendingHandshakes = new Map<string, number>();
+  let pendingHandshakesTotal = 0;
   let activeConnections = 0;
   const server = http.createServer((request, response) => {
     const pathname = new URL(request.url ?? "/", "http://localhost").pathname;
@@ -84,7 +87,12 @@ export function createRealtimeServer() {
       return;
     }
 
-    const address = request.socket.remoteAddress ?? "unknown";
+    if (pendingHandshakesTotal >= maxPendingHandshakesTotal) {
+      activeConnections -= 1;
+      close(socket, "too-many-pending-handshakes");
+      return;
+    }
+    const address = clientAddress(request);
     const pendingForAddress = pendingHandshakes.get(address) ?? 0;
     if (pendingForAddress >= maxPendingHandshakesPerAddress) {
       activeConnections -= 1;
@@ -92,10 +100,12 @@ export function createRealtimeServer() {
       return;
     }
     pendingHandshakes.set(address, pendingForAddress + 1);
+    pendingHandshakesTotal += 1;
     let pendingReleased = false;
     const releasePendingHandshake = () => {
       if (pendingReleased) return;
       pendingReleased = true;
+      pendingHandshakesTotal = Math.max(0, pendingHandshakesTotal - 1);
       const next = (pendingHandshakes.get(address) ?? 1) - 1;
       if (next > 0) pendingHandshakes.set(address, next);
       else pendingHandshakes.delete(address);
@@ -313,6 +323,14 @@ function close(socket: WebSocket, reason: string) {
 function positiveLimit(rawValue: string | undefined, fallback: number) {
   const value = Number(rawValue ?? fallback);
   return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function clientAddress(request: http.IncomingMessage) {
+  if (trustProxyClientIp) {
+    const forwarded = request.headers["x-remoto-client-ip"];
+    if (typeof forwarded === "string" && forwarded.trim()) return forwarded.trim().slice(0, 128);
+  }
+  return request.socket.remoteAddress ?? "unknown";
 }
 
 function secretsMatch(received: string, expected: string) {
