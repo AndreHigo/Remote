@@ -107,9 +107,8 @@ begin
     HasExactHost(LowerValue, 'wss://[::1]');
 end;
 
-function ReadExistingConfigValue(Name: string; DefaultValue: string): string;
+function ReadJsonValue(FilePath: string; Name: string; DefaultValue: string): string;
 var
-  ConfigPath: string;
   Raw: AnsiString;
   Marker: string;
   Tail: string;
@@ -117,9 +116,8 @@ var
   EndPos: Integer;
 begin
   Result := DefaultValue;
-  ConfigPath := ExpandConstant('{app}\.remoto-agent.config.json');
-  if not FileExists(ConfigPath) then Exit;
-  if not LoadStringFromFile(ConfigPath, Raw) then Exit;
+  if not FileExists(FilePath) then Exit;
+  if not LoadStringFromFile(FilePath, Raw) then Exit;
 
   Marker := '"' + Name + '"';
   StartPos := Pos(Marker, Raw);
@@ -134,6 +132,16 @@ begin
   EndPos := Pos('"', Tail);
   if EndPos = 0 then Exit;
   Result := Copy(Tail, 1, EndPos - 1);
+end;
+
+function ReadExistingConfigValue(Name: string; DefaultValue: string): string;
+begin
+  Result := ReadJsonValue(ExpandConstant('{app}\.remoto-agent.config.json'), Name, DefaultValue);
+end;
+
+function ReadInstallerProfileValue(Name: string; DefaultValue: string): string;
+begin
+  Result := ReadJsonValue(ExpandConstant('{src}\remoto-agent-profile.json'), Name, DefaultValue);
 end;
 
 function InstallerParameter(Name: string): string;
@@ -266,6 +274,7 @@ end;
 procedure InitializeWizard;
 var
   ParameterValue: string;
+  ProfileValue: string;
 begin
   ConnectionPage := CreateInputQueryPage(wpSelectDir,
     'Conexao do agente',
@@ -275,15 +284,25 @@ begin
   ConnectionPage.Add('URL do relay realtime:', False);
   ConnectionPage.Add('Chave do agente:', True);
   ConnectionPage.Add('Caminho do FFmpeg (opcional; sera protegido):', False);
-  ConnectionPage.Values[0] := ReadExistingConfigValue('apiUrl', 'http://localhost:4100');
+  ProfileValue := ReadInstallerProfileValue('apiUrl', '');
+  ConnectionPage.Values[0] := ProfileValue;
+  ParameterValue := ReadExistingConfigValue('apiUrl', '');
+  if ParameterValue <> '' then ConnectionPage.Values[0] := ParameterValue;
+  if ConnectionPage.Values[0] = '' then ConnectionPage.Values[0] := 'http://localhost:4100';
   ParameterValue := InstallerParameter('APIURL');
   if ParameterValue <> '' then ConnectionPage.Values[0] := ParameterValue;
 
-  ConnectionPage.Values[1] := ReadExistingConfigValue('realtimeUrl', 'ws://localhost:4200');
+  ProfileValue := ReadInstallerProfileValue('realtimeUrl', '');
+  ConnectionPage.Values[1] := ProfileValue;
+  ParameterValue := ReadExistingConfigValue('realtimeUrl', '');
+  if ParameterValue <> '' then ConnectionPage.Values[1] := ParameterValue;
+  if ConnectionPage.Values[1] = '' then ConnectionPage.Values[1] := 'ws://localhost:4200';
   ParameterValue := InstallerParameter('REALTIMEURL');
   if ParameterValue <> '' then ConnectionPage.Values[1] := ParameterValue;
 
-  ConnectionPage.Values[2] := ReadExistingConfigValue('agentKey', '');
+  ConnectionPage.Values[2] := ReadInstallerProfileValue('agentKey', '');
+  ParameterValue := ReadExistingConfigValue('agentKey', '');
+  if ParameterValue <> '' then ConnectionPage.Values[2] := ParameterValue;
   ParameterValue := InstallerParameter('AGENTKEY');
   if ParameterValue <> '' then ConnectionPage.Values[2] := ParameterValue;
 
