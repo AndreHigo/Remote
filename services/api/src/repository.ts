@@ -426,8 +426,9 @@ export const repository = {
       }
     });
 
+    let sessionIds: string[] = [];
     if (!updated.active || current.role !== updated.role) {
-      await repository.revokeUserRemoteSessions({
+      sessionIds = await repository.revokeUserRemoteSessions({
         userId: updated.id,
         actor: input.user.name,
         reason: !updated.active ? "user-deactivated" : "role-changed"
@@ -451,7 +452,7 @@ export const repository = {
       active: updated.active,
       twoFactorEnabled: updated.twoFactorEnabled,
       createdAt: updated.createdAt.toISOString()
-    } };
+    }, sessionIds };
   },
 
   async resetUserPassword(input: { id: string; password: string; user: AuthUser }) {

@@ -727,6 +727,7 @@ app.patch("/users/:id", requireRole(["owner", "admin"]), async (request, respons
   if (result.kind === "self_deactivate") return void response.status(400).json({ message: "Nao e possivel desativar o proprio usuario" });
   if (result.kind === "last_owner") return void response.status(409).json({ message: "O workspace precisa manter pelo menos um owner ativo" });
   if (result.kind === "conflict") return void response.status(409).json({ message: "Ja existe um usuario com este email" });
+  void closeRealtimeSessions(result.sessionIds);
   response.json(result.user);
 });
 
