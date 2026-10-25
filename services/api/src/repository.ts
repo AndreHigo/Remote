@@ -5,6 +5,7 @@ import { prisma } from "./db.js";
 import { hashPassword } from "./password.js";
 import { createDesktopSessionToken, hashToken, verifyDesktopSessionToken } from "./desktop-session-token.js";
 import { evaluateGameCapability, readGameAudio } from "./game-capability.js";
+import { normalizeDeviceTags } from "./device-tags.js";
 
 const ONLINE_WINDOW_MS = 90_000;
 const MAX_PENDING_COMMANDS_PER_DEVICE = 100;
@@ -136,7 +137,7 @@ async function findDeviceByIdentity(input: {
     });
 
     if (device) {
-      return { id: device.id, matchedBy: candidate.field };
+      return { id: device.id, matchedBy: candidate.field, tags: device.tags };
     }
   }
 
@@ -570,6 +571,30 @@ export const repository = {
     return { kind: "moved" as const, device: toDeviceView(updated) };
   },
 
+  async updateDeviceTags(input: { id: string; tags: string[]; user: AuthUser }) {
+    const current = await prisma.device.findFirst({
+      where: { id: input.id, customer: { workspaceId: input.user.workspaceId } },
+      include: { customer: { select: { name: true } } }
+    });
+    if (!current) return null;
+
+    const tags = normalizeDeviceTags(input.tags);
+    const device = await prisma.device.update({
+      where: { id: current.id },
+      data: { tags },
+      include: { customer: { select: { name: true } } }
+    });
+    await addAudit(
+      "device.tags.updated",
+      input.user.name,
+      device.id,
+      { customerId: device.customerId, tags },
+      device.id,
+      input.user.id
+    );
+    return toDeviceView(device);
+  },
+
   async deleteDevice(input: { id: string; user: AuthUser }) {
     const device = await prisma.device.findFirst({ where: { id: input.id, customer: { workspaceId: input.user.workspaceId } } });
     if (!device) return null;
@@ -625,7 +650,7 @@ export const repository = {
       systemUuid: normalizeIdentity(input.systemUuid),
       primaryMac: normalizeIdentity(input.primaryMac),
       identityHash: normalizeIdentity(input.identityHash),
-      tags: input.tags ?? [],
+      tags: normalizeDeviceTags(existingDevice ? [...existingDevice.tags, ...(input.tags ?? [])] : (input.tags ?? [])),
       lastSeenAt: now()
     };
 

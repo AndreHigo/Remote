@@ -373,6 +373,8 @@ function App() {
   const [activeSection, setActiveSection] = React.useState<AppSection>("overview");
   const [deviceQuery, setDeviceQuery] = React.useState("");
   const [deviceFilter, setDeviceFilter] = React.useState<DeviceFilter>("all");
+  const [deviceTagsDraft, setDeviceTagsDraft] = React.useState("");
+  const [deviceTagsSaving, setDeviceTagsSaving] = React.useState(false);
   const [connectDevice, setConnectDevice] = React.useState<Device | null>(null);
   const [connectReason, setConnectReason] = React.useState("");
   const [connectMode, setConnectMode] = React.useState<"support" | "game">("support");
@@ -404,7 +406,8 @@ function App() {
         device.customerName,
         device.remoteId,
         device.localIp,
-        device.os
+        device.os,
+        ...device.tags
       ].some((value) => value.toLowerCase().includes(normalizedQuery));
       return matchesFilter && matchesQuery;
     });
@@ -419,6 +422,10 @@ function App() {
       setSelectedDeviceId(filteredDevices[0].id);
     }
   }, [filteredDevices, selectedDeviceId]);
+
+  React.useEffect(() => {
+    setDeviceTagsDraft(selectedDevice?.tags.join(", ") ?? "");
+  }, [selectedDevice?.id, selectedDevice?.tags]);
 
   React.useEffect(() => {
     let active = true;
@@ -827,6 +834,26 @@ function App() {
     }
   }
 
+  async function updateDeviceTags(device: Device) {
+    const tags = [...new Set(deviceTagsDraft.split(",").map((tag) => tag.trim()).filter(Boolean))];
+    if (tags.length > 20 || tags.some((tag) => tag.length > 40)) {
+      setStatusMessage("Use ate 20 etiquetas com no maximo 40 caracteres cada");
+      return;
+    }
+
+    setDeviceTagsSaving(true);
+    try {
+      const updated = await patchJson<Device>(`/devices/${device.id}/tags`, token, { tags });
+      setDevices((current) => current.map((item) => item.id === updated.id ? updated : item));
+      setDeviceTagsDraft(updated.tags.join(", "));
+      setStatusMessage("Etiquetas do dispositivo atualizadas");
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "Nao foi possivel atualizar as etiquetas");
+    } finally {
+      setDeviceTagsSaving(false);
+    }
+  }
+
   async function createManagedUser() {
     if (newUserName.trim().length < 2 || !newUserEmail.includes("@") || newUserPassword.length < 8) {
       setStatusMessage("Informe nome, email e senha com pelo menos 8 caracteres");
@@ -1045,6 +1072,10 @@ function App() {
     onDenyRemoteSession={(session) => void denyRemoteSession(session)}
     onEndRemoteSession={(session) => void endRemoteSession(session)}
     onMoveDevice={(device, customerId) => void moveDevice(device, customerId)}
+    deviceTagsDraft={deviceTagsDraft}
+    deviceTagsSaving={deviceTagsSaving}
+    onDeviceTagsDraftChange={setDeviceTagsDraft}
+    onUpdateDeviceTags={(device) => void updateDeviceTags(device)}
     onDeleteDevice={(device) => void deleteDevice(device)}
     onArchiveDevice={(device) => void archiveDevice(device)}
     archivedDevices={archivedDevices}
@@ -1152,6 +1183,10 @@ interface OperationsConsoleProps {
   onDenyRemoteSession: (session: RemoteSession) => void;
   onEndRemoteSession: (session: RemoteSession) => void;
   onMoveDevice: (device: Device, customerId: string) => void;
+  deviceTagsDraft: string;
+  deviceTagsSaving: boolean;
+  onDeviceTagsDraftChange: (value: string) => void;
+  onUpdateDeviceTags: (device: Device) => void;
   onDeleteDevice: (device: Device) => void;
   onArchiveDevice: (device: Device) => void;
   archivedDevices: Device[];
@@ -1248,6 +1283,10 @@ function OperationsConsole(props: OperationsConsoleProps) {
     onDenyRemoteSession,
     onEndRemoteSession,
     onMoveDevice,
+    deviceTagsDraft,
+    deviceTagsSaving,
+    onDeviceTagsDraftChange,
+    onUpdateDeviceTags,
     onDeleteDevice,
     onArchiveDevice,
     archivedDevices,
@@ -1494,6 +1533,10 @@ function OperationsConsole(props: OperationsConsoleProps) {
                         <button className="secondary compact" type="button" onClick={() => onMoveDevice(selectedDevice, moveCustomerId)} disabled={!moveCustomerId || moveCustomerId === selectedDevice.customerId}><ArrowRightLeft size={14} />Mover</button>
                         <button className="secondary compact" type="button" onClick={() => onArchiveDevice(selectedDevice)}><Archive size={14} />Arquivar</button>
                         <button className="danger compact" type="button" onClick={() => onDeleteDevice(selectedDevice)}><Trash2 size={14} />Excluir definitivo</button>
+                      </div>
+                      <div className="deviceTagsEditor">
+                        <label><span>Etiquetas / grupos</span><input value={deviceTagsDraft} onChange={(event) => onDeviceTagsDraftChange(event.target.value)} placeholder="financeiro, prioridade, servidor" /></label>
+                        <button className="secondary compact" type="button" onClick={() => onUpdateDeviceTags(selectedDevice)} disabled={deviceTagsSaving}>{deviceTagsSaving ? "Salvando..." : "Salvar etiquetas"}</button>
                       </div>
                     </section> : null}
 

@@ -930,6 +930,10 @@ h3 { color: #24343b; font-size: 13px; }
 .deviceAdminActions label { display: grid; gap: 6px; min-width: 0; }
 .deviceAdminActions label span { color: #89979c; font-size: 10px; font-weight: 800; text-transform: uppercase; }
 .deviceAdminActions select { min-height: 32px; border: 1px solid #d5e0e2; border-radius: 7px; background: #fff; color: var(--ink); padding: 0 8px; font-size: 11px; }
+.deviceTagsEditor { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; margin-top: 10px; }
+.deviceTagsEditor label { display: grid; gap: 6px; min-width: 0; }
+.deviceTagsEditor label span { color: #89979c; font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.deviceTagsEditor input { min-height: 32px; border: 1px solid #d5e0e2; border-radius: 7px; background: #fff; color: var(--ink); padding: 0 8px; font-size: 11px; }
 .danger { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid #efc7c4; border-radius: 7px; background: #fff8f7; color: #a4433d; }
 .danger:hover { border-color: #db9d98; background: #fff1ef; }
 .commandList, .keyList, .auditList { padding: 0; list-style: none; }
@@ -1137,6 +1141,8 @@ h3 { color: #24343b; font-size: 13px; }
   .keyForm button, .customerForm button, .userForm button { width: 100%; justify-content: center; }
   .deviceAdminActions { grid-template-columns: 1fr; }
   .deviceAdminActions button { width: 100%; }
+  .deviceTagsEditor { grid-template-columns: 1fr; }
+  .deviceTagsEditor button { width: 100%; }
   .customerList li { grid-template-columns: 1fr auto; }
   .customerUsage { grid-column: 1; }
   .customerActions { grid-column: 2; grid-row: 1 / span 2; }

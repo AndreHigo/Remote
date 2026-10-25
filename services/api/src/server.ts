@@ -140,6 +140,10 @@ const moveDeviceSchema = z.object({
   customerId: z.string().trim().min(1)
 });
 
+const deviceTagsSchema = z.object({
+  tags: z.array(z.string().trim().min(1).max(40)).max(20)
+});
+
 const userCreateSchema = z.object({
   name: z.string().trim().min(2).max(120),
   email: z.string().trim().email().max(160),
@@ -821,6 +825,25 @@ app.patch("/devices/:id/customer", requireRole(["owner", "admin"]), async (reque
     return;
   }
   response.json(result.device);
+});
+
+app.patch("/devices/:id/tags", requireRole(["owner", "admin"]), async (request, response) => {
+  const parsed = deviceTagsSchema.safeParse(request.body);
+  if (!parsed.success) {
+    response.status(400).json({ message: "Informe ate 20 etiquetas validas", issues: parsed.error.issues });
+    return;
+  }
+
+  const device = await repository.updateDeviceTags({
+    id: z.string().parse(request.params.id),
+    tags: parsed.data.tags,
+    user: (request as AuthenticatedRequest).user
+  });
+  if (!device) {
+    response.status(404).json({ message: "Dispositivo nao encontrado" });
+    return;
+  }
+  response.json(device);
 });
 
 app.delete("/devices/:id", requireRole(["owner", "admin"]), async (request, response) => {
