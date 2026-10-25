@@ -103,11 +103,11 @@ O painel, a experiencia comercial, as permissoes, a auditoria e as automacoes fi
 
 ## Proximos passos
 
-1. Implementar captura, codificacao, transporte e entrada do cliente nativo.
-2. Publicar os componentes de suporte em VPS com DNS e firewall.
+1. Testar suporte e modo jogo entre duas maquinas externas, medindo RTT, FPS, perda e reconexao.
+2. Publicar API, painel e relay em VPS com DNS, firewall, TLS e segredos reais.
 3. Evoluir permissoes mais finas e trocar o rate limit em memoria por Redis.
-4. Empacotar agente e cliente Remoto em instalador Windows assinado.
-5. Testar suporte e modo jogo entre duas maquinas externas.
+4. Assinar o instalador Windows e definir atualizacao automatica.
+5. Decidir e implementar o cliente nativo visual, caso o painel web nao seja suficiente para o produto final.
 
 O botao `Conectar` registra uma solicitacao de sessao; um owner ou admin precisa aprovar antes de abrir o adaptador correspondente. Sessoes de suporte usam RustDesk quando instalado; sessoes de jogo usam o relay H.264 experimental do proprio Remoto quando `ENABLE_GAME_MODE=true` e o segredo interno do relay estao configurados. O cliente nativo visual continua separado e ainda nao esta liberado. Contas administrativas ja podem ativar 2FA TOTP no painel; em producao, configure `TOTP_ENCRYPTION_KEY` separado do `JWT_SECRET`.
 
