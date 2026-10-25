@@ -125,6 +125,12 @@ jobs:
             $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $file).Hash
             Write-Host "$hash  $file"
           }
+          $manifest = Join-Path $env:RUNNER_TEMP "Remoto-Windows-SHA256SUMS.txt"
+          $files | ForEach-Object {
+            $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $_).Hash
+            "$hash  $_"
+          } | Set-Content -LiteralPath $manifest -Encoding ASCII
+          Write-Host "Manifesto SHA256: $manifest"
 
       - name: Validate host diagnostics
         shell: powershell
@@ -144,3 +150,15 @@ jobs:
           foreach ($file in $files) {
             [scriptblock]::Create((Get-Content -LiteralPath $file -Raw)) | Out-Null
           }
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: remoto-windows-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            apps/agent/release/RemotoAgent-Setup.exe
+            apps/agent/release/RemotoAgent-Windows.zip
+            apps/operator/release/Remoto-Operator-Setup-0.1.0.exe
+            ${{ runner.temp }}/Remoto-Windows-SHA256SUMS.txt
