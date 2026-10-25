@@ -8,6 +8,7 @@ const maxFrameBytes = Number(process.env.REALTIME_MAX_FRAME_BYTES ?? 8 * 1024 * 
 const maxBufferedBytes = Number(process.env.REALTIME_MAX_BUFFERED_BYTES ?? 16 * 1024 * 1024);
 const maxFrameRate = positiveLimit(process.env.REALTIME_MAX_FRAME_RATE, 120);
 const maxFrameBytesPerSecond = positiveLimit(process.env.REALTIME_MAX_FRAME_BYTES_PER_SECOND, 64 * 1024 * 1024);
+const maxInputEventsPerSecond = positiveLimit(process.env.REALTIME_MAX_INPUT_EVENTS_PER_SECOND, 1_000);
 const maxPendingHandshakesPerAddress = Number(process.env.REALTIME_MAX_PENDING_HANDSHAKES ?? 8);
 const maxConnections = Number(process.env.REALTIME_MAX_CONNECTIONS ?? 256);
 const maxRooms = Number(process.env.REALTIME_MAX_ROOMS ?? 128);
@@ -24,10 +25,15 @@ interface Peer {
   role: SessionRole;
   accessToken: string;
   frameRateLimiter: FrameRateLimiter;
+  inputRateLimiter: EventRateLimiter;
 }
 
 export interface FrameRateLimiter {
   allow(byteLength: number): boolean;
+}
+
+export interface EventRateLimiter {
+  allow(): boolean;
 }
 
 interface Room {
@@ -124,7 +130,8 @@ export function createRealtimeServer() {
           payload,
           role: payload.role,
           accessToken: hello.accessToken,
-          frameRateLimiter: createFrameRateLimiter(maxFrameRate, maxFrameBytesPerSecond)
+          frameRateLimiter: createFrameRateLimiter(maxFrameRate, maxFrameBytesPerSecond),
+          inputRateLimiter: createEventRateLimiter(maxInputEventsPerSecond)
         };
         room[payload.role] = peer;
         const nextExpiry = Math.min(room.expiresAt ?? payload.exp, payload.exp);
@@ -169,6 +176,7 @@ export function createRealtimeServer() {
     }
     if (message.type === "input") {
       if (peer.role !== "client") return close(socket, "input-role-not-allowed");
+      if (!peer.inputRateLimiter.allow()) return close(socket, "input-rate-limit");
       const host = rooms.get(peer.payload.sessionId)?.host;
       if (host?.socket.readyState === WebSocket.OPEN) host.socket.send(JSON.stringify(message));
     }
@@ -267,6 +275,24 @@ export function createFrameRateLimiter(
       if (frameCount + 1 > maxFramesPerSecond || byteCount + byteLength > maxBytesPerSecond) return false;
       frameCount += 1;
       byteCount += byteLength;
+      return true;
+    }
+  };
+}
+
+export function createEventRateLimiter(maxEventsPerSecond: number, now: () => number = Date.now): EventRateLimiter {
+  let windowStartedAt = now();
+  let eventCount = 0;
+
+  return {
+    allow() {
+      const current = now();
+      if (current - windowStartedAt >= 1_000) {
+        windowStartedAt = current;
+        eventCount = 0;
+      }
+      if (eventCount + 1 > maxEventsPerSecond) return false;
+      eventCount += 1;
       return true;
     }
   };
