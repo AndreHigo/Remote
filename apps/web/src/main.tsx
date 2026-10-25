@@ -1539,6 +1539,7 @@ function GameSessionPanel({ session, realtimeUrl, onClose }: { session: GameSess
   const socketRef = React.useRef<WebSocket | null>(null);
   const sourceBufferRef = React.useRef<SourceBuffer | null>(null);
   const mediaQueueRef = React.useRef<Uint8Array[]>([]);
+  const mediaQueueBytesRef = React.useRef(0);
   const pingTimerRef = React.useRef<number | null>(null);
   const [status, setStatus] = React.useState("Conectando ao computador...");
   const [error, setError] = React.useState<string | null>(null);
@@ -1565,12 +1566,15 @@ function GameSessionPanel({ session, realtimeUrl, onClose }: { session: GameSess
       if (!sourceBuffer || sourceBuffer.updating || mediaQueueRef.current.length === 0) return;
       const next = mediaQueueRef.current.shift();
       if (!next) return;
+      mediaQueueBytesRef.current -= next.byteLength;
       try {
         const appendable = new Uint8Array(next.byteLength);
         appendable.set(next);
         sourceBuffer.appendBuffer(appendable.buffer);
       } catch {
         mediaQueueRef.current.unshift(next);
+        mediaQueueBytesRef.current += next.byteLength;
+        window.setTimeout(pump, 50);
       }
     };
 
@@ -1582,6 +1586,7 @@ function GameSessionPanel({ session, realtimeUrl, onClose }: { session: GameSess
         sourceBuffer.mode = "sequence";
         sourceBuffer.addEventListener("updateend", pump);
         sourceBufferRef.current = sourceBuffer;
+        pump();
       } catch (sourceError) {
         setError(sourceError instanceof Error ? sourceError.message : "Nao foi possivel preparar o video");
       }
@@ -1597,14 +1602,29 @@ function GameSessionPanel({ session, realtimeUrl, onClose }: { session: GameSess
     });
     socket.addEventListener("message", (event) => {
       if (typeof event.data === "string") {
-        const message = JSON.parse(event.data) as { type?: string; reason?: string; peerConnected?: boolean; sentAt?: number };
+        let message: { type?: string; reason?: string; peerConnected?: boolean; sentAt?: number };
+        try {
+          message = JSON.parse(event.data) as typeof message;
+        } catch {
+          setError("O relay enviou um controle invalido.");
+          return;
+        }
         if (message.type === "ready") setStatus(message.peerConnected ? "Conectado. Clique no video para capturar o mouse." : "Conectado. Aguardando o agente do computador...");
         if (message.type === "closed") setStatus(message.reason === "peer-disconnected" ? "O computador remoto desconectou." : message.reason ?? "Sessao encerrada.");
         if (message.type === "pong" && typeof message.sentAt === "number") setLatencyMs(Math.max(0, Math.round(performance.now() - message.sentAt)));
         return;
       }
       const frame = new Uint8Array(event.data as ArrayBuffer);
+      if (frame.byteLength > 8 * 1024 * 1024) {
+        setError("O frame recebido excede o limite permitido.");
+        return;
+      }
       mediaQueueRef.current.push(frame);
+      mediaQueueBytesRef.current += frame.byteLength;
+      while (mediaQueueBytesRef.current > 16 * 1024 * 1024 && mediaQueueRef.current.length > 1) {
+        const dropped = mediaQueueRef.current.shift();
+        mediaQueueBytesRef.current -= dropped?.byteLength ?? 0;
+      }
       pump();
     });
     socket.addEventListener("error", () => setError("Nao foi possivel conectar ao relay realtime."));
@@ -1617,6 +1637,7 @@ function GameSessionPanel({ session, realtimeUrl, onClose }: { session: GameSess
       socketRef.current = null;
       sourceBufferRef.current = null;
       mediaQueueRef.current = [];
+      mediaQueueBytesRef.current = 0;
       URL.revokeObjectURL(video.src);
     };
   }, [realtimeUrl, session.accessToken, session.sessionId]);
