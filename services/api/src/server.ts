@@ -97,7 +97,7 @@ const twoFactorCodeSchema = z.object({
 
 const remoteSessionSchema = z.object({
   deviceId: z.string().min(1),
-  reason: z.string().min(4),
+  reason: z.string().trim().min(4).max(500),
   mode: z.enum(["support", "game"]).default("support")
 });
 
@@ -112,7 +112,10 @@ const inventorySchema = z.object({
 
 const commandSchema = z.object({
   commandType: z.enum(["ping", "system-info", "refresh-inventory"]),
-  payload: z.record(z.string(), z.unknown()).optional()
+  payload: z.record(z.string().max(80), z.unknown()).optional().refine(
+    (value) => value === undefined || JSON.stringify(value).length <= 32_000,
+    "payload de comando muito grande"
+  )
 });
 
 const commandResultSchema = z.object({
