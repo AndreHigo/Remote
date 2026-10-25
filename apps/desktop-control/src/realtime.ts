@@ -1,4 +1,5 @@
 import WebSocket from "ws";
+import type { Readable } from "node:stream";
 import { startWindowsCapture, type CaptureProfile, type CaptureProcess } from "./capture.js";
 import { WindowsInputBridge, validateInputEvent, type RemoteInputEvent } from "./input.js";
 import type { DesktopSessionDescriptor } from "./engine.js";
@@ -25,6 +26,7 @@ export async function connectRemoteSession(
   const socket = new WebSocket(url);
   let capture: CaptureProcess | undefined;
   let input: WindowsInputBridge | undefined;
+  let detachCapture: (() => void) | undefined;
 
   await new Promise<void>((resolve, reject) => {
     let settled = false;
@@ -65,12 +67,7 @@ export async function connectRemoteSession(
             capture.process.stderr.on("data", (chunk: string) => {
               captureError = `${captureError}${chunk}`.slice(-2000);
             });
-            capture.process.on("data", (chunk) => {
-              if (socket.readyState !== WebSocket.OPEN) return;
-              // Drop stale chunks instead of building a queue that makes gameplay lag.
-              if (socket.bufferedAmount > 4 * 1024 * 1024) return;
-              socket.send(chunk);
-            });
+            detachCapture = forwardCaptureFrames(capture.process.stdout, socket);
             capture.process.once("error", (error) => closeWithReason(`captura: ${error.message}`));
             capture.process.once("close", (code) => {
               if (code !== null && code !== 0) closeWithReason(`captura encerrou (${code}): ${captureError.trim() || "erro do FFmpeg"}`);
@@ -107,6 +104,8 @@ export async function connectRemoteSession(
     }
 
     function cleanup() {
+      detachCapture?.();
+      detachCapture = undefined;
       capture?.stop();
       input?.close();
     }
@@ -126,6 +125,18 @@ export async function connectRemoteSession(
       socket.close(1000, "client-closed");
     }
   };
+}
+
+export function forwardCaptureFrames(stdout: Readable, socket: WebSocket) {
+  const onData = (chunk: Buffer) => {
+    if (socket.readyState !== WebSocket.OPEN) return;
+    // Drop stale chunks instead of building a queue that makes gameplay lag.
+    if (socket.bufferedAmount > 4 * 1024 * 1024) return;
+    socket.send(chunk);
+  };
+
+  stdout.on("data", onData);
+  return () => stdout.off("data", onData);
 }
 
 function defaultRealtimeUrl(sessionId: string) {
