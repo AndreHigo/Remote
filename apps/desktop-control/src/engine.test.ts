@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createDesktopEngine } from "./engine.js";
 
-test("modo jogo permanece bloqueado enquanto o transporte nativo nao esta pronto", async () => {
+test("modo jogo permanece bloqueado enquanto a janela nativa nao esta pronta", async () => {
   const readiness = await createDesktopEngine("game").check();
 
   assert.equal(readiness.ready, false);

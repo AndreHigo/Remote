@@ -74,7 +74,7 @@ class GameEngine implements DesktopEngine {
     return {
       ready: false,
       code: "not-implemented",
-      message: "O transporte nativo de video e entrada do modo jogo ainda esta em implementacao."
+      message: "A janela e o decodificador do cliente operador nativo ainda estao em implementacao."
     };
   }
 
@@ -84,7 +84,7 @@ class GameEngine implements DesktopEngine {
   }
 
   async stop(_session: DesktopSessionDescriptor): Promise<EngineLaunchResult> {
-    return { started: false, message: "O modo jogo ainda nao possui uma sessao nativa para encerrar." };
+    return { started: false, message: "O cliente operador nativo ainda nao possui uma janela para encerrar." };
   }
 }
 
