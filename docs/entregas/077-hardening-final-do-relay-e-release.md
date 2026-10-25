@@ -15,6 +15,7 @@
 - Typecheck e build de todos os pacotes verdes.
 - `npm audit --audit-level=high`: zero vulnerabilidades.
 - Preflight local de release verde.
+- Smoke local de ponta a ponta verde: Postgres, API, agente, inventario, gate game, aprovacao, relay e primeiro frame FFmpeg real.
 - CI do commit `ce919f2` verde nos jobs de qualidade e empacotamento Windows.
 - Auditoria de seguranca canonica concluida sobre o commit anterior, com tres achados corrigidos nesta entrega: um alto de vinculacao de agente e dois medios de relay e Redis.
 
