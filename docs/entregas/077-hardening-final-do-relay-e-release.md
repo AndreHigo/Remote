@@ -18,7 +18,7 @@
 - `npm audit --audit-level=high`: zero vulnerabilidades.
 - Preflight local de release verde.
 - Smoke local de ponta a ponta verde: Postgres, API, agente, inventario, gate game, aprovacao, relay e primeiro frame FFmpeg real.
-- CI do commit `ce919f2` verde nos jobs de qualidade e empacotamento Windows.
+- CI do commit `071e2dc` verde nos jobs de qualidade e empacotamento Windows (run `40237081847`).
 - Auditoria de seguranca canonica concluida sobre o commit anterior, com tres achados corrigidos nesta entrega: um alto de vinculacao de agente e dois medios de relay e Redis.
 
 ## Ainda falta para liberar publicamente
@@ -29,3 +29,9 @@
 - Validar gamepad, UAC, tela bloqueada, troca de usuario e jogos protegidos, sem tentar contornar anti-cheat.
 - Configurar a VPS com dominio, HTTPS/WSS, Redis TLS, backups e migracoes aplicadas.
 - Assinar os executaveis com Authenticode e publicar uma release assinada.
+
+## Artefatos atuais
+
+- `apps/agent/release/RemotoAgent-Setup.exe`: SHA256 `62F9CB61C4DD6DF784A7D2B3BD15BCEA3FA43E6F541AC10E05B9F240482C035F`.
+- `apps/agent/release/RemotoAgent-Windows.zip`: SHA256 `CFB0ABDE1FF4D42AEEA92F69A79C9229719DC3620FF5E663BC5EED2AA1DAA329`.
+- `apps/operator/release/Remoto-Operator-Setup-0.1.0.exe`: SHA256 `B28E0664FF202D991DC22E5530D8579EC78B18AB6EE94E4A66D82D0C468313F1`.
