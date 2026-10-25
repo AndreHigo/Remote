@@ -359,6 +359,7 @@ function App() {
   const [statusMessage, setStatusMessage] = React.useState("Carregando painel...");
   const [loading, setLoading] = React.useState(true);
   const [gameSession, setGameSession] = React.useState<GameSessionDescriptor | null>(null);
+  const [gameSessionStarted, setGameSessionStarted] = React.useState(false);
 
   React.useEffect(() => {
     getJson<HealthResponse>("/health", "")
@@ -594,11 +595,16 @@ function App() {
     try {
       const approved = await postJson<RemoteSessionResponse>(`/remote-sessions/${session.id}/approve`, token);
       if (approved.connection?.desktopSession?.mode === "game" && approved.connection.desktopSession.accessToken) {
-        const consumed = await postJson<Omit<GameSessionDescriptor, "accessToken">>("/desktop-sessions/consume", token, {
-          accessToken: approved.connection.desktopSession.accessToken
+        setGameSession({
+          sessionId: approved.connection.desktopSession.sessionId,
+          deviceId: approved.connection.desktopSession.deviceId,
+          mode: "game",
+          role: "client",
+          accessToken: approved.connection.desktopSession.accessToken,
+          expiresAt: approved.connection.desktopSession.expiresAt ?? new Date(Date.now() + 5 * 60_000).toISOString()
         });
-        setGameSession({ ...consumed, accessToken: approved.connection.desktopSession.accessToken });
-        setStatusMessage("Sessao de jogo autorizada. Preparando video e entrada...");
+        setGameSessionStarted(false);
+        setStatusMessage("Sessao de jogo autorizada. Escolha onde abrir.");
       } else if (approved.connection?.uri) window.location.assign(approved.connection.uri);
       else if (approved.connection?.message) setStatusMessage(approved.connection.message);
       await refresh();
@@ -632,10 +638,25 @@ function App() {
     try {
       await postJson(`/remote-sessions/${gameSession.sessionId}/end`, token);
       setGameSession(null);
+      setGameSessionStarted(false);
       await refresh();
       setStatusMessage("Sessao de jogo encerrada");
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : "Nao foi possivel encerrar a sessao de jogo");
+    }
+  }
+
+  async function launchGameInBrowser() {
+    if (!gameSession || gameSessionStarted) return;
+    try {
+      const consumed = await postJson<Omit<GameSessionDescriptor, "accessToken">>("/desktop-sessions/consume", token, {
+        accessToken: gameSession.accessToken
+      });
+      setGameSession({ ...consumed, accessToken: gameSession.accessToken });
+      setGameSessionStarted(true);
+      setStatusMessage("Sessao de jogo aberta no navegador.");
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "Nao foi possivel abrir a sessao no navegador");
     }
   }
 
@@ -1026,6 +1047,8 @@ function App() {
     onCreateOnboardingKey={() => void createOnboardingKey()}
     onCopyOnboardingKey={() => void copyOnboardingKey()}
     gameSession={gameSession}
+    gameSessionStarted={gameSessionStarted}
+    onLaunchGameInBrowser={() => void launchGameInBrowser()}
     onCloseGameSession={() => void closeGameSession()}
   />;
 }
@@ -1129,6 +1152,8 @@ interface OperationsConsoleProps {
   onCreateOnboardingKey: () => void;
   onCopyOnboardingKey: () => void;
   gameSession: GameSessionDescriptor | null;
+  gameSessionStarted: boolean;
+  onLaunchGameInBrowser: () => void;
   onCloseGameSession: () => void;
 }
 
@@ -1232,6 +1257,8 @@ function OperationsConsole(props: OperationsConsoleProps) {
     onCreateOnboardingKey,
     onCopyOnboardingKey,
     gameSession,
+    gameSessionStarted,
+    onLaunchGameInBrowser,
     onCloseGameSession
   } = props;
 
@@ -1523,7 +1550,7 @@ function OperationsConsole(props: OperationsConsoleProps) {
           </div>
         ) : null}
 
-        {gameSession ? <GameSessionPanel session={gameSession} realtimeUrl={REALTIME_URL} onClose={onCloseGameSession} /> : null}
+        {gameSession ? <GameSessionPanel session={gameSession} realtimeUrl={REALTIME_URL} started={gameSessionStarted} onStartWeb={onLaunchGameInBrowser} onClose={onCloseGameSession} /> : null}
 
         {onboardingOpen ? (
           <div className="modalBackdrop" role="presentation" onMouseDown={onCloseOnboarding}>
@@ -1572,7 +1599,7 @@ function Metric({ label, value, tone }: { label: string; value: number; tone?: "
   );
 }
 
-function GameSessionPanel({ session, realtimeUrl, onClose }: { session: GameSessionDescriptor; realtimeUrl: string; onClose: () => void }) {
+function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }: { session: GameSessionDescriptor; realtimeUrl: string; started: boolean; onStartWeb: () => void; onClose: () => void }) {
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const socketRef = React.useRef<WebSocket | null>(null);
   const sourceBufferRef = React.useRef<SourceBuffer | null>(null);
@@ -1586,6 +1613,7 @@ function GameSessionPanel({ session, realtimeUrl, onClose }: { session: GameSess
   const [error, setError] = React.useState<string | null>(null);
   const [latencyMs, setLatencyMs] = React.useState<number | null>(null);
   const [fps, setFps] = React.useState<number | null>(null);
+  const [nativeDownloaded, setNativeDownloaded] = React.useState(false);
 
   React.useEffect(() => {
     fpsTimerRef.current = window.setInterval(() => {
@@ -1599,6 +1627,7 @@ function GameSessionPanel({ session, realtimeUrl, onClose }: { session: GameSess
   }, []);
 
   React.useEffect(() => {
+    if (!started) return;
     const video = videoRef.current;
     if (!video || !("MediaSource" in window)) {
       setError("Este navegador nao suporta a reproducao de video do modo jogo.");
@@ -1742,7 +1771,7 @@ function GameSessionPanel({ session, realtimeUrl, onClose }: { session: GameSess
       setFps(null);
       URL.revokeObjectURL(video.src);
     };
-  }, [realtimeUrl, session.accessToken, session.sessionId]);
+  }, [realtimeUrl, session.accessToken, session.sessionId, started]);
 
   React.useEffect(() => {
     const releasePressedKeys = () => {
@@ -1786,6 +1815,8 @@ function GameSessionPanel({ session, realtimeUrl, onClose }: { session: GameSess
     anchor.download = `remoto-${session.deviceId}.remoto-session`;
     anchor.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    setNativeDownloaded(true);
+    setStatus("Descritor baixado. Abra-o no Remoto Operator para iniciar a sessao.");
   }
 
   function sendKey(event: React.KeyboardEvent<HTMLVideoElement>, action: "down" | "up") {
@@ -1805,23 +1836,35 @@ function GameSessionPanel({ session, realtimeUrl, onClose }: { session: GameSess
           <button className="iconButton" type="button" onClick={onClose} aria-label="Encerrar sessao" title="Encerrar sessao"><X size={17} /></button>
         </header>
         {error ? <div className="gameSessionError">{error}</div> : null}
-        <video
-          ref={videoRef}
-          className="gameSessionVideo"
-          autoPlay
-          playsInline
-          muted
-          tabIndex={0}
-          onClick={(event) => void event.currentTarget.requestPointerLock?.()}
-          onContextMenu={(event) => event.preventDefault()}
-          onMouseMove={(event) => sendInput({ type: "mouse.relative", dx: event.movementX, dy: event.movementY })}
-          onMouseDown={(event) => sendInput({ type: "mouse.button", button: mouseButtons[event.button] ?? "left", action: "down" })}
-          onMouseUp={(event) => sendInput({ type: "mouse.button", button: mouseButtons[event.button] ?? "left", action: "up" })}
-          onWheel={(event) => sendInput({ type: "mouse.wheel", delta: Math.round(event.deltaY * -1) })}
-          onKeyDown={(event) => sendKey(event, "down")}
-          onKeyUp={(event) => sendKey(event, "up")}
-        />
-        <footer className="gameSessionFooter"><span>Video H.264 / relay autenticado{latencyMs === null ? "" : ` / RTT ${latencyMs} ms`}{fps === null ? "" : ` / FPS ${fps}`}</span><div className="gameSessionFooterActions"><button className="secondary" type="button" onClick={downloadNativeDescriptor} title="Baixar descritor para abrir no cliente nativo"><Download size={14} />Cliente nativo</button><button className="danger" type="button" onClick={onClose}>Encerrar sessao</button></div></footer>
+        {!started ? (
+          <div className="gameLaunchChoice">
+            <Gamepad2 size={34} aria-hidden="true" />
+            <h3>Escolha como abrir esta sessao</h3>
+            <p>O token ainda nao foi usado. Abra no navegador para testar agora ou baixe o descritor para usar o cliente nativo do Remoto.</p>
+            <div className="gameLaunchActions">
+              <button className="primary" type="button" onClick={onStartWeb} disabled={nativeDownloaded}><Play size={16} />Abrir no navegador</button>
+              <button className="secondary" type="button" onClick={downloadNativeDescriptor} disabled={nativeDownloaded}><Download size={16} />{nativeDownloaded ? "Descritor baixado" : "Cliente nativo"}</button>
+            </div>
+          </div>
+        ) : (
+          <video
+            ref={videoRef}
+            className="gameSessionVideo"
+            autoPlay
+            playsInline
+            muted
+            tabIndex={0}
+            onClick={(event) => void event.currentTarget.requestPointerLock?.()}
+            onContextMenu={(event) => event.preventDefault()}
+            onMouseMove={(event) => sendInput({ type: "mouse.relative", dx: event.movementX, dy: event.movementY })}
+            onMouseDown={(event) => sendInput({ type: "mouse.button", button: mouseButtons[event.button] ?? "left", action: "down" })}
+            onMouseUp={(event) => sendInput({ type: "mouse.button", button: mouseButtons[event.button] ?? "left", action: "up" })}
+            onWheel={(event) => sendInput({ type: "mouse.wheel", delta: Math.round(event.deltaY * -1) })}
+            onKeyDown={(event) => sendKey(event, "down")}
+            onKeyUp={(event) => sendKey(event, "up")}
+          />
+        )}
+        <footer className="gameSessionFooter"><span>{started ? <>Video H.264 / relay autenticado{latencyMs === null ? "" : ` / RTT ${latencyMs} ms`}{fps === null ? "" : ` / FPS ${fps}`}</> : "Sessao aprovada e aguardando sua escolha"}</span><div className="gameSessionFooterActions"><button className="danger" type="button" onClick={onClose}>Encerrar sessao</button></div></footer>
       </section>
     </div>
   );
