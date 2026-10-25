@@ -7,7 +7,7 @@
 - `npm run typecheck`: API, web, desktop-control, agent e realtime sem erros;
 - `npm run build`: build completo validado antes do escopo de workspace;
 - `npm audit --audit-level=high`: 0 vulnerabilidades;
-- `docker compose config`: configuracao local valida;
+- `docker compose config`: configuracao local valida, com imagens de producao fixadas por digest;
 - relay revalida salas a cada 10 segundos e fecha sessoes revogadas;
 - logout, desativacao, reset de senha, arquivamento e fechamento nativo revogam sessoes;
 - agente arquivado nao aceita heartbeat, inventario ou comandos;
@@ -18,7 +18,7 @@
 ## Pendencias que bloqueiam producao
 
 1. O limite de instalacao agora esta explicito no schema e na migracao `0006_workspace_scope`: usuarios, clientes e todas as operacoes administrativas sao filtrados pelo workspace autenticado. O MVP continua workspace-wide dentro de cada workspace; memberships por cliente e papeis por cliente ficam para uma etapa posterior, caso o produto precise desse nivel de delegacao.
-2. Assinar o instalador e os binarios Windows com Authenticode, publicar checksums assinados, trocar imagens `latest` por digests fixos e eliminar downloads de ferramentas via `npx` durante release.
+2. Assinar o instalador e os binarios Windows com Authenticode e publicar checksums assinados. As imagens Docker agora estao fixadas por digest e as ferramentas do pacote do agente ficam declaradas no lockfile; o script usa `npx --no-install` e falha se elas nao estiverem disponiveis localmente.
 3. Executar o teste de duas maquinas Windows, primeiro na rede local e depois pela internet com HTTPS/WSS, medindo FPS, RTT, perda, CPU/GPU, UAC, troca de sessao, bloqueio de tela, gamepad e compatibilidade por jogo.
 4. Configurar na VPS os segredos reais, dominio, TLS, banco, backup, firewall e observabilidade. O preflight de producao deve falhar se algum segredo obrigatorio estiver ausente.
 
