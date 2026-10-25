@@ -41,6 +41,26 @@ $hasDesktopDuplication = $filterOutput -match "(?m)\bddagrab\b"
 $hasDirectShow = $deviceOutput -match "(?m)\bdshow\b"
 $hasNativeWasapi = $deviceOutput -match "(?im)\bwasapi\b"
 $service = Get-Service -Name "RemotoAgent" -ErrorAction SilentlyContinue
+$agentConfigPath = Join-Path ${env:ProgramFiles} "Remoto Agent\.remoto-agent.config.json"
+$agentConfig = $null
+try {
+  if (Test-Path -LiteralPath $agentConfigPath -PathType Leaf) {
+    $agentConfig = Get-Content -LiteralPath $agentConfigPath -Raw -ErrorAction Stop | ConvertFrom-Json
+  }
+} catch {
+  $agentConfig = $null
+}
+$configurationStatus = if (-not $agentConfig) {
+  "missing"
+} elseif ([string]::IsNullOrWhiteSpace([string]$agentConfig.apiUrl)) {
+  "missing-api-url"
+} elseif ([string]::IsNullOrWhiteSpace([string]$agentConfig.realtimeUrl)) {
+  "missing-realtime-url"
+} elseif ([string]::IsNullOrWhiteSpace([string]$agentConfig.agentKey)) {
+  "missing-agent-key"
+} else {
+  "configured"
+}
 $interactiveTask = $null
 try { $interactiveTask = Get-ScheduledTask -TaskName "RemotoAgentDesktop" -ErrorAction Stop } catch { $interactiveTask = $null }
 $sessionProcesses = @()
@@ -49,6 +69,17 @@ try {
 } catch {
   $sessionProcesses = @()
 }
+$nextChecks = [System.Collections.Generic.List[string]]::new()
+if ($configurationStatus -ne "configured") {
+  $nextChecks.Add("Corrigir a configuracao instalada do agente ($configurationStatus) usando o instalador oficial.")
+}
+if (-not $interactiveTask) {
+  $nextChecks.Add("Instalar a tarefa RemotoAgentDesktop em uma sessao elevada e confirmar o processo interativo.")
+}
+$nextChecks.Add("Confirmar o dispositivo no painel depois do primeiro heartbeat.")
+$nextChecks.Add("Executar uma sessao em duas maquinas e registrar RTT, FPS, perda e tempo ate o primeiro frame.")
+$nextChecks.Add("Validar audio de sistema separadamente; o FFmpeg comum nao garante loopback WASAPI.")
+$nextChecks.Add("Testar UAC, bloqueio de tela, troca de usuario, gamepad e jogos com anti-cheat.")
 
 $report = [ordered]@{
   schemaVersion = 1
@@ -80,18 +111,18 @@ $report = [ordered]@{
     audioStatus = if (-not $ffmpegPath) { "ffmpeg-missing" } elseif ($hasNativeWasapi) { "requires-validation" } elseif ($hasDirectShow) { "directshow-device-required" } else { "video-only" }
   }
   agent = [ordered]@{
+    configurationPath = $agentConfigPath
+    configurationStatus = $configurationStatus
+    apiUrlConfigured = [bool]($agentConfig -and -not [string]::IsNullOrWhiteSpace([string]$agentConfig.apiUrl))
+    realtimeUrlConfigured = [bool]($agentConfig -and -not [string]::IsNullOrWhiteSpace([string]$agentConfig.realtimeUrl))
+    agentKeyConfigured = [bool]($agentConfig -and -not [string]::IsNullOrWhiteSpace([string]$agentConfig.agentKey))
     serviceInstalled = [bool]$service
     serviceStatus = if ($service) { [string]$service.Status } else { "NotInstalled" }
     interactiveTaskInstalled = [bool]$interactiveTask
     interactiveTaskState = if ($interactiveTask) { [string]$interactiveTask.State } else { "NotInstalled" }
     interactiveSessionProcess = ($sessionProcesses.Count -gt 0)
   }
-  nextChecks = @(
-    "Confirmar o dispositivo no painel depois do primeiro heartbeat.",
-    "Executar uma sessao em duas maquinas e registrar RTT, FPS, perda e tempo ate o primeiro frame.",
-    "Validar audio de sistema separadamente; o FFmpeg comum nao garante loopback WASAPI.",
-    "Testar UAC, bloqueio de tela, troca de usuario, gamepad e jogos com anti-cheat."
-  )
+  nextChecks = @($nextChecks)
 }
 
 $json = $report | ConvertTo-Json -Depth 8

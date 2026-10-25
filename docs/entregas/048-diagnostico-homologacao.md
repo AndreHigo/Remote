@@ -10,6 +10,7 @@ O script `scripts/homologate-host.ps1` coleta um retrato tecnico da maquina Wind
 - disponibilidade de `ddagrab` e `gdigrab`;
 - indicacao de DirectShow e do estado de audio que ainda exige homologacao;
 - estado do servico `RemotoAgent`, da tarefa de logon e do processo interativo `RemotoAgent.exe sessions`;
+- presenca da configuracao instalada, sem imprimir API, relay ou chave, e indicacao objetiva quando algum campo obrigatorio esta ausente;
 - proximos testes obrigatorios da matriz de jogo.
 
 ## Uso

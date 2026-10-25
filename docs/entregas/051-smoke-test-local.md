@@ -17,6 +17,7 @@ Em 25/10/2026, com o Docker Desktop local e o commit `35b516b`:
 7. Uma sessao `game` foi solicitada, aprovada, consumida pelo cliente e liberada para o papel `host`.
 8. O processo `agent:sessions` conectou o host ao relay realtime com a mensagem `sessao remota host conectada`.
 9. O diagnostico do host confirmou FFmpeg, encoders H.264 NVIDIA/AMD/Intel e `ddagrab`; a build local nao oferece WASAPI loopback.
+10. O mesmo diagnostico confirmou que a configuracao instalada da maquina ainda estava sem `realtimeUrl` e sem a tarefa `RemotoAgentDesktop`, deixando o reparo claramente apontado no relatorio.
 
 O procedimento foi consolidado no comando `npm run smoke:local`. Ele usa segredos temporarios no processo, nao grava credenciais no repositorio e para API, relay e Postgres ao terminar, salvo quando executado com `-KeepPostgres`.
 
