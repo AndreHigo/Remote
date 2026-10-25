@@ -45,6 +45,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Copy-Item (Join-Path $AgentRoot "scripts\install-package.ps1") $OutputRoot
+Copy-Item (Join-Path $AgentRoot "scripts\repair-installed-agent.ps1") $OutputRoot
 Copy-Item (Join-Path $AgentRoot "scripts\uninstall-package.ps1") $OutputRoot
 Copy-Item (Join-Path $RepoRoot "scripts\homologate-host.ps1") $OutputRoot
 

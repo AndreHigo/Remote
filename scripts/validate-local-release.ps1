@@ -39,6 +39,13 @@ Invoke-Checked "Tipagem do cliente smoke realtime" {
 
 Write-Host "`n== Hardening do instalador do agente ==" -ForegroundColor Cyan
 $serviceInstaller = Get-Content -LiteralPath "apps/agent/scripts/install-windows-service.ps1" -Raw
+$packageInstaller = Get-Content -LiteralPath "apps/agent/scripts/install-package.ps1" -Raw
+if (-not (Test-Path -LiteralPath "apps/agent/scripts/repair-installed-agent.ps1")) {
+  throw "O pacote do agente precisa conter o script de reparo elevado."
+}
+if ($packageInstaller -notmatch '(?i)RepairExisting' -or $packageInstaller -notmatch '(?i)Start-ScheduledTask') {
+  throw "O instalador do agente precisa suportar reparo e recriar a tarefa interativa."
+}
 if ($serviceInstaller -match '(?i)LOCALAPPDATA.*Programs') {
   throw "O instalador standalone nao pode aceitar Node de LocalAppData para um servico LocalSystem."
 }

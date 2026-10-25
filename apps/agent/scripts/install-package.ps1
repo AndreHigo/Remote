@@ -5,6 +5,7 @@ param(
   [string]$AgentKey = "",
   [string]$AgentKeyFile = "",
   [string]$FfmpegPath = "",
+  [switch]$RepairExisting,
   [string]$ServiceName = "RemotoAgent"
 )
 
@@ -129,6 +130,22 @@ $InteractiveTaskName = "RemotoAgentDesktop"
 
 if (-not (Test-Path $AgentExe) -or -not (Test-Path $ServiceExe)) {
   throw "Arquivos do Remoto Agent nao encontrados em $AgentRoot."
+}
+
+if ($RepairExisting -and (Test-Path -LiteralPath $ConfigPath)) {
+  try {
+    $existingConfig = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
+    if ([string]::IsNullOrWhiteSpace($ApiUrl)) { $ApiUrl = [string]$existingConfig.apiUrl }
+    if ([string]::IsNullOrWhiteSpace($RealtimeUrl)) { $RealtimeUrl = [string]$existingConfig.realtimeUrl }
+    if ([string]::IsNullOrWhiteSpace($AgentKey)) { $AgentKey = [string]$existingConfig.agentKey }
+    if ([string]::IsNullOrWhiteSpace($FfmpegPath)) { $FfmpegPath = [string]$existingConfig.ffmpegPath }
+  } catch {
+    throw "Nao foi possivel ler a configuracao protegida para reparo: $($_.Exception.Message)"
+  }
+}
+
+if ([string]::IsNullOrWhiteSpace($RealtimeUrl) -and $ApiUrl -match '^https?://(localhost|127\.0\.0\.1|\[::1\])(?::|/|$)') {
+  $RealtimeUrl = "ws://localhost:4200"
 }
 
 if ([string]::IsNullOrWhiteSpace($ApiUrl)) {

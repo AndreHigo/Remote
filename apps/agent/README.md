@@ -52,6 +52,8 @@ O pacote Windows inclui `homologate-host.ps1`. Execute-o na maquina instalada pa
 
 Ao reparar ou atualizar uma instalacao existente, o instalador preenche novamente a URL da API, a URL do relay, a chave e o caminho do FFmpeg a partir da configuracao protegida. Parametros informados explicitamente no instalador continuam tendo prioridade.
 
+O grupo de atalhos do Windows tambem inclui `Reparar Remoto Agent`. Ele solicita UAC, reutiliza a configuracao protegida e recria o servico e a tarefa interativa sem exigir que o usuario redigite a chave.
+
 No instalador Windows, a configuracao e somente leitura para o usuario que instalou o agente e o estado operacional fica em `C:\ProgramData\Remoto\state`. O processo desktop e registrado em uma tarefa agendada no logon do usuario, com execucao interativa e nivel limitado; somente o usuario com ACL de leitura consegue iniciar o fluxo, e a credencial do agente deve ser revogada no painel quando o computador for desativado.
 
 Durante uma atualizacao, o instalador para o servico e encerra os hosts do agente antes de substituir os executaveis. Se uma instancia antiga estiver presa por software de seguranca, o instalador registra a falha em seu log e deve ser executado novamente depois que o processo for liberado.

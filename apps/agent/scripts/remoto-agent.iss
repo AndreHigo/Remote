@@ -42,9 +42,13 @@ UninstallDisplayIcon={app}\RemotoAgent.exe
 Source: "{#StagingDir}\RemotoAgent.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#StagingDir}\RemotoAgentService.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#StagingDir}\install-package.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#StagingDir}\repair-installed-agent.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#StagingDir}\uninstall-package.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#StagingDir}\homologate-host.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#StagingDir}\ffmpeg\ffmpeg.exe"; DestDir: "{app}\ffmpeg"; Flags: ignoreversion skipifsourcedoesntexist
+
+[Icons]
+Name: "{group}\Reparar Remoto Agent"; Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\repair-installed-agent.ps1"""; WorkingDir: "{app}"; Comment: "Corrige a configuracao, o servico e a tarefa interativa do agente"
 
 [UninstallRun]
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\uninstall-package.ps1"""; Flags: runhidden waituntilterminated; RunOnceId: "RemoveRemotoAgentService"
