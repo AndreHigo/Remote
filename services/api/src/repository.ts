@@ -4,6 +4,7 @@ import type { Prisma } from "./generated/prisma/client.js";
 import { prisma } from "./db.js";
 import { hashPassword } from "./password.js";
 import { createDesktopSessionToken, hashToken, verifyDesktopSessionToken } from "./desktop-session-token.js";
+import { evaluateGameCapability } from "./game-capability.js";
 
 const ONLINE_WINDOW_MS = 90_000;
 
@@ -896,6 +897,32 @@ export const repository = {
         kind: "unavailable" as const,
         message: "O modo jogo ainda nao esta disponivel neste ambiente. A sessao nao foi aprovada."
       };
+    }
+    if (current.mode === "GAME") {
+      const latestInventory = await prisma.inventorySnapshot.findFirst({
+        where: { deviceId: current.deviceId },
+        orderBy: { collectedAt: "desc" },
+        select: { collectedAt: true, software: true }
+      });
+      const capability = evaluateGameCapability(latestInventory);
+      if (!capability.ready) {
+        const message = capability.reason === "inventory-missing"
+          ? "O computador ainda nao enviou inventario. Atualize o inventario antes de aprovar o modo jogo."
+          : capability.reason === "inventory-stale"
+            ? "O inventario de captura esta desatualizado. Atualize o inventario antes de aprovar o modo jogo."
+            : capability.reason === "inventory-invalid"
+              ? "O inventario do computador esta invalido para o modo jogo. Reinstale ou atualize o agente."
+              : "A captura H.264 deste computador nao esta pronta. Corrija o FFmpeg/encoder e atualize o inventario.";
+        await addAudit(
+          "remote-session.unavailable",
+          input.user.name,
+          current.deviceId,
+          { sessionId: current.id, mode: "game", reason: capability.reason },
+          current.deviceId,
+          input.user.id
+        );
+        return { kind: "unavailable" as const, message };
+      }
     }
 
     const desktopToken = createDesktopSessionToken({
