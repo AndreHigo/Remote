@@ -2,10 +2,11 @@
 
 ## Estado atual
 
-- commit de referencia: `e8ae1fb`;
-- CI remoto verde no GitHub Actions: [Remoto CI 40215440613](https://github.com/AndreHigo/Remote/actions/runs/40215440613);
+- commit de referencia: `814c4df`;
+- CI remoto verde no GitHub Actions: [Remoto CI 40216604195](https://github.com/AndreHigo/Remote/actions/runs/40216604195);
 - o CI passou nos testes de seguranca, agente, desktop-control e realtime;
 - typecheck, build, preflight dos Compose e empacotamento Windows do Agent e do Operator passaram;
+- o pacote Windows inclui o diagnostico automatico do host e a criacao da tarefa interativa de logon;
 - a ultima entrega vinculou cada chave de cadastro ao primeiro `remoteId` que a utiliza;
 - a mesma chave continua funcionando no mesmo computador, mas e recusada em outro;
 - mover um dispositivo acompanha o escopo da chave; excluir o dispositivo revoga e limpa as chaves vinculadas.
