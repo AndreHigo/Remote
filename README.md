@@ -98,6 +98,8 @@ Durante uma sessao de jogo, o operador nativo exibe RTT atual/p95, tempo ate o p
 
 O inventario do agente consulta a capacidade real da build do FFmpeg: encoder H.264 escolhido, metodo de captura disponivel e fallback por CPU. Assim, hosts sem GPU dedicada continuam elegiveis quando possuem `libx264`, mas nao sao marcados como prontos quando falta captura de desktop ou encoder.
 
+Para um pacote de homologacao sem depender de `PATH`, gere o instalador com `-FfmpegPath` apontando para um `ffmpeg.exe` validado. O procedimento e os limites de distribuicao estao em [`docs/entregas/068-pacote-homologacao-com-ffmpeg.md`](docs/entregas/068-pacote-homologacao-com-ffmpeg.md).
+
 No instalador Windows, o caminho opcional do `ffmpeg.exe` pode apontar para uma instalacao no perfil do usuario; durante a instalacao elevada ele e copiado para a pasta protegida do Remoto, para que o servico nao execute um binario mutavel do perfil.
 
 Servidor RustDesk OSS de laboratorio:
