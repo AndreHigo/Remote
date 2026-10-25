@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain } = require("electron");
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
+const { MAX_RECONNECT_ATTEMPTS, getReconnectDelay } = require("./reconnect-policy.cjs");
 
 let mainWindow;
 let nativeSession;
@@ -11,6 +12,9 @@ let reconnectAttempt = 0;
 let closingSession = false;
 let sessionModule;
 let firstFrameTimer;
+let activeRealtimeUrl;
+let activeDescriptorPath;
+let sessionConsumed = false;
 
 function parseArgs(argv) {
   const index = argv.indexOf("--descriptor-file");
@@ -160,13 +164,17 @@ async function startSession() {
   try {
     const descriptor = await readDescriptor(descriptorPath);
     activeDescriptor = descriptor;
+    activeDescriptorPath = descriptorPath;
+    sessionConsumed = false;
     sendSession(descriptor);
     closingSession = false;
     reconnectAttempt = 0;
     const trustedEndpoints = await readTrustedEndpoints();
     const apiUrl = resolveSessionEndpoint(descriptor.apiUrl, trustedEndpoints.apiUrl, "api");
     const realtimeUrl = resolveSessionEndpoint(descriptor.realtimeUrl, trustedEndpoints.realtimeUrl, "realtime");
+    activeRealtimeUrl = realtimeUrl;
     await consumeSession(descriptor, apiUrl);
+    sessionConsumed = true;
     await removeDescriptor(descriptorPath);
     const transportModule = app.isPackaged
       ? pathToFileURL(path.join(app.getAppPath(), "build", "desktop-control.mjs")).href
@@ -232,17 +240,39 @@ function isTerminalSessionReason(reason) {
 }
 
 function scheduleReconnect(descriptor, realtimeUrl, reason) {
-  if (closingSession || reconnectTimer || reconnectAttempt >= 8) {
-    if (reconnectAttempt >= 8) sendStatus("error", "Nao foi possivel reconectar ao computador.");
+  if (closingSession || reconnectTimer || reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
+    if (reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) sendStatus("error", "Nao foi possivel reconectar ao computador. Tente novamente quando a rede voltar.");
     return;
   }
-  const delay = Math.min(15_000, 500 * 2 ** reconnectAttempt);
+  const delay = getReconnectDelay(reconnectAttempt);
   reconnectAttempt += 1;
   sendStatus("connecting", `${reason}. Tentando reconectar em ${Math.ceil(delay / 1000)}s...`);
   reconnectTimer = setTimeout(() => {
     reconnectTimer = undefined;
     void connectNativeSession(descriptor, realtimeUrl);
   }, delay);
+}
+
+async function retrySession() {
+  if (closingSession || !activeDescriptor || !activeRealtimeUrl || nativeSession || reconnectTimer) return;
+  reconnectAttempt = 0;
+  try {
+    if (!sessionConsumed) {
+      const descriptor = activeDescriptor;
+      const trustedEndpoints = await readTrustedEndpoints();
+      const apiUrl = resolveSessionEndpoint(descriptor.apiUrl, trustedEndpoints.apiUrl, "api");
+      await consumeSession(descriptor, apiUrl);
+      sessionConsumed = true;
+      if (activeDescriptorPath) {
+        await removeDescriptor(activeDescriptorPath);
+        activeDescriptorPath = undefined;
+      }
+    }
+    sendStatus("connecting", "Tentando reconectar ao computador...");
+    await connectNativeSession(activeDescriptor, activeRealtimeUrl);
+  } catch (error) {
+    sendStatus("error", error instanceof Error ? error.message : String(error));
+  }
 }
 
 async function closeSession() {
@@ -269,6 +299,9 @@ async function closeSession() {
     // Socket closure remains the local fallback if the API is unavailable.
   } finally {
     activeDescriptor = undefined;
+    activeRealtimeUrl = undefined;
+    activeDescriptorPath = undefined;
+    sessionConsumed = false;
   }
 }
 
@@ -296,6 +329,7 @@ async function createWindow() {
       sendStatus("error", error instanceof Error ? error.message : String(error));
     }
   });
+  ipcMain.on("retry-session", () => void retrySession());
   ipcMain.on("close-session", () => void closeSession());
 
   await mainWindow.loadFile(path.join(__dirname, "renderer.html"));

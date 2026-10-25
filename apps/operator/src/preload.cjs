@@ -24,6 +24,9 @@ contextBridge.exposeInMainWorld("remotoOperator", {
   sendInput(event) {
     ipcRenderer.send("input", event);
   },
+  retrySession() {
+    ipcRenderer.send("retry-session");
+  },
   closeSession() {
     ipcRenderer.send("close-session");
   }

@@ -4,6 +4,8 @@ const empty = document.getElementById("empty");
 const emptyTitle = document.getElementById("empty-title");
 const detail = document.getElementById("detail");
 const errorBox = document.getElementById("error");
+const errorMessage = document.getElementById("error-message");
+const retryButton = document.getElementById("retry");
 const statusText = document.getElementById("status");
 const statusDot = document.getElementById("status-dot");
 const fpsText = document.getElementById("fps");
@@ -52,7 +54,8 @@ function showDetail(title, message, isError = false) {
   detail.textContent = message;
   empty.classList.toggle("hidden", !isError && title === "Video conectado");
   errorBox.hidden = !isError;
-  errorBox.textContent = isError ? message : "";
+  errorMessage.textContent = isError ? message : "";
+  retryButton.hidden = !isError;
 }
 
 function startMedia(withAudio = false) {
@@ -201,7 +204,10 @@ window.remotoOperator.onStatus(({ status, detail: message }) => {
   }
   if (status === "error") showDetail("Sessao indisponivel", message, true);
   else if (status === "closed") showDetail("Sessao encerrada", message);
-  else detail.textContent = message || detail.textContent;
+  else {
+    retryButton.hidden = true;
+    detail.textContent = message || detail.textContent;
+  }
 });
 window.remotoOperator.onMetrics(({ latencyMs, latencyP95Ms, firstFrameMs, bytesReceived }) => {
   if (Number.isFinite(latencyMs)) {
@@ -217,3 +223,8 @@ window.remotoOperator.onSession(({ audio }) => {
   try { startMedia(audio === "system"); } catch (error) { fail(error); }
 });
 window.remotoOperator.onFrame(receiveFrame);
+retryButton.addEventListener("click", () => {
+  retryButton.hidden = true;
+  showDetail("Reconectando", "Tentando restabelecer o canal com o computador remoto.");
+  window.remotoOperator.retrySession();
+});
