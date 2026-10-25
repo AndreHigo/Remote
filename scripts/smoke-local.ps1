@@ -148,8 +148,6 @@ try {
 
   Invoke-Checked "Cadastro do agente" "npm.cmd" @("run", "agent:register")
   Invoke-Checked "Heartbeat do agente" "npm.cmd" @("run", "agent:heartbeat")
-  Invoke-Checked "Inventario do agente" "npm.cmd" @("run", "agent:inventory")
-  Invoke-Checked "Comandos do agente" "npm.cmd" @("run", "agent:commands")
 
   $loginBody = @{ email = "admin@remoto.local"; password = $env:SEED_OWNER_PASSWORD } | ConvertTo-Json
   $login = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:4100/auth/login" -ContentType "application/json" -Body $loginBody
@@ -157,6 +155,22 @@ try {
   $headers = @{ Authorization = "Bearer $loginToken" }
   $state = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
   $requestBody = @{ deviceId = $state.deviceId; reason = "Smoke test local do canal de jogo"; mode = "game" } | ConvertTo-Json
+
+  $blockedRequest = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:4100/remote-sessions" -Headers $headers -ContentType "application/json" -Body $requestBody
+  try {
+    Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:4100/remote-sessions/$($blockedRequest.id)/approve" -Headers $headers | Out-Null
+    throw "O gate de capacidade aprovou uma sessao game sem inventario atualizado."
+  } catch {
+    $statusCode = 0
+    if ($_.Exception.Response) { $statusCode = [int]$_.Exception.Response.StatusCode.value__ }
+    if ($statusCode -ne 409) { throw }
+    Write-Host "Gate game bloqueou corretamente a sessao sem inventario (HTTP 409)." -ForegroundColor DarkGray
+  }
+  Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:4100/remote-sessions/$($blockedRequest.id)/deny" -Headers $headers | Out-Null
+
+  Invoke-Checked "Inventario do agente" "npm.cmd" @("run", "agent:inventory")
+  Invoke-Checked "Comandos do agente" "npm.cmd" @("run", "agent:commands")
+
   $requested = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:4100/remote-sessions" -Headers $headers -ContentType "application/json" -Body $requestBody
   $sessionId = $requested.id
   $approved = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:4100/remote-sessions/$sessionId/approve" -Headers $headers
