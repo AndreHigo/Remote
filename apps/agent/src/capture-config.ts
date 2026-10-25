@@ -15,6 +15,7 @@ export interface CaptureReadiness {
   ffmpegAvailable: boolean;
   videoEncoderAvailable: boolean;
   cpuEncoderAvailable: boolean;
+  selectedEncoderAvailable: boolean;
   encoder: VideoEncoder;
   resolvedEncoder: Exclude<VideoEncoder, "auto">;
   captureMethod: CaptureMethod;
@@ -50,20 +51,22 @@ export function readCaptureProfile(fileConfig: CaptureConfigValues, environment:
 
 export function buildCaptureReadiness(
   profile: CaptureProfile,
-  capabilities: Pick<CaptureReadiness, "ffmpegAvailable" | "videoEncoderAvailable" | "cpuEncoderAvailable" | "resolvedEncoder" | "resolvedCaptureMethod" | "availableCaptureMethods"> = {
+  capabilities: Pick<CaptureReadiness, "ffmpegAvailable" | "videoEncoderAvailable" | "cpuEncoderAvailable" | "selectedEncoderAvailable" | "resolvedEncoder" | "resolvedCaptureMethod" | "availableCaptureMethods"> = {
     ffmpegAvailable: false,
     videoEncoderAvailable: false,
     cpuEncoderAvailable: false,
+    selectedEncoderAvailable: false,
     resolvedEncoder: "cpu",
     resolvedCaptureMethod: "gdigrab",
     availableCaptureMethods: []
   }
 ): CaptureReadiness {
   return {
-    gameModeReady: capabilities.ffmpegAvailable && capabilities.videoEncoderAvailable && capabilities.availableCaptureMethods.includes(capabilities.resolvedCaptureMethod),
+    gameModeReady: capabilities.ffmpegAvailable && capabilities.selectedEncoderAvailable && capabilities.availableCaptureMethods.includes(capabilities.resolvedCaptureMethod),
     ffmpegAvailable: capabilities.ffmpegAvailable,
     videoEncoderAvailable: capabilities.videoEncoderAvailable,
     cpuEncoderAvailable: capabilities.cpuEncoderAvailable,
+    selectedEncoderAvailable: capabilities.selectedEncoderAvailable,
     encoder: profile.encoder,
     resolvedEncoder: capabilities.resolvedEncoder,
     captureMethod: profile.captureMethod ?? "auto",

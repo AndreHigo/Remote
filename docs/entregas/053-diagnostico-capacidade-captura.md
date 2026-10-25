@@ -6,6 +6,7 @@ O inventario do agente deixou de considerar apenas a existencia do executavel FF
 
 - se existe encoder H.264 por CPU (`libx264`) ou acelerado (`h264_nvenc`, `h264_amf`, `h264_qsv`);
 - qual encoder sera escolhido pelo perfil `auto`;
+- se o encoder escolhido pelo perfil realmente existe na build, inclusive quando o usuario fixa CPU ou uma GPU especifica;
 - se `gdigrab` e/ou `ddagrab` estao disponiveis;
 - qual metodo de captura sera usado;
 - se o fallback de CPU esta realmente ativo.

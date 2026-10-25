@@ -430,6 +430,7 @@ async function collectInventory() {
           ffmpegAvailable: capabilities.available,
           videoEncoderAvailable: capabilities.videoEncoderAvailable,
           cpuEncoderAvailable: capabilities.cpuEncoderAvailable,
+          selectedEncoderAvailable: capabilities.selectedEncoderAvailable,
           resolvedEncoder: capabilities.selectedEncoder,
           resolvedCaptureMethod: capabilities.selectedCaptureMethod,
           availableCaptureMethods: capabilities.captureMethods

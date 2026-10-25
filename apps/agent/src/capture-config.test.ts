@@ -33,6 +33,7 @@ test("expõe prontidao do modo jogo sem esconder o fallback de CPU", () => {
     ffmpegAvailable: true,
     videoEncoderAvailable: true,
     cpuEncoderAvailable: true,
+    selectedEncoderAvailable: true,
     resolvedEncoder: "cpu",
     resolvedCaptureMethod: "gdigrab",
     availableCaptureMethods: ["gdigrab"]
@@ -41,6 +42,7 @@ test("expõe prontidao do modo jogo sem esconder o fallback de CPU", () => {
     ffmpegAvailable: true,
     videoEncoderAvailable: true,
     cpuEncoderAvailable: true,
+    selectedEncoderAvailable: true,
     encoder: "cpu",
     resolvedEncoder: "cpu",
     captureMethod: "auto",
@@ -62,6 +64,7 @@ test("nao marca qualidade auto como fallback de CPU antes da deteccao do encoder
     ffmpegAvailable: true,
     videoEncoderAvailable: true,
     cpuEncoderAvailable: true,
+    selectedEncoderAvailable: true,
     resolvedEncoder: "nvidia",
     resolvedCaptureMethod: "ddagrab",
     availableCaptureMethods: ["gdigrab", "ddagrab"]
@@ -79,8 +82,22 @@ test("aceita ddagrab quando ele e o unico metodo disponivel", () => {
     ffmpegAvailable: true,
     videoEncoderAvailable: true,
     cpuEncoderAvailable: true,
+    selectedEncoderAvailable: true,
     resolvedEncoder: "cpu",
     resolvedCaptureMethod: "ddagrab",
     availableCaptureMethods: ["ddagrab"]
   }).gameModeReady, true);
+});
+
+test("nao marca pronto um encoder solicitado que a build nao possui", () => {
+  const profile = readCaptureProfile({ captureEncoder: "cpu" });
+  assert.equal(buildCaptureReadiness(profile, {
+    ffmpegAvailable: true,
+    videoEncoderAvailable: true,
+    cpuEncoderAvailable: false,
+    selectedEncoderAvailable: false,
+    resolvedEncoder: "cpu",
+    resolvedCaptureMethod: "gdigrab",
+    availableCaptureMethods: ["gdigrab"]
+  }).gameModeReady, false);
 });

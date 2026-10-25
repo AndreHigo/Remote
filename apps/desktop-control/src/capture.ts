@@ -30,6 +30,7 @@ export interface FfmpegCapabilities {
   hardwareEncoders: Array<Exclude<VideoEncoder, "auto" | "cpu">>;
   captureMethods: Array<Exclude<CaptureMethod, "auto">>;
   selectedEncoder: Exclude<VideoEncoder, "auto">;
+  selectedEncoderAvailable: boolean;
   selectedCaptureMethod: Exclude<CaptureMethod, "auto">;
 }
 
@@ -111,6 +112,7 @@ export function inspectFfmpegCapabilities(preferredPath?: string, profile: Captu
       hardwareEncoders: [],
       captureMethods: [],
       selectedEncoder: "cpu",
+      selectedEncoderAvailable: false,
       selectedCaptureMethod: "gdigrab"
     };
   }
@@ -138,6 +140,9 @@ export function inspectFfmpegCapabilities(preferredPath?: string, profile: Captu
   const selectedEncoder = videoEncoderAvailable
     ? selectCaptureEncoder(profile.encoder, availableEncoders)
     : "cpu";
+  const selectedEncoderAvailable = selectedEncoder === "cpu"
+    ? cpuEncoderAvailable
+    : hardwareEncoders.includes(selectedEncoder);
   const selectedCaptureMethod = captureMethods.length > 0
     ? selectCaptureMethod(profile.captureMethod ?? "auto", captureMethods)
     : "gdigrab";
@@ -150,6 +155,7 @@ export function inspectFfmpegCapabilities(preferredPath?: string, profile: Captu
     hardwareEncoders,
     captureMethods,
     selectedEncoder,
+    selectedEncoderAvailable,
     selectedCaptureMethod
   };
 }

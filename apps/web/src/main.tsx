@@ -155,6 +155,7 @@ interface InventorySnapshot {
       ffmpegAvailable?: boolean;
       videoEncoderAvailable?: boolean;
       cpuEncoderAvailable?: boolean;
+      selectedEncoderAvailable?: boolean;
       resolvedEncoder?: string;
       resolvedCaptureMethod?: string;
       encoder?: string;
