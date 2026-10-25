@@ -5,15 +5,17 @@ import { channelTokenSignatureForTest, maxControlMessageBytes, parseControlMessa
 test("protocolo aceita hello, ping e entrada tipada", () => {
   assert.deepEqual(parseControlMessage(JSON.stringify({ type: "hello", accessToken: "abc" })), { type: "hello", accessToken: "abc" });
   assert.deepEqual(parseControlMessage(JSON.stringify({ type: "ping" })), { type: "ping" });
-  assert.deepEqual(parseControlMessage(JSON.stringify({ type: "input", event: { type: "key", scanCode: 30 } })), {
+  assert.deepEqual(parseControlMessage(JSON.stringify({ type: "input", event: { type: "key", scanCode: 30, action: "down" } })), {
     type: "input",
-    event: { type: "key", scanCode: 30 }
+    event: { type: "key", scanCode: 30, action: "down" }
   });
 });
 
 test("protocolo rejeita controle grande ou formato arbitrario", () => {
   assert.equal(parseControlMessage("x".repeat(maxControlMessageBytes() + 1)), null);
   assert.equal(parseControlMessage(JSON.stringify({ type: "shell", command: "whoami" })), null);
+  assert.equal(parseControlMessage(JSON.stringify({ type: "input", event: { type: "key", scanCode: 999, action: "down" } })), null);
+  assert.equal(parseControlMessage(JSON.stringify({ type: "input", event: { type: "mouse.button", button: "left" } })), null);
 });
 
 test("token do canal valida assinatura e expiracao", () => {

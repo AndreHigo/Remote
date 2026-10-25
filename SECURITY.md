@@ -21,7 +21,7 @@ Nao publique tokens, chaves de agente, credenciais ou provas de conceito em issu
 ## Requisitos de producao
 
 - Usar HTTPS/WSS com dominio publico e certificados validos.
-- Gerar `JWT_SECRET`, `DESKTOP_SESSION_SECRET`, `TOTP_ENCRYPTION_KEY`, `REALTIME_INTERNAL_SECRET`, `REDIS_URL` e senha do banco aleatorios, longos e fora do Git.
+- Gerar `JWT_SECRET`, `DESKTOP_SESSION_SECRET`, `TOTP_ENCRYPTION_KEY`, `REALTIME_INTERNAL_SECRET`, `REDIS_URL` e senha do banco aleatorios, longos e fora do Git; em producao, `REDIS_URL` deve usar `rediss://` com TLS.
 - Manter `REALTIME_ALLOWED_ORIGINS` restrito ao dominio do painel.
 - Rodar `infra/docker/preflight-production.ps1` antes do deploy.
 - Manter portas do PostgreSQL fechadas e expor somente os endpoints necessarios.

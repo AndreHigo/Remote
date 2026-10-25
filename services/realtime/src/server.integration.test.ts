@@ -33,6 +33,7 @@ test("relay autentica os dois papeis e encaminha video e entrada", async (t) => 
   let expiringClient: WebSocket | undefined;
   let controlHost: WebSocket | undefined;
   let controlClient: WebSocket | undefined;
+  let malformedClient: WebSocket | undefined;
   t.after(async () => {
     host?.terminate();
     client?.terminate();
@@ -42,6 +43,7 @@ test("relay autentica os dois papeis e encaminha video e entrada", async (t) => 
     expiringClient?.terminate();
     controlHost?.terminate();
     controlClient?.terminate();
+    malformedClient?.terminate();
     if (relay) await relay.close();
     if (api.listening) await closeServer(api);
   });
@@ -140,6 +142,15 @@ test("relay autentica os dois papeis e encaminha video e entrada", async (t) => 
   assert.equal(authorizedCloseResponse.status, 204);
   assert.deepEqual(await nextJson(controlHostMessages), { type: "closed", reason: "session-ended" });
   assert.deepEqual(await nextJson(controlClientMessages), { type: "closed", reason: "session-ended" });
+
+  malformedClient = await connect(url.replace("session-1", "session-malformed"));
+  const malformedMessages = createMessageQueue(malformedClient);
+  malformedClient.send(JSON.stringify({ type: "hello", accessToken: token("client", "session-malformed") }));
+  assert.equal((await nextJson(malformedMessages)).type, "ready");
+  malformedClient.send(JSON.stringify({ type: "input", event: { type: "key", scanCode: 999, action: "down" } }));
+  const malformedClose = await onceClose(malformedClient);
+  assert.equal(malformedClose.code, 1008);
+  assert.match(malformedClose.reason, /invalid-control-message/);
 
   function token(role: "host" | "client", targetSessionId = "session-1", expiresAt = Date.now() + 60_000) {
     const body = Buffer.from(JSON.stringify({

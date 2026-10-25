@@ -46,7 +46,7 @@ if ($values["BACKUP_ENCRYPTION_KEY"].Length -lt 32) { throw "BACKUP_ENCRYPTION_K
 if ($values["JWT_SECRET"].Length -lt 32) { throw "JWT_SECRET deve ter pelo menos 32 caracteres" }
 if ($values["DESKTOP_SESSION_SECRET"].Length -lt 32) { throw "DESKTOP_SESSION_SECRET deve ter pelo menos 32 caracteres" }
 if ($values["TOTP_ENCRYPTION_KEY"].Length -lt 32) { throw "TOTP_ENCRYPTION_KEY deve ter pelo menos 32 caracteres" }
-if ($values["REDIS_URL"] -notmatch "^rediss?://") { throw "REDIS_URL deve usar redis:// ou rediss://" }
+if ($values["REDIS_URL"] -notmatch "^rediss://") { throw "REDIS_URL deve usar rediss:// (Redis com TLS)" }
 if ($values["REALTIME_INTERNAL_SECRET"].Length -lt 32) { throw "REALTIME_INTERNAL_SECRET deve ter pelo menos 32 caracteres" }
 if ($values["BOOTSTRAP_ADMIN_PASSWORD"].Length -lt 12) { throw "BOOTSTRAP_ADMIN_PASSWORD deve ter pelo menos 12 caracteres" }
 if ($values["BOOTSTRAP_ADMIN_EMAIL"] -notmatch "^[^@\s]+@[^@\s]+\.[^@\s]+$") { throw "BOOTSTRAP_ADMIN_EMAIL invalido" }

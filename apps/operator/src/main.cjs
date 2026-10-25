@@ -22,8 +22,8 @@ function parseArgs(argv) {
 
 async function readDescriptor(filePath) {
   if (!filePath) throw new Error("Informe --descriptor-file com o descritor da sessao aprovada.");
-  const raw = await fs.readFile(path.resolve(filePath), "utf8");
-  await fs.rm(path.resolve(filePath), { force: true });
+  const resolvedPath = path.resolve(filePath);
+  const raw = await fs.readFile(resolvedPath, "utf8");
   const descriptor = JSON.parse(raw);
   if (!descriptor || typeof descriptor !== "object") throw new Error("Descritor de sessao invalido.");
   if (descriptor.role !== "client" || descriptor.mode !== "game") {
@@ -38,6 +38,10 @@ async function readDescriptor(filePath) {
     throw new Error("O descritor da sessao expirou.");
   }
   return descriptor;
+}
+
+async function removeDescriptor(filePath) {
+  await fs.rm(path.resolve(filePath), { force: true });
 }
 
 function isLoopback(hostname) {
@@ -138,6 +142,7 @@ async function startSession() {
     const apiUrl = normalizeEndpoint(descriptor.apiUrl || process.env.REMOTO_API_URL, "api");
     const realtimeUrl = normalizeEndpoint(descriptor.realtimeUrl || process.env.REMOTO_REALTIME_URL, "realtime");
     await consumeSession(descriptor, apiUrl);
+    await removeDescriptor(descriptorPath);
     const transportModule = app.isPackaged
       ? pathToFileURL(path.join(app.getAppPath(), "build", "desktop-control.mjs")).href
       : "@remoto/desktop-control/operator";

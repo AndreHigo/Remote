@@ -27,6 +27,33 @@ export type ServerMessage =
 const TOKEN_SECRET = process.env.DESKTOP_SESSION_SECRET ?? process.env.JWT_SECRET ?? crypto.randomBytes(32).toString("hex");
 const MAX_CONTROL_MESSAGE_BYTES = 64 * 1024;
 
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function isIntegerInRange(value: unknown, min: number, max: number): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= min && value <= max;
+}
+
+export function isRealtimeInputEvent(value: unknown): value is Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const event = value as Record<string, unknown>;
+
+  if (event.type === "mouse.relative") {
+    return isFiniteNumber(event.dx) && event.dx >= -32768 && event.dx <= 32767 && isFiniteNumber(event.dy) && event.dy >= -32768 && event.dy <= 32767;
+  }
+  if (event.type === "mouse.button") {
+    return (event.button === "left" || event.button === "right" || event.button === "middle") && (event.action === "down" || event.action === "up");
+  }
+  if (event.type === "mouse.wheel") {
+    return isFiniteNumber(event.delta) && event.delta >= -12000 && event.delta <= 12000;
+  }
+  if (event.type === "key") {
+    return isIntegerInRange(event.scanCode, 1, 255) && (event.action === "down" || event.action === "up") && (event.extended === undefined || typeof event.extended === "boolean");
+  }
+  return false;
+}
+
 export function verifyChannelToken(token: string): ChannelTokenPayload | null {
   try {
     const [body, signature] = token.split(".");
@@ -56,7 +83,7 @@ export function parseControlMessage(data: Buffer | string): ClientMessage | null
       return { type: "hello", accessToken: value.accessToken };
     }
     if (value.type === "ping") return typeof value.sentAt === "number" ? { type: "ping", sentAt: value.sentAt } : { type: "ping" };
-    if (value.type === "input" && value.event && typeof value.event === "object" && !Array.isArray(value.event)) {
+    if (value.type === "input" && isRealtimeInputEvent(value.event)) {
       return { type: "input", event: value.event as Record<string, unknown> };
     }
     return null;

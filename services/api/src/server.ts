@@ -3,7 +3,7 @@ import express from "express";
 import crypto from "node:crypto";
 import { z } from "zod";
 import { authenticateAgent, authorizeAgentDevice, type AuthenticatedAgentRequest } from "./agent-auth.js";
-import { isAgentRemoteIdAllowed } from "./agent-binding.js";
+import { isAgentRemoteIdAllowed, isAgentRemoteIdClaimAllowed } from "./agent-binding.js";
 import {
   authenticate,
   clearLoginFailures,
@@ -273,7 +273,7 @@ app.post("/agent/devices/register", authenticateAgent, async (request, response)
   const agent = (request as AuthenticatedAgentRequest).agent;
   const existingRemoteId = await prisma.device.findUnique({
     where: { remoteId: parsed.data.remoteId },
-    select: { id: true, customerId: true, archivedAt: true }
+    select: { id: true, remoteId: true, customerId: true, archivedAt: true }
   });
   if (existingRemoteId?.archivedAt) {
     response.status(410).json({ message: "Este computador esta arquivado. Restaure-o no painel antes de usar o agente novamente." });
@@ -289,6 +289,12 @@ app.post("/agent/devices/register", authenticateAgent, async (request, response)
   if (!isAgentRemoteIdAllowed(agent.boundRemoteId, parsed.data.remoteId)) {
     response.status(409).json({
       message: "Esta chave ja esta vinculada a outro computador. Gere uma nova chave para cadastrar outra maquina."
+    });
+    return;
+  }
+  if (!isAgentRemoteIdClaimAllowed(agent.boundRemoteId, existingRemoteId?.remoteId ?? null, parsed.data.remoteId)) {
+    response.status(409).json({
+      message: "Este computador ja esta cadastrado. Gere uma chave especifica para reinstalar ou use uma nova maquina."
     });
     return;
   }
