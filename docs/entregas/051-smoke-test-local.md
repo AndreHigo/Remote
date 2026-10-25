@@ -17,6 +17,8 @@ Em 25/10/2026, com o Docker Desktop local e o commit `fa642d9`:
 7. Uma sessao `game` foi solicitada, aprovada, consumida pelo cliente e liberada para o papel `host`.
 8. O processo `agent:sessions` conectou o host ao relay realtime com a mensagem `sessao remota host conectada`.
 
+O procedimento foi consolidado no comando `npm run smoke:local`. Ele usa segredos temporarios no processo, nao grava credenciais no repositorio e para API, relay e Postgres ao terminar, salvo quando executado com `-KeepPostgres`.
+
 ## Limite da evidencia
 
 O smoke test nao valida o primeiro frame, teclado, mouse, RTT, perda, reconexao ou compatibilidade de jogos: faltou um segundo cliente conectado ao relay e uma sessao Windows independente. Tambem nao valida audio, gamepad, UAC, bloqueio de tela, anti-cheat ou trafego pela internet.

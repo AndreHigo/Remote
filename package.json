@@ -32,7 +32,8 @@
     "operator:dev": "npm run dev -w apps/operator",
     "operator:build": "npm run build -w apps/operator",
     "operator:package:windows": "npm run package:windows -w apps/operator",
-    "diagnostics:host": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/homologate-host.ps1"
+    "diagnostics:host": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/homologate-host.ps1",
+    "smoke:local": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-local.ps1"
   },
   "devDependencies": {
     "concurrently": "^9.2.0"
