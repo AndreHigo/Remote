@@ -23,6 +23,8 @@ Stack candidata:
 
 O workspace oferece o agente local em Node/TypeScript e um instalador Windows que o registra como servico. O agente realiza registro, heartbeat, inventario, comandos permitidos e consulta sessoes remotas aprovadas. O transporte de captura do host usa o modulo realtime do desktop-control.
 
+O instalador pede tres valores: URL da API, URL publica do relay (`wss://dominio/realtime`) e chave de cadastro. Em uma instalacao local, use `http://localhost:4100` e `ws://localhost:4200`; em producao, nunca deixe o relay apontando para `localhost`.
+
 ```bash
 npm run agent:register
 npm run agent:heartbeat
