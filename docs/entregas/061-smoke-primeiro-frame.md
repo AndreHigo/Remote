@@ -2,7 +2,7 @@
 
 ## Entregue
 
-O smoke local agora sobe o host do agente e um cliente realtime independente. O cliente autentica a sessao aprovada, aguarda um frame binario e falha se o primeiro frame nao chegar em 20 segundos.
+O smoke local agora sobe o host do agente e um cliente realtime independente. O cliente autentica a sessao aprovada, aguarda um segmento binario de inicializacao e exige as caixas `ftyp` e `moov` de um fMP4 valido; ele falha se isso nao chegar em 20 segundos.
 
 Com isso, a validacao local cobre:
 

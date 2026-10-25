@@ -38,6 +38,10 @@ async function main() {
           console.log(`cliente smoke pronto peerConnected=${peerConnected}`);
         },
         onFrame(frame) {
+          if (!hasMp4Box(frame, "ftyp") || !hasMp4Box(frame, "moov")) {
+            fail(new Error("o primeiro frame recebido nao contem uma inicializacao fMP4 valida"));
+            return;
+          }
           console.log(`first-frame: ${frame.byteLength} bytes`);
           succeed();
         },
@@ -66,6 +70,14 @@ function required(name: string) {
   const value = process.env[name]?.trim();
   if (!value) throw new Error(`${name} ausente`);
   return value;
+}
+
+function hasMp4Box(frame: Buffer, type: string) {
+  const marker = Buffer.from(type, "ascii");
+  for (let offset = 4; offset + marker.byteLength <= frame.byteLength; offset += 1) {
+    if (frame.subarray(offset, offset + marker.byteLength).equals(marker)) return true;
+  }
+  return false;
 }
 
 main().catch((error: unknown) => {
