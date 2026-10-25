@@ -32,13 +32,21 @@ Abra a janela:
 npm run operator:dev -- --descriptor-file C:\temp\remoto-session.json
 ```
 
-O arquivo e apagado depois da leitura. Antes de abrir o WebSocket, o cliente consome o token uma unica vez em `POST /desktop-sessions/consume`; `apiUrl` e `realtimeUrl` do descritor prevalecem, com fallback para `REMOTO_API_URL` e `REMOTO_REALTIME_URL`. Em endpoints remotos, somente HTTPS/WSS sao aceitos; HTTP/WS ficam restritos a loopback para desenvolvimento. A sessao exige `role: client`, `mode: game` e um relay acessivel.
+O arquivo e apagado depois da leitura. Antes de abrir o WebSocket, o cliente consome o token uma unica vez em `POST /desktop-sessions/consume`. Em desenvolvimento, o descritor pode informar os endpoints locais. No pacote empacotado, os endpoints precisam ser fixados no build por `REMOTO_OPERATOR_API_URL` e `REMOTO_OPERATOR_REALTIME_URL`; URLs divergentes no descritor sao recusadas antes do envio do token. Em endpoints remotos, somente HTTPS/WSS sao aceitos; HTTP/WS ficam restritos a loopback para desenvolvimento. A sessao exige `role: client`, `mode: game` e um relay acessivel.
 
 ## Instalador Windows
 
 Gere o instalador x64 com atalho, menu iniciar e associacao `.remoto-session`:
 
 ```powershell
+npm run operator:package:windows
+```
+
+Para um pacote de deployment, configure os endpoints antes de empacotar:
+
+```powershell
+$env:REMOTO_OPERATOR_API_URL="https://api.exemplo.com"
+$env:REMOTO_OPERATOR_REALTIME_URL="wss://remoto.exemplo.com/realtime"
 npm run operator:package:windows
 ```
 

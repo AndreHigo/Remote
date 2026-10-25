@@ -1,4 +1,6 @@
 const { spawnSync } = require("node:child_process");
+const fs = require("node:fs");
+const path = require("node:path");
 
 const SEMVER = /^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$/;
 
@@ -14,11 +16,23 @@ function buildElectronBuilderArgs(environment = process.env) {
   return args;
 }
 
+function writeOperatorConfig(environment = process.env) {
+  const apiUrl = String(environment.REMOTO_OPERATOR_API_URL || environment.REMOTO_API_URL || "").trim();
+  const realtimeUrl = String(environment.REMOTO_OPERATOR_REALTIME_URL || environment.REMOTO_REALTIME_URL || "").trim();
+  if ((apiUrl && !realtimeUrl) || (!apiUrl && realtimeUrl)) {
+    throw new Error("Configure REMOTO_OPERATOR_API_URL e REMOTO_OPERATOR_REALTIME_URL juntos.");
+  }
+  fs.mkdirSync(path.resolve("build"), { recursive: true });
+  fs.writeFileSync(path.resolve("build", "operator-config.json"), JSON.stringify({ apiUrl, realtimeUrl }, null, 2));
+  return { apiUrl, realtimeUrl };
+}
+
 if (require.main === module) {
+  writeOperatorConfig();
   const electronBuilderCli = require.resolve("electron-builder/cli");
   const result = spawnSync(process.execPath, [electronBuilderCli, ...buildElectronBuilderArgs()], { stdio: "inherit" });
   if (result.error) throw result.error;
   process.exit(result.status ?? 1);
 }
 
-module.exports = { buildElectronBuilderArgs };
+module.exports = { buildElectronBuilderArgs, writeOperatorConfig };

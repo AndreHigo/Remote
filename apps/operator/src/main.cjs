@@ -66,6 +66,30 @@ function normalizeEndpoint(rawValue, kind) {
   return url.toString().replace(/\/+$/, "");
 }
 
+async function readTrustedEndpoints() {
+  const configPath = path.join(app.getAppPath(), "build", "operator-config.json");
+  let packagedConfig = {};
+  try {
+    packagedConfig = JSON.parse(await fs.readFile(configPath, "utf8"));
+  } catch {
+    // Desenvolvimento local usa os endpoints do descritor; pacotes exigem configuracao abaixo.
+  }
+  return {
+    apiUrl: process.env.REMOTO_OPERATOR_API_URL || process.env.REMOTO_API_URL || packagedConfig.apiUrl || "",
+    realtimeUrl: process.env.REMOTO_OPERATOR_REALTIME_URL || process.env.REMOTO_REALTIME_URL || packagedConfig.realtimeUrl || ""
+  };
+}
+
+function resolveSessionEndpoint(descriptorValue, trustedValue, kind) {
+  if (!app.isPackaged && !trustedValue) return normalizeEndpoint(descriptorValue, kind);
+  if (!trustedValue) throw new Error(`O operador empacotado nao possui endpoint confiavel de ${kind}.`);
+  const trusted = normalizeEndpoint(trustedValue, kind);
+  if (descriptorValue && normalizeEndpoint(descriptorValue, kind) !== trusted) {
+    throw new Error(`O endpoint ${kind} do descritor nao corresponde ao deployment configurado.`);
+  }
+  return trusted;
+}
+
 async function consumeSession(descriptor, apiUrl) {
   let response;
   try {
@@ -139,8 +163,9 @@ async function startSession() {
     sendSession(descriptor);
     closingSession = false;
     reconnectAttempt = 0;
-    const apiUrl = normalizeEndpoint(descriptor.apiUrl || process.env.REMOTO_API_URL, "api");
-    const realtimeUrl = normalizeEndpoint(descriptor.realtimeUrl || process.env.REMOTO_REALTIME_URL, "realtime");
+    const trustedEndpoints = await readTrustedEndpoints();
+    const apiUrl = resolveSessionEndpoint(descriptor.apiUrl, trustedEndpoints.apiUrl, "api");
+    const realtimeUrl = resolveSessionEndpoint(descriptor.realtimeUrl, trustedEndpoints.realtimeUrl, "realtime");
     await consumeSession(descriptor, apiUrl);
     await removeDescriptor(descriptorPath);
     const transportModule = app.isPackaged
@@ -232,7 +257,8 @@ async function closeSession() {
   if (session) session.close();
   if (!descriptor) return;
   try {
-    const apiUrl = normalizeEndpoint(descriptor.apiUrl || process.env.REMOTO_API_URL, "api");
+    const trustedEndpoints = await readTrustedEndpoints();
+    const apiUrl = resolveSessionEndpoint(descriptor.apiUrl, trustedEndpoints.apiUrl, "api");
     await fetch(`${apiUrl}/desktop-sessions/end`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
