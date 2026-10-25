@@ -47,6 +47,26 @@ test("captura realtime encaminha bytes que chegam no stdout do FFmpeg", () => {
   assert.deepEqual(frames, [initialization, media]);
 });
 
+test("captura realtime reseta uma caixa malformada sem bloquear o proximo segmento", () => {
+  const stdout = new PassThrough();
+  const frames: Buffer[] = [];
+  const socket = {
+    readyState: WebSocket.OPEN,
+    bufferedAmount: 0,
+    send(chunk: Buffer) {
+      frames.push(chunk);
+    }
+  } as unknown as WebSocket;
+
+  const detach = forwardCaptureFrames(stdout, socket);
+  stdout.write(Buffer.from([0, 0, 0, 4, 0, 0, 0, 0]));
+  const initialization = Buffer.concat([mp4Box("ftyp", Buffer.from("init")), mp4Box("moov", Buffer.from("meta"))]);
+  stdout.write(initialization);
+  detach();
+
+  assert.deepEqual(frames, [initialization]);
+});
+
 test("transporte realtime integra host e cliente com captura e entrada tipadas", async (t) => {
   const server = http.createServer();
   const wss = new WebSocketServer({ server });

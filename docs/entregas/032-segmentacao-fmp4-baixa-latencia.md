@@ -19,6 +19,7 @@ npm run operator:package:windows
 ```
 
 Instalador operador gerado: `apps/operator/release/Remoto-Operator-Setup-0.1.0.exe`.
+SHA256: `3BA87606017425986772B0670DAAC06A0746EA95D06E9BE2DADF3DA48822A34C`.
 
 ## Ainda falta
 

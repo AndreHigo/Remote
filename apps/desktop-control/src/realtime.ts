@@ -187,7 +187,14 @@ export function forwardCaptureFrames(stdout: Readable, socket: WebSocket) {
 
     while (true) {
       const box = readMp4Box(pending);
-      if (!box) return;
+      if (box === "incomplete") return;
+      if (box === "invalid") {
+        pending = Buffer.alloc(0);
+        initializationBoxes = [];
+        mediaBoxes = [];
+        initialized = false;
+        return;
+      }
       pending = pending.subarray(box.byteLength);
 
       if (!initialized) {
@@ -221,14 +228,14 @@ export function forwardCaptureFrames(stdout: Readable, socket: WebSocket) {
 }
 
 function readMp4Box(buffer: Buffer) {
-  if (buffer.byteLength < 8) return null;
+  if (buffer.byteLength < 8) return "incomplete" as const;
   const declaredSize = buffer.readUInt32BE(0);
   const type = buffer.toString("ascii", 4, 8);
   const headerSize = declaredSize === 1 ? 16 : 8;
-  if (buffer.byteLength < headerSize) return null;
+  if (buffer.byteLength < headerSize) return "incomplete" as const;
   const byteLength = declaredSize === 1 ? Number(buffer.readBigUInt64BE(8)) : declaredSize;
-  if (!Number.isSafeInteger(byteLength) || byteLength < headerSize || byteLength > 32 * 1024 * 1024) return null;
-  if (buffer.byteLength < byteLength) return null;
+  if (!Number.isSafeInteger(byteLength) || byteLength < headerSize || byteLength > 32 * 1024 * 1024) return "invalid" as const;
+  if (buffer.byteLength < byteLength) return "incomplete" as const;
   return { type, byteLength, data: buffer.subarray(0, byteLength) };
 }
 
