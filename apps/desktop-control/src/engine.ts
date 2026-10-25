@@ -1,8 +1,11 @@
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
+
+const execFileAsync = promisify(execFile);
 
 export type DesktopMode = "support" | "game";
 export type DesktopRole = "host" | "client";
@@ -53,16 +56,22 @@ class SupportEngine implements DesktopEngine {
 
   async start(session: DesktopSessionDescriptor): Promise<EngineLaunchResult> {
     if (!session.remoteId) return { started: false, message: "O identificador remoto nao foi informado." };
+    const remoteId = session.remoteId;
     const executable = await findRustDesk();
     if (!executable) return { started: false, message: "Cliente de suporte nao encontrado neste computador." };
 
-    const child = spawn(executable, ["--connect", session.remoteId], {
-      detached: true,
-      stdio: "ignore",
-      windowsHide: true
+    return new Promise<EngineLaunchResult>((resolve) => {
+      const child = spawn(executable, ["--connect", remoteId], {
+        detached: true,
+        stdio: "ignore",
+        windowsHide: true
+      });
+      child.once("error", (error) => resolve({ started: false, message: `Cliente de suporte nao iniciou: ${error.message}` }));
+      child.once("spawn", () => {
+        child.unref();
+        resolve({ started: true, message: "Cliente de suporte iniciado." });
+      });
     });
-    child.unref();
-    return { started: true, message: "Cliente de suporte iniciado." };
   }
 
   async stop(_session: DesktopSessionDescriptor): Promise<EngineLaunchResult> {
@@ -184,5 +193,13 @@ async function findRustDesk() {
     }
   }
 
-  return os.platform() === "win32" ? null : "rustdesk";
+  const command = process.platform === "win32" ? "where.exe" : "which";
+  const executableName = process.platform === "win32" ? "rustdesk.exe" : "rustdesk";
+  try {
+    const { stdout } = await execFileAsync(command, [executableName], { timeout: 2_000, windowsHide: true });
+    const discovered = stdout.split(/\r?\n/).map((line) => line.trim()).find(Boolean);
+    return discovered && await fileExists(discovered) ? discovered : null;
+  } catch {
+    return null;
+  }
 }
