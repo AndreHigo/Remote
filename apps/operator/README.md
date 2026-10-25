@@ -34,6 +34,16 @@ npm run operator:dev -- --descriptor-file C:\temp\remoto-session.json
 
 O arquivo e apagado depois da leitura. Antes de abrir o WebSocket, o cliente consome o token uma unica vez em `POST /desktop-sessions/consume`; `apiUrl` e `realtimeUrl` do descritor prevalecem, com fallback para `REMOTO_API_URL` e `REMOTO_REALTIME_URL`. A sessao exige `role: client`, `mode: game` e um relay acessivel.
 
+## Instalador Windows
+
+Gere o instalador x64 com atalho, menu iniciar e associacao `.remoto-session`:
+
+```powershell
+npm run operator:package:windows
+```
+
+O arquivo sai em `apps/operator/release/Remoto-Operator-Setup-0.1.0.exe`. O build local atual nao e assinado; para distribuicao publica ainda faltam certificado de assinatura, atualizacao automatica e teste em duas maquinas.
+
 ## Limites desta entrega
 
 O cliente nativo agora possui janela, decodificacao MSE, pointer lock, teclado, mouse, encerramento e tratamento de fila de frames. Ainda falta o teste de duas maquinas Windows, instalador assinado e medicao real de FPS/RTT/perda em redes diferentes; por isso o modo jogo continua experimental e desativado por padrao na API.

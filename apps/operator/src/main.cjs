@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain } = require("electron");
 const fs = require("node:fs/promises");
 const path = require("node:path");
+const { pathToFileURL } = require("node:url");
 
 let mainWindow;
 let nativeSession;
@@ -8,6 +9,8 @@ let nativeSession;
 function parseArgs(argv) {
   const index = argv.indexOf("--descriptor-file");
   if (index >= 0 && argv[index + 1]) return argv[index + 1];
+  const associatedFile = argv.find((value) => /\.(?:remoto-session|json)$/i.test(value) && !value.endsWith(".exe"));
+  if (associatedFile) return associatedFile;
   return process.env.REMOTO_OPERATOR_DESCRIPTOR || "";
 }
 
@@ -79,7 +82,10 @@ async function startSession() {
   try {
     const descriptor = await readDescriptor(descriptorPath);
     await consumeSession(descriptor);
-    const { openNativeOperatorSession } = await import("@remoto/desktop-control/operator");
+    const transportModule = app.isPackaged
+      ? pathToFileURL(path.join(app.getAppPath(), "build", "desktop-control.mjs")).href
+      : "@remoto/desktop-control/operator";
+    const { openNativeOperatorSession } = await import(transportModule);
     sendStatus("connecting", "Autenticando a sessao...");
     nativeSession = await openNativeOperatorSession(descriptor, {
       onFrame(frame) {

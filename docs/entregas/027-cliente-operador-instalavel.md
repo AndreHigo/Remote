@@ -1,0 +1,30 @@
+# Entrega 027 - Cliente operador instalavel
+
+## Entregue
+
+- janela Electron nativa para o operador do modo jogo;
+- transporte `@remoto/desktop-control` empacotado em bundle independente;
+- consumo do token em `POST /desktop-sessions/consume` antes do relay;
+- descritor `.remoto-session` de uso unico baixado pelo painel;
+- instalador NSIS x64 com atalho, menu iniciar e associacao do arquivo de sessao;
+- fila MSE com limite, pointer lock, teclado, mouse relativo e encerramento;
+- artefato local `apps/operator/release/Remoto-Operator-Setup-0.1.0.exe`.
+
+## Validacao
+
+```powershell
+npm run operator:package:windows
+npm run typecheck
+npm test
+npm audit --audit-level=high
+```
+
+O instalador foi gerado localmente com sucesso. SHA256 do artefato desta entrega: `77A33AFE7C8198A15CA281FC5D65A6CB0ABC9D5140A43973AE0D9E91E7B52728`.
+
+## Ainda falta
+
+- assinatura Authenticode e atualizacao automatica;
+- teste visual e funcional entre duas maquinas Windows em rede local e internet;
+- medicao de FPS, RTT, perda, CPU/GPU e compatibilidade por jogo;
+- validar UAC, bloqueio de tela, troca de sessao e anti-cheat sem tentar contorna-lo;
+- gamepad, audio, clipboard e reconexao visual no cliente nativo.

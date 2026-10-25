@@ -29,7 +29,8 @@
     "agent:service:uninstall": "powershell -NoProfile -ExecutionPolicy Bypass -File apps/agent/scripts/install-windows-service.ps1 -Uninstall",
     "agent:package:windows": "npm run package:windows -w apps/agent",
     "operator:dev": "npm run dev -w apps/operator",
-    "operator:build": "npm run build -w apps/operator"
+    "operator:build": "npm run build -w apps/operator",
+    "operator:package:windows": "npm run package:windows -w apps/operator"
   },
   "devDependencies": {
     "concurrently": "^9.2.0"
