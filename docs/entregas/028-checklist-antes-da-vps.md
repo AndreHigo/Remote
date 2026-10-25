@@ -2,7 +2,7 @@
 
 ## Estado validado
 
-- commit de referência publicado: `e37a0ae`;
+- commit de referência publicado: `6cc99b9`;
 - `npm test`: 31 testes passando;
 - `npm run typecheck`: API, web, desktop-control, agent e realtime sem erros;
 - `npm run build`: build completo validado no estado atual do workspace;
@@ -20,6 +20,7 @@
 - o instalador do agente encerra o serviço e o processo interativo antes da atualização para evitar arquivo bloqueado.
 - o operador nativo agora exibe RTT e tenta reconectar após queda transitória, conforme `docs/entregas/030-reconexao-e-rtt-operador-nativo.md`.
 - o transporte do host preserva segmentos fMP4 completos antes de enviá-los ao relay, conforme `docs/entregas/032-segmentacao-fmp4-baixa-latencia.md`.
+- o CI também executa os testes do agente e valida a sintaxe dos scripts do operador nativo, conforme `docs/entregas/033-ci-agente-e-operador.md`.
 
 ## Fechamento antes da producao
 

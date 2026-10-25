@@ -25,6 +25,9 @@ jobs:
       - name: Security unit tests
         run: npm run test:security
 
+      - name: Agent tests
+        run: npm run test -w apps/agent
+
       - name: Desktop control tests
         run: npm run test -w apps/desktop-control
 
@@ -36,6 +39,13 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Validate native operator scripts
+        shell: bash
+        run: |
+          node --check apps/operator/src/main.cjs
+          node --check apps/operator/src/preload.cjs
+          node --check apps/operator/src/renderer.js
 
       - name: Validate Postgres compose
         run: docker compose -f infra/docker/docker-compose.yml config
