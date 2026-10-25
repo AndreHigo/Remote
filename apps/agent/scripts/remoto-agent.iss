@@ -44,6 +44,7 @@ Source: "{#StagingDir}\RemotoAgentService.exe"; DestDir: "{app}"; Flags: ignorev
 Source: "{#StagingDir}\install-package.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#StagingDir}\uninstall-package.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#StagingDir}\homologate-host.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#StagingDir}\ffmpeg\ffmpeg.exe"; DestDir: "{app}\ffmpeg"; Flags: ignoreversion skipifsourcedoesntexist
 
 [UninstallRun]
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\uninstall-package.ps1"""; Flags: runhidden waituntilterminated; RunOnceId: "RemoveRemotoAgentService"
@@ -210,8 +211,12 @@ begin
   { A stopped service can still have a short-lived host process. Force-close both
     known executables before Inno attempts to replace their files. }
   TaskKillPath := ExpandConstant('{sys}\taskkill.exe');
+  Exec(ExpandConstant('{sys}\schtasks.exe'), '/End /TN "RemotoAgentDesktop"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Exec(TaskKillPath, '/F /T /IM RemotoAgentService.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Exec(TaskKillPath, '/F /T /IM RemotoAgent.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
+  Parameters := '-NoProfile -Command "$deadline=(Get-Date).AddSeconds(10); while ((Get-Process -Name ''RemotoAgentService'', ''RemotoAgent'' -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 250 }"';
+  Exec(PowerShellPath, Parameters, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;

@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
-  [string]$OutputRoot = ""
+  [string]$OutputRoot = "",
+  [string]$FfmpegPath = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -9,6 +10,7 @@ $RepoRoot = (Resolve-Path (Join-Path $AgentRoot "..\..")).Path
 if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
   $OutputRoot = Join-Path $AgentRoot "release\RemotoAgent-Windows"
 }
+$FfmpegPath = if ([string]::IsNullOrWhiteSpace($FfmpegPath)) { $env:REMOTO_BUNDLE_FFMPEG_PATH } else { $FfmpegPath }
 $OutputRoot = [System.IO.Path]::GetFullPath($OutputRoot)
 $ReleaseRoot = Split-Path $OutputRoot -Parent
 
@@ -45,6 +47,17 @@ if ($LASTEXITCODE -ne 0) {
 Copy-Item (Join-Path $AgentRoot "scripts\install-package.ps1") $OutputRoot
 Copy-Item (Join-Path $AgentRoot "scripts\uninstall-package.ps1") $OutputRoot
 Copy-Item (Join-Path $RepoRoot "scripts\homologate-host.ps1") $OutputRoot
+
+if (-not [string]::IsNullOrWhiteSpace($FfmpegPath)) {
+  $resolvedFfmpegPath = [System.IO.Path]::GetFullPath($FfmpegPath)
+  if ([System.IO.Path]::GetFileName($resolvedFfmpegPath) -ine "ffmpeg.exe" -or -not (Test-Path -LiteralPath $resolvedFfmpegPath -PathType Leaf)) {
+    throw "FfmpegPath precisa apontar para um arquivo ffmpeg.exe existente."
+  }
+  $bundledFfmpegDirectory = Join-Path $OutputRoot "ffmpeg"
+  New-Item -ItemType Directory -Path $bundledFfmpegDirectory -Force | Out-Null
+  Copy-Item -LiteralPath $resolvedFfmpegPath -Destination (Join-Path $bundledFfmpegDirectory "ffmpeg.exe") -Force
+  Write-Output "FFmpeg incluido no pacote: $resolvedFfmpegPath"
+}
 
 @'
 @echo off

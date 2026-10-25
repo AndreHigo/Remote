@@ -66,6 +66,11 @@ function Resolve-ConfiguredFfmpeg {
     return Install-ProtectedFfmpeg -SourcePath $candidate
   }
 
+  $bundled = Join-Path $AgentRoot "ffmpeg\ffmpeg.exe"
+  if (Test-Path -LiteralPath $bundled -PathType Leaf) {
+    return $bundled
+  }
+
   if ($env:REMOTO_FFMPEG_PATH) {
     try {
       $candidate = [System.IO.Path]::GetFullPath($env:REMOTO_FFMPEG_PATH)
