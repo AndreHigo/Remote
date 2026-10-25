@@ -2,8 +2,8 @@
 
 ## Estado atual
 
-- commit de referencia: `8692fa6`;
-- CI remoto verde no GitHub Actions: [Remoto CI 40221338666](https://github.com/AndreHigo/Remote/actions/runs/40221338666);
+- commit de referencia: `35b516b`;
+- CI remoto verde no GitHub Actions: [Remoto CI 40221783319](https://github.com/AndreHigo/Remote/actions/runs/40221783319);
 - o CI passou nos testes de seguranca, agente, desktop-control e realtime;
 - typecheck, build, preflight dos Compose e empacotamento Windows do Agent e do Operator passaram;
 - o pacote Windows inclui o diagnostico automatico do host e a criacao da tarefa interativa de logon;
@@ -29,7 +29,7 @@ npx prisma validate --schema services/api/prisma/schema.prisma
 npx prisma migrate diff --from-migrations services/api/prisma/migrations --to-schema services/api/prisma/schema.prisma --script
 ```
 
-O CI do commit `8692fa6` tambem passou na auditoria de dependencias, nos testes de seguranca, no typecheck, no build, no preflight dos Compose e no empacotamento Windows do Agent e do Operator. O artefato de homologacao publicado se chama `remoto-windows-8692fa6`.
+O CI do commit `35b516b` tambem passou na auditoria de dependencias, nos testes de seguranca, no typecheck, no build, no preflight dos Compose e no empacotamento Windows do Agent e do Operator. O artefato de homologacao publicado se chama `remoto-windows-35b516b`.
 
 A auditoria estrutural de seguranca do commit `8053b42` terminou sem achados validados nas superficies criticas revisadas. A cobertura foi source-backed e parcial: ainda nao substitui homologacao em duas maquinas, teste pela internet ou revisao independente em ambiente de producao. O limite de payload adicionado em `d1c6fe6` foi validado separadamente por testes e typecheck.
 
