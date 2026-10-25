@@ -25,6 +25,7 @@ import { createRateLimiter } from "./rate-limit.js";
 const app = express();
 const port = Number(process.env.PORT ?? 4100);
 const nodeEnv = process.env.NODE_ENV ?? "development";
+const gameModeEnabled = process.env.ENABLE_GAME_MODE === "true";
 
 if (nodeEnv === "production" && (!process.env.JWT_SECRET || !process.env.TOTP_ENCRYPTION_KEY)) {
   throw new Error("JWT_SECRET e TOTP_ENCRYPTION_KEY sao obrigatorios em producao");
@@ -151,7 +152,7 @@ const userUpdateSchema = z.object({
 const passwordResetSchema = z.object({ password: z.string().min(8).max(200) });
 
 app.get("/health", (_request, response) => {
-  response.json({ ok: true, service: "remoto-api" });
+  response.json({ ok: true, service: "remoto-api", gameMode: gameModeEnabled ? "experimental" : "disabled" });
 });
 
 app.get("/ready", async (_request, response) => {

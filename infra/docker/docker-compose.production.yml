@@ -60,6 +60,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:?Defina JWT_SECRET}
       TOTP_ENCRYPTION_KEY: ${TOTP_ENCRYPTION_KEY:?Defina TOTP_ENCRYPTION_KEY}
       REALTIME_INTERNAL_SECRET: ${REALTIME_INTERNAL_SECRET:?Defina REALTIME_INTERNAL_SECRET}
+      ENABLE_GAME_MODE: ${ENABLE_GAME_MODE:-false}
       TRUST_PROXY: "true"
     expose:
       - "4100"
@@ -78,6 +79,7 @@ services:
       dockerfile: infra/docker/web.Dockerfile
       args:
         VITE_API_URL: /api
+        VITE_REALTIME_URL: /realtime
     restart: unless-stopped
     expose:
       - "80"

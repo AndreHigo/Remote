@@ -8,6 +8,7 @@ import {
   Ban,
   ChevronRight,
   Copy,
+  Gamepad2,
   KeyRound,
   LockKeyhole,
   LogOut,
@@ -29,6 +30,7 @@ import {
 import "./styles.css";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:4100";
+const REALTIME_URL = import.meta.env.VITE_REALTIME_URL ?? (window.location.protocol === "https:" ? `wss://${window.location.host}/realtime` : "ws://localhost:4200");
 const TOKEN_KEY = "remoto.auth.token";
 const USER_KEY = "remoto.auth.user";
 
@@ -175,6 +177,15 @@ interface RemoteSessionResponse {
       expiresAt?: string;
     };
   };
+}
+
+interface GameSessionDescriptor {
+  sessionId: string;
+  deviceId: string;
+  mode: "game";
+  role: "client";
+  accessToken: string;
+  expiresAt: string;
 }
 
 interface RemoteSession {
@@ -328,6 +339,7 @@ function App() {
   const [onboardingLoading, setOnboardingLoading] = React.useState(false);
   const [statusMessage, setStatusMessage] = React.useState("Carregando painel...");
   const [loading, setLoading] = React.useState(true);
+  const [gameSession, setGameSession] = React.useState<GameSessionDescriptor | null>(null);
 
   const selectedDevice = devices.find((device) => device.id === selectedDeviceId) ?? devices[0];
   const latestInventory = inventorySnapshots[0];
@@ -549,7 +561,13 @@ function App() {
     try {
       const approved = await postJson<RemoteSessionResponse>(`/remote-sessions/${session.id}/approve`, token);
       await refresh();
-      if (approved.connection?.uri) window.location.assign(approved.connection.uri);
+      if (approved.connection?.desktopSession?.mode === "game" && approved.connection.desktopSession.accessToken) {
+        const consumed = await postJson<Omit<GameSessionDescriptor, "accessToken">>("/desktop-sessions/consume", token, {
+          accessToken: approved.connection.desktopSession.accessToken
+        });
+        setGameSession({ ...consumed, accessToken: approved.connection.desktopSession.accessToken });
+        setStatusMessage("Sessao de jogo autorizada. Preparando video e entrada...");
+      } else if (approved.connection?.uri) window.location.assign(approved.connection.uri);
       else if (approved.connection?.message) setStatusMessage(approved.connection.message);
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : "Nao foi possivel aprovar a sessao");
@@ -961,6 +979,8 @@ function App() {
     onOnboardingKeyNameChange={setOnboardingKeyName}
     onCreateOnboardingKey={() => void createOnboardingKey()}
     onCopyOnboardingKey={() => void copyOnboardingKey()}
+    gameSession={gameSession}
+    onCloseGameSession={() => setGameSession(null)}
   />;
 }
 
@@ -1061,6 +1081,8 @@ interface OperationsConsoleProps {
   onOnboardingKeyNameChange: (value: string) => void;
   onCreateOnboardingKey: () => void;
   onCopyOnboardingKey: () => void;
+  gameSession: GameSessionDescriptor | null;
+  onCloseGameSession: () => void;
 }
 
 function OperationsConsole(props: OperationsConsoleProps) {
@@ -1160,7 +1182,9 @@ function OperationsConsole(props: OperationsConsoleProps) {
     onOnboardingCustomerChange,
     onOnboardingKeyNameChange,
     onCreateOnboardingKey,
-    onCopyOnboardingKey
+    onCopyOnboardingKey,
+    gameSession,
+    onCloseGameSession
   } = props;
 
   const [moveCustomerId, setMoveCustomerId] = React.useState(selectedDevice?.customerId ?? "");
@@ -1441,13 +1465,15 @@ function OperationsConsole(props: OperationsConsoleProps) {
                 <button className="iconButton" type="button" onClick={onCloseConnection} aria-label="Fechar" title="Fechar"><X size={17} /></button>
               </div>
               <div className="connectionTarget"><span className={`deviceIcon ${connectDevice.status}`}><Monitor size={19} /></span><div><strong>{connectDevice.displayName}</strong><span>{connectDevice.customerName} / ID {connectDevice.remoteId}</span></div><span className={`status ${connectDevice.status}`}>{connectDevice.status === "online" ? "Online" : "Offline"}</span></div>
-              <label className="reasonField"><span>Modo de acesso</span><select value={connectMode} onChange={(event) => onConnectModeChange(event.target.value as "support" | "game")}><option value="support">Suporte tecnico (RustDesk)</option><option value="game">Jogo (cliente nativo em preparacao)</option></select></label>
+              <label className="reasonField"><span>Modo de acesso</span><select value={connectMode} onChange={(event) => onConnectModeChange(event.target.value as "support" | "game")}><option value="support">Suporte tecnico (RustDesk)</option><option value="game">Jogo (experimental)</option></select></label>
               <label className="reasonField"><span>Motivo do acesso</span><textarea value={connectReason} onChange={(event) => onConnectReasonChange(event.target.value)} rows={3} placeholder="Ex.: validar falha no caixa" autoFocus /></label>
-              <p className="modalNote">A solicitacao sera registrada na atividade. O suporte abre RustDesk; o modo jogo aguarda o cliente nativo.</p>
+              <p className="modalNote">A solicitacao sera registrada na atividade. O suporte abre RustDesk; o modo jogo experimental exige relay e captura ativos.</p>
               <div className="modalActions"><button className="secondary" type="button" onClick={onCloseConnection}>Cancelar</button><button className="primary" type="button" onClick={onConfirmConnection} disabled={connectionLoading || connectReason.trim().length < 4}><Play size={16} />{connectionLoading ? "Registrando..." : "Solicitar acesso"}</button></div>
             </section>
           </div>
         ) : null}
+
+        {gameSession ? <GameSessionPanel session={gameSession} realtimeUrl={REALTIME_URL} onClose={onCloseGameSession} /> : null}
 
         {onboardingOpen ? (
           <div className="modalBackdrop" role="presentation" onMouseDown={onCloseOnboarding}>
@@ -1495,6 +1521,141 @@ function Metric({ label, value, tone }: { label: string; value: number; tone?: "
     </div>
   );
 }
+
+function GameSessionPanel({ session, realtimeUrl, onClose }: { session: GameSessionDescriptor; realtimeUrl: string; onClose: () => void }) {
+  const videoRef = React.useRef<HTMLVideoElement>(null);
+  const socketRef = React.useRef<WebSocket | null>(null);
+  const sourceBufferRef = React.useRef<SourceBuffer | null>(null);
+  const mediaQueueRef = React.useRef<Uint8Array[]>([]);
+  const [status, setStatus] = React.useState("Conectando ao computador...");
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !("MediaSource" in window)) {
+      setError("Este navegador nao suporta a reproducao de video do modo jogo.");
+      return;
+    }
+
+    const mediaSource = new MediaSource();
+    video.src = URL.createObjectURL(mediaSource);
+    const realtimeBase = realtimeUrl.startsWith("/")
+      ? `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}${realtimeUrl}`
+      : realtimeUrl;
+    const socket = new WebSocket(`${realtimeBase.replace(/\/$/, "")}/sessions/${encodeURIComponent(session.sessionId)}`);
+    socket.binaryType = "arraybuffer";
+    socketRef.current = socket;
+
+    const pump = () => {
+      const sourceBuffer = sourceBufferRef.current;
+      if (!sourceBuffer || sourceBuffer.updating || mediaQueueRef.current.length === 0) return;
+      const next = mediaQueueRef.current.shift();
+      if (!next) return;
+      try {
+        const appendable = new Uint8Array(next.byteLength);
+        appendable.set(next);
+        sourceBuffer.appendBuffer(appendable.buffer);
+      } catch {
+        mediaQueueRef.current.unshift(next);
+      }
+    };
+
+    const onSourceOpen = () => {
+      try {
+        const mime = "video/mp4; codecs=\"avc1.4D002A\"";
+        if (!MediaSource.isTypeSupported(mime)) throw new Error("Codec H.264 nao suportado neste navegador");
+        const sourceBuffer = mediaSource.addSourceBuffer(mime);
+        sourceBuffer.mode = "sequence";
+        sourceBuffer.addEventListener("updateend", pump);
+        sourceBufferRef.current = sourceBuffer;
+      } catch (sourceError) {
+        setError(sourceError instanceof Error ? sourceError.message : "Nao foi possivel preparar o video");
+      }
+    };
+
+    mediaSource.addEventListener("sourceopen", onSourceOpen, { once: true });
+    socket.addEventListener("open", () => {
+      socket.send(JSON.stringify({ type: "hello", accessToken: session.accessToken }));
+      setStatus("Aguardando video do computador...");
+    });
+    socket.addEventListener("message", (event) => {
+      if (typeof event.data === "string") {
+        const message = JSON.parse(event.data) as { type?: string; reason?: string; peerConnected?: boolean };
+        if (message.type === "ready") setStatus(message.peerConnected ? "Conectado. Clique no video para capturar o mouse." : "Conectado. Aguardando o agente do computador...");
+        if (message.type === "closed") setStatus(message.reason === "peer-disconnected" ? "O computador remoto desconectou." : message.reason ?? "Sessao encerrada.");
+        return;
+      }
+      const frame = new Uint8Array(event.data as ArrayBuffer);
+      mediaQueueRef.current.push(frame);
+      pump();
+    });
+    socket.addEventListener("error", () => setError("Nao foi possivel conectar ao relay realtime."));
+    socket.addEventListener("close", () => setStatus("Sessao realtime encerrada."));
+
+    return () => {
+      socket.close();
+      socketRef.current = null;
+      sourceBufferRef.current = null;
+      mediaQueueRef.current = [];
+      URL.revokeObjectURL(video.src);
+    };
+  }, [realtimeUrl, session.accessToken, session.sessionId]);
+
+  function sendInput(event: Record<string, unknown>) {
+    const socket = socketRef.current;
+    if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: "input", event }));
+  }
+
+  function sendKey(event: React.KeyboardEvent<HTMLVideoElement>, action: "down" | "up") {
+    const scanCode = scanCodes[event.code];
+    if (!scanCode) return;
+    event.preventDefault();
+    sendInput({ type: "key", scanCode, action });
+  }
+
+  return (
+    <div className="gameSessionBackdrop" role="presentation">
+      <section className="gameSessionPanel" role="dialog" aria-modal="true" aria-labelledby="game-session-title">
+        <header className="gameSessionHeader">
+          <div><p className="eyebrow"><Gamepad2 size={14} /> Modo jogo experimental</p><h2 id="game-session-title">Sessao remota</h2><span>{status}</span></div>
+          <button className="iconButton" type="button" onClick={onClose} aria-label="Encerrar sessao" title="Encerrar sessao"><X size={17} /></button>
+        </header>
+        {error ? <div className="gameSessionError">{error}</div> : null}
+        <video
+          ref={videoRef}
+          className="gameSessionVideo"
+          autoPlay
+          playsInline
+          muted
+          tabIndex={0}
+          onClick={(event) => void event.currentTarget.requestPointerLock?.()}
+          onContextMenu={(event) => event.preventDefault()}
+          onMouseMove={(event) => sendInput({ type: "mouse.relative", dx: event.movementX, dy: event.movementY })}
+          onMouseDown={(event) => sendInput({ type: "mouse.button", button: mouseButtons[event.button] ?? "left", action: "down" })}
+          onMouseUp={(event) => sendInput({ type: "mouse.button", button: mouseButtons[event.button] ?? "left", action: "up" })}
+          onWheel={(event) => sendInput({ type: "mouse.wheel", delta: Math.round(event.deltaY * -1) })}
+          onKeyDown={(event) => sendKey(event, "down")}
+          onKeyUp={(event) => sendKey(event, "up")}
+        />
+        <footer className="gameSessionFooter"><span>Video H.264 / relay autenticado</span><button className="danger" type="button" onClick={onClose}>Encerrar sessao</button></footer>
+      </section>
+    </div>
+  );
+}
+
+const mouseButtons = ["left", "middle", "right"] as const;
+const scanCodes: Record<string, number> = {
+  Escape: 1, Digit1: 2, Digit2: 3, Digit3: 4, Digit4: 5, Digit5: 6, Digit6: 7, Digit7: 8, Digit8: 9, Digit9: 10, Digit0: 11,
+  Minus: 12, Equal: 13, Backspace: 14, Tab: 15, KeyQ: 16, KeyW: 17, KeyE: 18, KeyR: 19, KeyT: 20, KeyY: 21,
+  KeyU: 22, KeyI: 23, KeyO: 24, KeyP: 25, BracketLeft: 26, BracketRight: 27, Enter: 28, ControlLeft: 29,
+  KeyA: 30, KeyS: 31, KeyD: 32, KeyF: 33, KeyG: 34, KeyH: 35, KeyJ: 36, KeyK: 37, KeyL: 38, Semicolon: 39,
+  Quote: 40, Backquote: 41, ShiftLeft: 42, Backslash: 43, KeyZ: 44, KeyX: 45, KeyC: 46, KeyV: 47, KeyB: 48,
+  KeyN: 49, KeyM: 50, Comma: 51, Period: 52, Slash: 53, ShiftRight: 54, NumpadMultiply: 55, AltLeft: 56,
+  Space: 57, CapsLock: 58, F1: 59, F2: 60, F3: 61, F4: 62, F5: 63, F6: 64, F7: 65, F8: 66, F9: 67,
+  F10: 68, NumLock: 69, ScrollLock: 70, Numpad7: 71, Numpad8: 72, Numpad9: 73, NumpadSubtract: 74,
+  Numpad4: 75, Numpad5: 76, Numpad6: 77, NumpadAdd: 78, Numpad1: 79, Numpad2: 80, Numpad3: 81,
+  Numpad0: 82, NumpadDecimal: 83, F11: 87, F12: 88, ControlRight: 157, AltRight: 184
+};
 
 function LoginScreen({ onLogin }: { onLogin: (response: LoginResponse) => void }) {
   const [email, setEmail] = React.useState("");

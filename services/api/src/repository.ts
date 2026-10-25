@@ -805,7 +805,7 @@ export const repository = {
     });
     if (!current) return null;
     if (current.status !== "REQUESTED") return { kind: "unchanged" as const, status: current.status.toLowerCase() };
-    if (current.mode === "GAME") {
+    if (current.mode === "GAME" && process.env.ENABLE_GAME_MODE !== "true") {
       await addAudit(
         "remote-session.unavailable",
         input.user.name,
@@ -823,7 +823,7 @@ export const repository = {
     const desktopToken = createDesktopSessionToken({
       sessionId: current.id,
       deviceId: current.deviceId,
-      mode: "support",
+      mode: current.mode.toLowerCase() as RemoteSessionMode,
       role: "client",
       remoteId: current.device.remoteId
     });
@@ -865,8 +865,16 @@ export const repository = {
             }
           : {
               protocol: "native-game",
-              status: "not-ready",
-              message: "O cliente nativo do modo jogo ainda nao esta instalado neste ambiente."
+            status: "ready",
+            desktopSession: {
+              sessionId: session.id,
+              deviceId: session.deviceId,
+              mode: "game",
+              role: "client",
+              remoteId: session.device.remoteId,
+              accessToken: desktopToken.token,
+              expiresAt: desktopToken.expiresAt.toISOString()
+            }
             }
       }
     };

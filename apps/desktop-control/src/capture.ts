@@ -43,11 +43,14 @@ export function buildWindowsCaptureArgs(profile: CaptureProfile = defaultProfile
     "-c:v", encoderName(profile.encoder),
     "-preset", profile.encoder === "cpu" ? "ultrafast" : "p1",
     "-tune", "zerolatency",
+    "-profile:v", "main",
+    "-level", "4.2",
     "-b:v", `${bitrateKbps}k`,
     "-maxrate", `${bitrateKbps}k`,
     "-bufsize", `${bitrateKbps * 2}k`,
     "-pix_fmt", "yuv420p",
-    "-f", "mpegts",
+    "-movflags", "frag_keyframe+empty_moov+default_base_moof",
+    "-f", "mp4",
     "pipe:1"
   );
 
