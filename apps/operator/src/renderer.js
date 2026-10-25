@@ -10,12 +10,14 @@ const fpsText = document.getElementById("fps");
 const latencyText = document.getElementById("latency");
 const firstFrameText = document.getElementById("first-frame");
 const receivedText = document.getElementById("received");
+const dropsText = document.getElementById("drops");
 const frameQueue = [];
 let frameCount = 0;
 let fpsTimer;
 let sourceBuffer;
 let mediaSource;
 let queuedBytes = 0;
+let droppedFrames = 0;
 const pressedKeys = new Set();
 
 const mouseButtons = ["left", "middle", "right"];
@@ -65,9 +67,24 @@ function startMedia() {
 
 function pumpFrames() {
   if (!sourceBuffer || sourceBuffer.updating || frameQueue.length === 0) return;
+  if (!keepNearLiveEdge()) return;
   const frame = frameQueue.shift();
   queuedBytes -= frame.byteLength;
   try { sourceBuffer.appendBuffer(frame); } catch (error) { fail(error); }
+}
+
+function keepNearLiveEdge() {
+  if (!sourceBuffer || sourceBuffer.updating || !video.buffered.length) return true;
+  const start = video.buffered.start(0);
+  const end = video.buffered.end(video.buffered.length - 1);
+  if (end - start > 8) {
+    sourceBuffer.remove(start, Math.max(start, end - 4));
+    return false;
+  }
+  if (video.currentTime < start || end - video.currentTime > 1.25) {
+    video.currentTime = Math.max(start, end - 0.35);
+  }
+  return true;
 }
 
 function receiveFrame(value) {
@@ -76,7 +93,10 @@ function receiveFrame(value) {
   frameCount += 1;
   frameQueue.push(frame);
   queuedBytes += frame.byteLength;
-  while (queuedBytes > 16 * 1024 * 1024 && frameQueue.length > 1) queuedBytes -= frameQueue.shift().byteLength;
+  while (queuedBytes > 16 * 1024 * 1024 && frameQueue.length > 1) {
+    queuedBytes -= frameQueue.shift().byteLength;
+    droppedFrames += 1;
+  }
   empty.classList.add("hidden");
   pumpFrames();
 }
@@ -84,6 +104,7 @@ function receiveFrame(value) {
 fpsTimer = window.setInterval(() => {
   fpsText.textContent = `${frameCount} FPS`;
   frameCount = 0;
+  dropsText.textContent = `fila ${droppedFrames}`;
 }, 1000);
 
 function send(event) { window.remotoOperator.sendInput(event); }

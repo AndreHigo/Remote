@@ -7,6 +7,7 @@
 - o RTT continua sendo medido pelos pings do relay;
 - as metricas sao consolidadas no maximo uma vez por segundo para nao transformar diagnostico em carga de IPC;
 - a janela do operador exibe FPS, RTT, tempo ate o primeiro frame e volume recebido.
+- o player limita o buffer de video a uma janela curta, reposiciona no live edge quando o atraso cresce e contabiliza frames descartados da fila.
 
 ## Evidencia
 
