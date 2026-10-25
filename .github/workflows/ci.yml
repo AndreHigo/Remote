@@ -25,6 +25,12 @@ jobs:
       - name: Security unit tests
         run: npm run test:security
 
+      - name: Desktop control tests
+        run: npm run test -w apps/desktop-control
+
+      - name: Realtime tests
+        run: npm run test -w services/realtime
+
       - name: Typecheck
         run: npm run typecheck
 
@@ -48,6 +54,8 @@ jobs:
           POSTGRES_PASSWORD: ci-postgres-password-123456789
           JWT_SECRET: ci-jwt-secret-123456789012345678901234
           TOTP_ENCRYPTION_KEY: ci-totp-secret-123456789012345678901234
+          REALTIME_INTERNAL_SECRET: ci-realtime-secret-123456789012345678901234
+          REALTIME_ALLOWED_ORIGINS: https://remoto.test.example
           BOOTSTRAP_ADMIN_NAME: CI Admin
           BOOTSTRAP_ADMIN_EMAIL: ci-admin@example.com
           BOOTSTRAP_ADMIN_PASSWORD: ci-bootstrap-password
