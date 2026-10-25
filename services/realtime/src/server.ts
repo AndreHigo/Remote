@@ -20,6 +20,7 @@ interface Peer {
 interface Room {
   host?: Peer;
   client?: Peer;
+  initialFrame?: Buffer;
   expiryTimer?: NodeJS.Timeout;
 }
 
@@ -59,6 +60,7 @@ export function createRealtimeServer() {
 
         const room = rooms.get(payload.sessionId) ?? {};
         if (room[payload.role]) return close(socket, "role-already-connected");
+        if (payload.role === "host") room.initialFrame = undefined;
         peer = { socket, payload, role: payload.role };
         room[payload.role] = peer;
         if (!room.expiryTimer) {
@@ -75,13 +77,18 @@ export function createRealtimeServer() {
         send(socket, { type: "ready", sessionId: payload.sessionId, mode: payload.mode, peerConnected: Boolean(room.host && room.client) });
         const other = payload.role === "host" ? room.client : room.host;
         if (other) send(other.socket, { type: "ready", sessionId: payload.sessionId, mode: payload.mode, peerConnected: true });
+        if (payload.role === "client" && room.initialFrame && socket.readyState === WebSocket.OPEN) {
+          socket.send(room.initialFrame, { binary: true });
+        }
         return;
       }
 
     if (isBinary) {
       const frame = toBuffer(data);
       if (peer.role !== "host" || frame.byteLength > maxFrameBytes) return close(socket, "frame-too-large-or-role-not-allowed");
-      const client = rooms.get(peer.payload.sessionId)?.client;
+      const room = rooms.get(peer.payload.sessionId);
+      if (room && !room.initialFrame) room.initialFrame = frame;
+      const client = room?.client;
       if (client?.socket.readyState === WebSocket.OPEN) client.socket.send(frame, { binary: true });
       return;
     }

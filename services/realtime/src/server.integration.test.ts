@@ -28,12 +28,14 @@ test("relay autentica os dois papeis e encaminha video e entrada", async (t) => 
   let host: WebSocket | undefined;
   let client: WebSocket | undefined;
   let duplicate: WebSocket | undefined;
+  let reconnectedClient: WebSocket | undefined;
   let expiringHost: WebSocket | undefined;
   let expiringClient: WebSocket | undefined;
   t.after(async () => {
     host?.terminate();
     client?.terminate();
     duplicate?.terminate();
+    reconnectedClient?.terminate();
     expiringHost?.terminate();
     expiringClient?.terminate();
     if (relay) await relay.close();
@@ -87,6 +89,15 @@ test("relay autentica os dois papeis e encaminha video e entrada", async (t) => 
   clientSocket.close();
   const closed = await nextJson(hostMessages);
   assert.deepEqual(closed, { type: "closed", reason: "peer-disconnected" });
+
+  reconnectedClient = await connect(url);
+  const reconnectedMessages = createMessageQueue(reconnectedClient);
+  reconnectedClient.send(JSON.stringify({ type: "hello", accessToken: token("client") }));
+  assert.equal((await nextJson(reconnectedMessages)).type, "ready");
+  assert.deepEqual(await nextBinary(reconnectedMessages), frame);
+  reconnectedClient.close();
+  assert.equal((await nextJson(hostMessages)).peerConnected, true);
+  assert.deepEqual(await nextJson(hostMessages), { type: "closed", reason: "peer-disconnected" });
 
   expiringHost = await connect(url.replace("session-1", "session-expiring"));
   expiringClient = await connect(url.replace("session-1", "session-expiring"));
