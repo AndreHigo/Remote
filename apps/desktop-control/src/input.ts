@@ -75,12 +75,17 @@ export class WindowsInputBridge {
   private readonly process: ChildProcessWithoutNullStreams;
   private readonly releaseTracker = createInputReleaseTracker();
   private closed = false;
+  private forceKillTimer?: NodeJS.Timeout;
 
   constructor() {
     if (process.platform !== "win32") throw new Error("A ponte de entrada esta disponivel apenas no Windows.");
     this.process = spawn("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", POWERSHELL_BRIDGE], {
       stdio: "pipe",
       windowsHide: true
+    });
+    this.process.once("close", () => {
+      if (this.forceKillTimer) clearTimeout(this.forceKillTimer);
+      this.forceKillTimer = undefined;
     });
   }
 
@@ -94,14 +99,16 @@ export class WindowsInputBridge {
   close() {
     if (this.closed) return;
     this.closed = true;
-    try {
-      if (this.process.stdin.writable) {
-        for (const event of this.releaseTracker.releaseEvents()) {
-          this.process.stdin.write(`${JSON.stringify(event)}\n`);
-        }
-        this.process.stdin.end();
+    if (this.process.stdin.writable) {
+      for (const event of this.releaseTracker.releaseEvents()) {
+        this.process.stdin.write(`${JSON.stringify(event)}\n`);
       }
-    } finally {
+      this.process.stdin.end();
+      this.forceKillTimer = setTimeout(() => {
+        if (this.process.exitCode === null && this.process.signalCode === null) this.process.kill();
+      }, 250);
+      this.forceKillTimer.unref?.();
+    } else {
       this.process.kill();
     }
   }

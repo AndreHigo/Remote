@@ -6,6 +6,7 @@
 - ao encerrar a sessao, ele envia eventos `up` para tudo que ainda estiver pressionado;
 - o rastreador e testado de forma independente, incluindo teclas estendidas;
 - o encerramento continua idempotente para evitar liberar a mesma entrada duas vezes.
+- o processo PowerShell recebe os eventos de liberação antes do encerramento; um timeout curto fica apenas como fallback caso ele não finalize.
 
 ## Por que importa
 
