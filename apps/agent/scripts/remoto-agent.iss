@@ -188,6 +188,12 @@ begin
     '$deadline=(Get-Date).AddSeconds(10); while ($svc -and $svc.Status -ne ''Stopped'' -and (Get-Date) -lt $deadline) ' +
     '{ Start-Sleep -Milliseconds 250; $svc=Get-Service -Name ''RemotoAgent'' -ErrorAction SilentlyContinue }"';
   Exec(PowerShellPath, Parameters, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
+  Parameters := '-NoProfile -Command "$p=Get-Process -Name ''RemotoAgent'' -ErrorAction SilentlyContinue; ' +
+    'if ($p) { $p | Stop-Process -Force }; $deadline=(Get-Date).AddSeconds(10); ' +
+    'while ((Get-Process -Name ''RemotoAgent'' -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) ' +
+    '{ Start-Sleep -Milliseconds 250 }"';
+  Exec(PowerShellPath, Parameters, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
 
 procedure InitializeWizard;
