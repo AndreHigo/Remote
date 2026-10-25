@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import type { NextFunction, Request, Response } from "express";
 import { prisma } from "./db.js";
+import { isAgentRemoteIdAllowed } from "./agent-binding.js";
 
 export interface AuthenticatedAgentRequest extends Request {
   agent: {
@@ -43,6 +44,26 @@ export async function authenticateAgent(request: Request, response: Response, ne
     customerId: enrollmentKey.customerId,
     boundRemoteId: enrollmentKey.boundRemoteId
   };
+
+  next();
+}
+
+export async function authorizeAgentDevice(request: Request, response: Response, next: NextFunction) {
+  const agent = (request as AuthenticatedAgentRequest).agent;
+  if (!agent?.boundRemoteId) {
+    response.status(404).json({ message: "Dispositivo nao encontrado para este agente" });
+    return;
+  }
+
+  const deviceId = typeof request.params.id === "string" ? request.params.id : "";
+  const device = await prisma.device.findFirst({
+    where: { id: deviceId, customerId: agent.customerId, archivedAt: null },
+    select: { remoteId: true }
+  });
+  if (!device || !isAgentRemoteIdAllowed(agent.boundRemoteId, device.remoteId)) {
+    response.status(404).json({ message: "Dispositivo nao encontrado para este agente" });
+    return;
+  }
 
   next();
 }

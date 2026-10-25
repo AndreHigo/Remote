@@ -47,14 +47,13 @@ function Resolve-TrustedNodePath {
 
   $trustedRoots = @(
     $env:ProgramFiles,
-    ${env:ProgramFiles(x86)},
-    (Join-Path $env:LOCALAPPDATA "Programs")
+    ${env:ProgramFiles(x86)}
   ) | Where-Object { $_ } | ForEach-Object { [System.IO.Path]::GetFullPath($_).TrimEnd('\') }
   $isTrusted = $trustedRoots | Where-Object {
     $resolved.StartsWith($_ + '\', [System.StringComparison]::OrdinalIgnoreCase)
   }
   if (-not $isTrusted) {
-    throw "NodePath precisa estar em uma pasta protegida do Node.js dentro de Program Files ou LocalAppData\Programs."
+    throw "NodePath precisa estar em uma pasta protegida do Node.js dentro de Program Files. Um Node instalado no perfil do usuario nao pode executar um servico LocalSystem."
   }
   return $resolved
 }
@@ -105,6 +104,10 @@ $config = Get-Content $configPath -Raw | ConvertFrom-Json
 if ([string]::IsNullOrWhiteSpace([string]$config.agentKey)) {
   throw "agentKey vazio em $configPath. O servico nao sera instalado sem uma chave."
 }
+
+& icacls.exe $configPath /inheritance:r /remove "*S-1-5-11" "*S-1-5-32-545" | Out-Host
+& icacls.exe $configPath /grant:r "*S-1-5-18:(F)" "*S-1-5-32-544:(F)" ("*{0}:(R)" -f $CurrentUserSid) | Out-Host
+if ($LASTEXITCODE -ne 0) { throw "Nao foi possivel proteger a configuracao do agente." }
 
 $binPath = '"{0}" "{1}"' -f $NodePath, $runner
 try { Invoke-Sc @("stop", $ServiceName) } catch { }

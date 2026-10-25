@@ -4,9 +4,11 @@ import type { Prisma } from "./generated/prisma/client.js";
 import { prisma } from "./db.js";
 import { hashPassword } from "./password.js";
 import { createDesktopSessionToken, hashToken, verifyDesktopSessionToken } from "./desktop-session-token.js";
-import { evaluateGameCapability } from "./game-capability.js";
+import { evaluateGameCapability, readGameAudio } from "./game-capability.js";
 
 const ONLINE_WINDOW_MS = 90_000;
+const MAX_PENDING_COMMANDS_PER_DEVICE = 100;
+const MAX_OPEN_REMOTE_SESSIONS_PER_DEVICE = 10;
 
 function now() {
   return new Date();
@@ -755,6 +757,14 @@ export const repository = {
     const device = await prisma.device.findFirst({ where: { id: input.deviceId, archivedAt: null, customer: { workspaceId: input.user.workspaceId } } });
     if (!device) return null;
 
+    const pendingCount = await prisma.commandExecution.count({
+      where: {
+        deviceId: input.deviceId,
+        status: { in: ["PENDING", "RUNNING"] }
+      }
+    });
+    if (pendingCount >= MAX_PENDING_COMMANDS_PER_DEVICE) return { kind: "quota" as const };
+
     const [command] = await prisma.$transaction([
       prisma.commandExecution.create({
         data: {
@@ -777,7 +787,7 @@ export const repository = {
       })
     ]);
 
-    return toCommandView(command);
+    return { kind: "created" as const, command: toCommandView(command) };
   },
 
   async listCommands(deviceId: string, user?: AuthUser) {
@@ -822,6 +832,7 @@ export const repository = {
   async completeCommand(input: {
     commandId: string;
     customerId: string;
+    boundRemoteId: string;
     status: "succeeded" | "failed";
     output?: Prisma.InputJsonValue;
     error?: string | null;
@@ -829,7 +840,7 @@ export const repository = {
     const command = await prisma.commandExecution.findFirst({
       where: {
         id: input.commandId,
-        device: { customerId: input.customerId, archivedAt: null }
+        device: { customerId: input.customerId, remoteId: input.boundRemoteId, archivedAt: null }
       }
     });
     if (!command) return null;
@@ -861,6 +872,14 @@ export const repository = {
     });
     if (!device) return null;
 
+    const openSessionCount = await prisma.remoteSession.count({
+      where: {
+        deviceId: device.id,
+        status: { in: ["REQUESTED", "APPROVED"] }
+      }
+    });
+    if (openSessionCount >= MAX_OPEN_REMOTE_SESSIONS_PER_DEVICE) return { kind: "quota" as const };
+
     const [session] = await prisma.$transaction([
       prisma.remoteSession.create({
         data: {
@@ -883,7 +902,7 @@ export const repository = {
       })
     ]);
 
-    return toRemoteSessionView(session);
+    return { kind: "created" as const, session: toRemoteSessionView(session) };
   },
 
   async approveRemoteSession(input: { id: string; user: AuthUser }) {
@@ -894,6 +913,7 @@ export const repository = {
     if (!current) return null;
     if (current.device.customer.workspaceId !== input.user.workspaceId) return null;
     if (current.status !== "REQUESTED") return { kind: "unchanged" as const, status: current.status.toLowerCase() };
+    let gameAudio: "off" | "system" = "off";
     if (current.mode === "GAME" && (process.env.ENABLE_GAME_MODE !== "true" || !process.env.REALTIME_INTERNAL_SECRET)) {
       await addAudit(
         "remote-session.unavailable",
@@ -933,6 +953,7 @@ export const repository = {
         );
         return { kind: "unavailable" as const, message };
       }
+      gameAudio = capability.audio ?? "off";
     }
 
     const desktopToken = createDesktopSessionToken({
@@ -940,6 +961,7 @@ export const repository = {
       deviceId: current.deviceId,
       mode: current.mode.toLowerCase() as RemoteSessionMode,
       role: "client",
+      audio: gameAudio,
       remoteId: current.device.remoteId
     });
 
@@ -978,6 +1000,7 @@ export const repository = {
                 deviceId: session.deviceId,
                 mode: "support",
                 role: "client",
+                audio: desktopToken.payload.audio ?? "off",
                 remoteId: session.device.remoteId,
                 accessToken: desktopToken.token,
                 expiresAt: desktopToken.expiresAt.toISOString()
@@ -991,6 +1014,7 @@ export const repository = {
               deviceId: session.deviceId,
               mode: "game",
               role: "client",
+              audio: desktopToken.payload.audio ?? "off",
               remoteId: session.device.remoteId,
               accessToken: desktopToken.token,
               expiresAt: desktopToken.expiresAt.toISOString()
@@ -1045,6 +1069,7 @@ export const repository = {
         deviceId: consumed.deviceId,
         mode: consumed.mode.toLowerCase(),
         role: "client" as const,
+        audio: payload.audio ?? "off",
         remoteId: current.device.remoteId,
         expiresAt: current.connectionTokenExpiresAt.toISOString()
       }
@@ -1105,6 +1130,7 @@ export const repository = {
         deviceId: current.deviceId,
         mode: current.mode.toLowerCase(),
         role: payload.role,
+        audio: payload.audio ?? "off",
         remoteId: current.device.remoteId,
         expiresAt: current.connectionTokenExpiresAt.toISOString()
       }
@@ -1114,6 +1140,13 @@ export const repository = {
   async listAgentRemoteSessions(input: { deviceId: string; customerId: string }) {
     const device = await prisma.device.findFirst({ where: { id: input.deviceId, customerId: input.customerId, archivedAt: null } });
     if (!device) return null;
+
+    const latestInventory = await prisma.inventorySnapshot.findFirst({
+      where: { deviceId: device.id },
+      orderBy: { collectedAt: "desc" },
+      select: { software: true }
+    });
+    const gameAudio = readGameAudio(latestInventory);
 
     const sessions = await prisma.remoteSession.findMany({
       where: {
@@ -1131,6 +1164,7 @@ export const repository = {
         deviceId: session.deviceId,
         mode: session.mode.toLowerCase() as RemoteSessionMode,
         role: "host",
+        audio: gameAudio,
         remoteId: device.remoteId
       });
       return {
@@ -1138,6 +1172,7 @@ export const repository = {
         deviceId: session.deviceId,
         mode: session.mode.toLowerCase(),
         role: "host" as const,
+        audio: hostToken.payload.audio ?? "off",
         accessToken: hostToken.token,
         expiresAt: hostToken.expiresAt.toISOString()
       };

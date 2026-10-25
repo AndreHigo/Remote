@@ -7,8 +7,8 @@ const now = Date.parse("2026-10-25T19:00:00.000Z");
 test("aceita inventario recente com captura pronta", () => {
   assert.deepEqual(evaluateGameCapability({
     collectedAt: "2026-10-25T18:55:00.000Z",
-    software: { capture: { gameModeReady: true } }
-  }, now), { ready: true });
+    software: { capture: { gameModeReady: true, audio: "system", systemAudioAvailable: true } }
+  }, now), { ready: true, audio: "system" });
 });
 
 test("recusa aprovacao sem inventario", () => {

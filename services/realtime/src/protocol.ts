@@ -8,6 +8,7 @@ export interface ChannelTokenPayload {
   deviceId: string;
   mode: SessionMode;
   role: SessionRole;
+  audio?: "off" | "system";
   remoteId?: string;
   nonce: string;
   exp: number;
@@ -38,6 +39,7 @@ export function verifyChannelToken(token: string): ChannelTokenPayload | null {
     const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as ChannelTokenPayload;
     if (!payload.sessionId || !payload.deviceId || !payload.nonce || payload.exp <= Date.now()) return null;
     if (!["support", "game"].includes(payload.mode) || !["host", "client"].includes(payload.role)) return null;
+    if (payload.audio !== undefined && !["off", "system"].includes(payload.audio)) return null;
     return payload;
   } catch {
     return null;

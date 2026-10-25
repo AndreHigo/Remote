@@ -5,10 +5,12 @@ import path from "node:path";
 export type VideoQuality = "auto" | "low" | "balanced" | "high";
 export type VideoEncoder = "auto" | "cpu" | "nvidia" | "amd" | "intel";
 export type CaptureMethod = "auto" | "gdigrab" | "ddagrab";
+export type CaptureAudio = "off" | "system";
 
 export interface CaptureProfile {
   quality: VideoQuality;
   encoder: VideoEncoder;
+  audio?: CaptureAudio;
   captureMethod?: CaptureMethod;
   width?: number;
   height?: number;
@@ -29,6 +31,7 @@ export interface FfmpegCapabilities {
   cpuEncoderAvailable: boolean;
   hardwareEncoders: Array<Exclude<VideoEncoder, "auto" | "cpu">>;
   captureMethods: Array<Exclude<CaptureMethod, "auto">>;
+  systemAudioAvailable: boolean;
   selectedEncoder: Exclude<VideoEncoder, "auto">;
   selectedEncoderAvailable: boolean;
   selectedCaptureMethod: Exclude<CaptureMethod, "auto">;
@@ -50,12 +53,16 @@ export function buildWindowsCaptureArgs(profile: CaptureProfile = defaultProfile
     args.push("-f", "gdigrab", "-framerate", String(fps), "-draw_mouse", "1", "-i", "desktop");
   }
 
+  if (profile.audio === "system") {
+    args.push("-thread_queue_size", "512", "-f", "wasapi", "-loopback", "1", "-i", "default");
+  }
+
   if (profile.width && profile.height) {
     args.push("-vf", `scale=${profile.width}:${profile.height}:force_original_aspect_ratio=decrease`);
   }
 
   args.push(
-    "-an",
+    ...(profile.audio === "system" ? ["-map", "0:v:0", "-map", "1:a:0"] : ["-an"]),
     "-c:v", encoderName(profile.encoder),
     "-preset", profile.encoder === "cpu" || profile.encoder === "auto" ? "ultrafast" : "p1",
     "-tune", "zerolatency",
@@ -67,6 +74,7 @@ export function buildWindowsCaptureArgs(profile: CaptureProfile = defaultProfile
     "-maxrate", `${bitrateKbps}k`,
     "-bufsize", `${bitrateKbps * 2}k`,
     "-pix_fmt", "yuv420p",
+    ...(profile.audio === "system" ? ["-c:a", "aac", "-b:a", "128k", "-ar", "48000", "-ac", "2"] : []),
     "-movflags", "frag_keyframe+empty_moov+default_base_moof",
     "-flush_packets", "1",
     "-f", "mp4",
@@ -111,6 +119,7 @@ export function inspectFfmpegCapabilities(preferredPath?: string, profile: Captu
       cpuEncoderAvailable: false,
       hardwareEncoders: [],
       captureMethods: [],
+      systemAudioAvailable: false,
       selectedEncoder: "cpu",
       selectedEncoderAvailable: false,
       selectedCaptureMethod: "gdigrab"
@@ -120,6 +129,7 @@ export function inspectFfmpegCapabilities(preferredPath?: string, profile: Captu
   const encodersOutput = runFfmpegProbe(executable, ["-hide_banner", "-encoders"]);
   const filtersOutput = runFfmpegProbe(executable, ["-hide_banner", "-filters"]);
   const formatsOutput = runFfmpegProbe(executable, ["-hide_banner", "-formats"]);
+  const devicesOutput = runFfmpegProbe(executable, ["-hide_banner", "-devices"]);
   const hardwareEncoders = ([
     ["nvidia", "h264_nvenc"],
     ["amd", "h264_amf"],
@@ -135,6 +145,7 @@ export function inspectFfmpegCapabilities(preferredPath?: string, profile: Captu
     ...( /(?:^|\s)gdigrab(?:\s|$)/m.test(formatsOutput) ? ["gdigrab" as const] : []),
     ...( /(?:^|\s)ddagrab(?:\s|$)/m.test(filtersOutput) ? ["ddagrab" as const] : [])
   ];
+  const systemAudioAvailable = /\bwasapi\b/i.test(`${formatsOutput}\n${devicesOutput}`);
   const cpuEncoderAvailable = availableEncoders.includes("libx264");
   const videoEncoderAvailable = cpuEncoderAvailable || hardwareEncoders.length > 0;
   const selectedEncoder = videoEncoderAvailable
@@ -154,6 +165,7 @@ export function inspectFfmpegCapabilities(preferredPath?: string, profile: Captu
     cpuEncoderAvailable,
     hardwareEncoders,
     captureMethods,
+    systemAudioAvailable,
     selectedEncoder,
     selectedEncoderAvailable,
     selectedCaptureMethod

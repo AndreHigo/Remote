@@ -9,6 +9,7 @@ export interface DesktopSessionTokenPayload {
   deviceId: string;
   mode: RemoteSessionMode;
   role: "client" | "host";
+  audio?: "off" | "system";
   remoteId?: string;
   nonce: string;
   exp: number;
@@ -44,6 +45,7 @@ export function verifyDesktopSessionToken(token: string): DesktopSessionTokenPay
     const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as DesktopSessionTokenPayload;
     if (!payload.sessionId || !payload.deviceId || !payload.nonce || payload.exp <= Date.now()) return null;
     if (!["support", "game"].includes(payload.mode) || !["client", "host"].includes(payload.role)) return null;
+    if (payload.audio !== undefined && !["off", "system"].includes(payload.audio)) return null;
     return payload;
   } catch {
     return null;

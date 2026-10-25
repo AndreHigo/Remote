@@ -8,10 +8,12 @@ test("tokeno de desktop e assinado, curto e verificavel", () => {
     deviceId: "device-1",
     mode: "support",
     role: "client",
+    audio: "off",
     remoteId: "123 456 789"
   });
 
   assert.equal(verifyDesktopSessionToken(created.token)?.sessionId, "session-1");
+  assert.equal(verifyDesktopSessionToken(created.token)?.audio, "off");
   assert.equal(hashToken(created.token), created.hash);
   assert.notEqual(created.token, created.hash);
 });

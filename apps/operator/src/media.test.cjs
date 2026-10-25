@@ -16,6 +16,11 @@ test("seleciona o primeiro MIME H.264 aceito pelo MSE", () => {
   assert.equal(media.selectH264Mime((mime) => mime.includes("4D401F")), 'video/mp4; codecs="avc1.4D401F"');
 });
 
+test("seleciona H.264 com AAC quando a sessao anuncia audio", () => {
+  const media = loadMedia();
+  assert.equal(media.selectH264Mime((mime) => mime.includes("4D401F"), true), 'video/mp4; codecs="avc1.4D401F,mp4a.40.2"');
+});
+
 test("informa quando o ambiente nao aceita nenhum perfil H.264", () => {
   const media = loadMedia();
   assert.equal(media.selectH264Mime(() => false), null);

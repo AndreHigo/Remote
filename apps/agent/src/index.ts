@@ -433,7 +433,8 @@ async function collectInventory() {
           selectedEncoderAvailable: capabilities.selectedEncoderAvailable,
           resolvedEncoder: capabilities.selectedEncoder,
           resolvedCaptureMethod: capabilities.selectedCaptureMethod,
-          availableCaptureMethods: capabilities.captureMethods
+          availableCaptureMethods: capabilities.captureMethods,
+          systemAudioAvailable: capabilities.systemAudioAvailable
         });
       })(),
       installed: []

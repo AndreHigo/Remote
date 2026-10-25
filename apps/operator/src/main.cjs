@@ -91,6 +91,11 @@ function sendMetrics(metrics) {
   mainWindow.webContents.send("metrics", metrics);
 }
 
+function sendSession(session) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send("session", { audio: session.audio === "system" ? "system" : "off" });
+}
+
 function clearFirstFrameTimer() {
   if (firstFrameTimer) clearTimeout(firstFrameTimer);
   firstFrameTimer = undefined;
@@ -127,6 +132,7 @@ async function startSession() {
   try {
     const descriptor = await readDescriptor(descriptorPath);
     activeDescriptor = descriptor;
+    sendSession(descriptor);
     closingSession = false;
     reconnectAttempt = 0;
     const apiUrl = normalizeEndpoint(descriptor.apiUrl || process.env.REMOTO_API_URL, "api");

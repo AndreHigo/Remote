@@ -3,7 +3,7 @@ import test from "node:test";
 import { buildCaptureReadiness, readCaptureProfile } from "./capture-config.js";
 
 test("usa encoder automatico e perfil acessivel como padrao", () => {
-  assert.deepEqual(readCaptureProfile({}), { quality: "auto", encoder: "auto", captureMethod: "auto", width: undefined, height: undefined, fps: undefined, bitrateKbps: undefined });
+  assert.deepEqual(readCaptureProfile({}), { quality: "auto", encoder: "auto", audio: "off", captureMethod: "auto", width: undefined, height: undefined, fps: undefined, bitrateKbps: undefined });
 });
 
 test("permite configurar perfil e limites pelo ambiente", () => {
@@ -15,7 +15,7 @@ test("permite configurar perfil e limites pelo ambiente", () => {
     REMOTO_CAPTURE_FPS: "60",
     REMOTO_CAPTURE_BITRATE_KBPS: "8000"
   });
-  assert.deepEqual(profile, { quality: "balanced", encoder: "intel", captureMethod: "auto", width: 1920, height: 1080, fps: 60, bitrateKbps: 8000 });
+  assert.deepEqual(profile, { quality: "balanced", encoder: "intel", audio: "off", captureMethod: "auto", width: 1920, height: 1080, fps: 60, bitrateKbps: 8000 });
 });
 
 test("permite deixar o encoder em modo automatico", () => {
@@ -36,7 +36,8 @@ test("expõe prontidao do modo jogo sem esconder o fallback de CPU", () => {
     selectedEncoderAvailable: true,
     resolvedEncoder: "cpu",
     resolvedCaptureMethod: "gdigrab",
-    availableCaptureMethods: ["gdigrab"]
+    availableCaptureMethods: ["gdigrab"],
+    systemAudioAvailable: false
   }), {
     gameModeReady: true,
     ffmpegAvailable: true,
@@ -46,6 +47,8 @@ test("expõe prontidao do modo jogo sem esconder o fallback de CPU", () => {
     encoder: "cpu",
     resolvedEncoder: "cpu",
     captureMethod: "auto",
+    audio: "off",
+    systemAudioAvailable: false,
     resolvedCaptureMethod: "gdigrab",
     availableCaptureMethods: ["gdigrab"],
     quality: "balanced",
@@ -67,7 +70,8 @@ test("nao marca qualidade auto como fallback de CPU antes da deteccao do encoder
     selectedEncoderAvailable: true,
     resolvedEncoder: "nvidia",
     resolvedCaptureMethod: "ddagrab",
-    availableCaptureMethods: ["gdigrab", "ddagrab"]
+    availableCaptureMethods: ["gdigrab", "ddagrab"],
+    systemAudioAvailable: false
   }).cpuFallback, false);
 });
 

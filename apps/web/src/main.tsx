@@ -168,6 +168,8 @@ interface InventorySnapshot {
       videoEncoderAvailable?: boolean;
       cpuEncoderAvailable?: boolean;
       selectedEncoderAvailable?: boolean;
+      audio?: "off" | "system";
+      systemAudioAvailable?: boolean;
       resolvedEncoder?: string;
       resolvedCaptureMethod?: string;
       encoder?: string;
@@ -208,6 +210,7 @@ interface RemoteSessionResponse {
       deviceId: string;
       mode: "support" | "game";
       role: "host" | "client";
+      audio?: "off" | "system";
       remoteId?: string;
       accessToken?: string;
       expiresAt?: string;
@@ -222,6 +225,7 @@ interface GameSessionDescriptor {
   role: "client";
   accessToken: string;
   expiresAt: string;
+  audio?: "off" | "system";
 }
 
 interface RemoteSession {
@@ -640,6 +644,7 @@ function App() {
           deviceId: approved.connection.desktopSession.deviceId,
           mode: "game",
           role: "client",
+          audio: approved.connection.desktopSession.audio ?? "off",
           accessToken: approved.connection.desktopSession.accessToken,
           expiresAt: approved.connection.desktopSession.expiresAt ?? new Date(Date.now() + 5 * 60_000).toISOString()
         });
@@ -1498,7 +1503,8 @@ function OperationsConsole(props: OperationsConsoleProps) {
                         <div><dt>Discos</dt><dd>{latestInventory.hardware.disks?.length ? latestInventory.hardware.disks.map((disk) => `${disk.name ?? disk.mountedAt ?? "disco"} ${formatBytes(disk.freeBytes)} livre`).join(", ") : "n/a"}</dd></div>
                         <div><dt>Video</dt><dd>{latestInventory.hardware.graphics?.adapters?.map((adapter) => adapter.name).join(", ") || "nao detectado"}</dd></div>
                         <div><dt>Codificacao</dt><dd>{latestInventory.hardware.graphics?.encoding === "cpu-fallback" ? "CPU permitido; qualidade pode variar" : latestInventory.hardware.graphics?.encoding === "hardware-preferred-with-cpu-fallback" ? "GPU preferencial com fallback de CPU" : "Nao avaliada"}</dd></div>
-                        <div><dt>Modo jogo</dt><dd>{latestInventory.software.capture?.gameModeReady ? `Pronto (${latestInventory.software.capture.resolvedEncoder ?? latestInventory.software.capture.encoder ?? "CPU"} / ${latestInventory.software.capture.resolvedCaptureMethod ?? latestInventory.software.capture.captureMethod ?? "auto"} / ${latestInventory.software.capture.quality ?? "auto"})` : latestInventory.software.capture?.ffmpegAvailable ? "FFmpeg sem encoder H.264 ou captura de desktop utilizavel" : "FFmpeg nao detectado"}</dd></div>
+                        <div><dt>Modo jogo</dt><dd>{latestInventory.software.capture?.gameModeReady ? `Pronto (${latestInventory.software.capture.resolvedEncoder ?? latestInventory.software.capture.encoder ?? "CPU"} / ${latestInventory.software.capture.resolvedCaptureMethod ?? latestInventory.software.capture.captureMethod ?? "auto"} / ${latestInventory.software.capture.quality ?? "auto"})` : latestInventory.software.capture?.audio === "system" && !latestInventory.software.capture.systemAudioAvailable ? "Audio do sistema indisponivel nesta build do FFmpeg" : latestInventory.software.capture?.ffmpegAvailable ? "FFmpeg sem encoder H.264 ou captura de desktop utilizavel" : "FFmpeg nao detectado"}</dd></div>
+                        <div><dt>Audio</dt><dd>{latestInventory.software.capture?.audio === "system" ? latestInventory.software.capture.systemAudioAvailable ? "WASAPI loopback disponivel" : "WASAPI loopback indisponivel" : "Desligado"}</dd></div>
                         <div><dt>Perfil captura</dt><dd>{latestInventory.software.capture ? `${latestInventory.software.capture.width && latestInventory.software.capture.height ? `${latestInventory.software.capture.width}x${latestInventory.software.capture.height}` : "desktop"} / ${latestInventory.software.capture.fps ?? "auto"} FPS / ${latestInventory.software.capture.bitrateKbps ?? "auto"} kbps` : "Nao avaliado"}</dd></div>
                         <div><dt>Runtime</dt><dd>{latestInventory.software.runtime?.node ?? "n/a"}</dd></div>
                       </dl> : null}
@@ -1717,6 +1723,11 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
     const onSourceOpen = () => {
       try {
         const mime = [
+          ...(session.audio === "system" ? [
+            "video/mp4; codecs=\"avc1.4D002A,mp4a.40.2\"",
+            "video/mp4; codecs=\"avc1.4D401F,mp4a.40.2\"",
+            "video/mp4; codecs=\"avc1.64002A,mp4a.40.2\""
+          ] : []),
           "video/mp4; codecs=\"avc1.4D002A\"",
           "video/mp4; codecs=\"avc1.4D401F\"",
           "video/mp4; codecs=\"avc1.64002A\""
@@ -1931,7 +1942,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
             className="gameSessionVideo"
             autoPlay
             playsInline
-            muted
+            muted={session.audio !== "system"}
             tabIndex={0}
             onClick={(event) => void event.currentTarget.requestPointerLock?.()}
             onContextMenu={(event) => event.preventDefault()}

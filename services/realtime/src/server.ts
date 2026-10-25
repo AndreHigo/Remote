@@ -117,13 +117,17 @@ export function createRealtimeServer() {
         if (!payload || payload.sessionId !== sessionId) return close(socket, "invalid-session-token");
 
         const authorized = await authorizeChannel(hello.accessToken);
-        if (!authorized || authorized.sessionId !== payload.sessionId || authorized.deviceId !== payload.deviceId || authorized.mode !== payload.mode || authorized.role !== payload.role) {
+        if (!authorized || authorized.sessionId !== payload.sessionId || authorized.deviceId !== payload.deviceId || authorized.mode !== payload.mode || authorized.role !== payload.role || (authorized.audio ?? "off") !== (payload.audio ?? "off")) {
           return close(socket, "channel-not-authorized");
         }
 
         const room = rooms.get(payload.sessionId) ?? {};
         if (!rooms.has(payload.sessionId) && rooms.size >= maxRooms) return close(socket, "too-many-rooms");
         if (room[payload.role]) return close(socket, "role-already-connected");
+        const other = payload.role === "host" ? room.client : room.host;
+        if (other && payload.mode === "game" && (other.payload.audio ?? "off") !== (payload.audio ?? "off")) {
+          return close(socket, "media-capability-mismatch");
+        }
         if (payload.role === "host") room.initialFrame = undefined;
         peer = {
           socket,
@@ -147,7 +151,6 @@ export function createRealtimeServer() {
         clearTimeout(helloTimeout);
         releasePendingHandshake();
         send(socket, { type: "ready", sessionId: payload.sessionId, mode: payload.mode, peerConnected: Boolean(room.host && room.client) });
-        const other = payload.role === "host" ? room.client : room.host;
         if (other) send(other.socket, { type: "ready", sessionId: payload.sessionId, mode: payload.mode, peerConnected: true });
         if (payload.role === "client" && room.initialFrame && socket.readyState === WebSocket.OPEN) {
           socket.send(room.initialFrame, { binary: true });
@@ -238,7 +241,8 @@ export function createRealtimeServer() {
         authorized.sessionId !== sessionId ||
         authorized.deviceId !== peer.payload.deviceId ||
         authorized.mode !== peer.payload.mode ||
-        authorized.role !== peer.role
+        authorized.role !== peer.role ||
+        (authorized.audio ?? "off") !== (peer.payload.audio ?? "off")
       ) {
         closeRoom(sessionId, "session-revoked", 1008);
         return;
@@ -330,7 +334,7 @@ async function authorizeChannel(accessToken: string) {
       signal: AbortSignal.timeout(3000)
     });
     if (!response.ok) return null;
-    return await response.json() as { sessionId: string; deviceId: string; mode: "support" | "game"; role: "host" | "client"; remoteId?: string; expiresAt?: string };
+    return await response.json() as { sessionId: string; deviceId: string; mode: "support" | "game"; role: "host" | "client"; audio?: "off" | "system"; remoteId?: string; expiresAt?: string };
   } catch {
     return null;
   }

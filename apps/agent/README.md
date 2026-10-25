@@ -68,6 +68,7 @@ REMOTO_AGENT_CONFIG=.remoto-agent.config.json
 REMOTO_AGENT_STATE=.remoto-agent.json
 REMOTO_CAPTURE_QUALITY=auto
 REMOTO_CAPTURE_ENCODER=auto
+REMOTO_CAPTURE_AUDIO=off
 REMOTO_CAPTURE_METHOD=auto
 REMOTO_CAPTURE_WIDTH=1920
 REMOTO_CAPTURE_HEIGHT=1080
@@ -76,6 +77,8 @@ REMOTO_CAPTURE_BITRATE_KBPS=8000
 ```
 
 Os parametros de captura sao opcionais. O padrao `auto` escolhe uma aceleracao H.264 disponivel (NVIDIA, AMD ou Intel) e cai para `libx264` por CPU quando nao houver GPU compativel. Use `low` para maquinas limitadas, `balanced` para uso geral ou `high` quando a rede e o hardware suportarem. Um encoder explicito tambem cai para CPU se a build local do FFmpeg nao oferecer aquele encoder.
+
+`REMOTO_CAPTURE_AUDIO=system` habilita audio do sistema pelo loopback WASAPI do proprio FFmpeg. O agente so publica o modo jogo como pronto quando a build oferece `wasapi`; o padrao `off` continua video-only e funciona tambem em builds sem audio. A compatibilidade do dispositivo de saida e o sincronismo ainda precisam ser homologados em uma maquina Windows real.
 
 O metodo de captura pode ser `auto`, `ddagrab` ou `gdigrab`. Em `auto`, o agente usa o Desktop Duplication API (`ddagrab`) quando a build do FFmpeg oferece o filtro e o encoder acelerado foi selecionado; quando o fallback por CPU (`libx264`) e usado, prefere `gdigrab` para atender maquinas sem GPU dedicada. A selecao explicita de `ddagrab` continua disponivel e cai para `gdigrab` quando o filtro nao existe.
 

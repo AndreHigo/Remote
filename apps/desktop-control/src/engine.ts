@@ -15,6 +15,7 @@ export interface DesktopSessionDescriptor {
   deviceId: string;
   mode: DesktopMode;
   role: DesktopRole;
+  audio?: "off" | "system";
   remoteId?: string;
   accessToken?: string;
   expiresAt?: string;

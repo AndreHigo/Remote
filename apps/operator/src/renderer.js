@@ -12,6 +12,7 @@ const firstFrameText = document.getElementById("first-frame");
 const receivedText = document.getElementById("received");
 const dropsText = document.getElementById("drops");
 const frameQueue = [];
+let mediaStarted = false;
 let frameCount = 0;
 let fpsTimer;
 let sourceBuffer;
@@ -51,8 +52,8 @@ function showDetail(title, message, isError = false) {
   errorBox.textContent = isError ? message : "";
 }
 
-function startMedia() {
-  const mime = window.MediaSource && window.remotoMedia?.selectH264Mime((value) => MediaSource.isTypeSupported(value));
+function startMedia(withAudio = false) {
+  const mime = window.MediaSource && window.remotoMedia?.selectH264Mime((value) => MediaSource.isTypeSupported(value), withAudio);
   if (!mime) {
     throw new Error("Este computador nao disponibilizou decodificacao H.264 para a sessao.");
   }
@@ -157,5 +158,9 @@ window.remotoOperator.onMetrics(({ latencyMs, latencyP95Ms, firstFrameMs, bytesR
   if (Number.isFinite(firstFrameMs)) firstFrameText.textContent = `1o frame ${Math.round(firstFrameMs)} ms`;
   if (Number.isFinite(bytesReceived)) receivedText.textContent = `${(bytesReceived / 1024 / 1024).toFixed(1)} MB`;
 });
+window.remotoOperator.onSession(({ audio }) => {
+  if (mediaStarted) return;
+  mediaStarted = true;
+  try { startMedia(audio === "system"); } catch (error) { fail(error); }
+});
 window.remotoOperator.onFrame(receiveFrame);
-try { startMedia(); } catch (error) { fail(error); }

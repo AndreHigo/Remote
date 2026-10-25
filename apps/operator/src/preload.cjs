@@ -16,6 +16,11 @@ contextBridge.exposeInMainWorld("remotoOperator", {
     ipcRenderer.on("metrics", listener);
     return () => ipcRenderer.removeListener("metrics", listener);
   },
+  onSession(callback) {
+    const listener = (_event, session) => callback(session);
+    ipcRenderer.on("session", listener);
+    return () => ipcRenderer.removeListener("session", listener);
+  },
   sendInput(event) {
     ipcRenderer.send("input", event);
   },

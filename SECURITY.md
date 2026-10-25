@@ -34,6 +34,6 @@ Nao publique tokens, chaves de agente, credenciais ou provas de conceito em issu
 
 - O schema agora representa explicitamente o limite de um workspace e as consultas administrativas aplicam esse escopo. O MVP continua workspace-wide dentro de cada workspace; memberships por cliente e gestao de varias empresas ainda nao estao expostos.
 - O teste entre duas maquinas e a validacao de internet ainda sao obrigatorios antes de producao.
-- O cliente nativo visual, audio e gamepad ainda nao estao concluidos.
+- O cliente nativo visual e gamepad ainda exigem homologacao; audio do sistema foi implementado como caminho opcional por WASAPI/FFmpeg, mas ainda depende de build e teste real no Windows.
 - A auditoria estrutural completa deve ser executada em ambiente com Python e seus artefatos revisados.
 - RustDesk e um componente terceiro separado do relay de jogo; sua licenca e configuracao devem ser revisadas antes de comercializacao.

@@ -35,6 +35,17 @@ test("captura pode usar Desktop Duplication para jogos em tela cheia", () => {
   assert.ok(!args.includes("gdigrab"));
 });
 
+test("audio do sistema usa WASAPI loopback somente quando solicitado", () => {
+  const args = buildWindowsCaptureArgs({ quality: "balanced", encoder: "cpu", audio: "system" });
+
+  assert.ok(args.includes("wasapi"));
+  assert.ok(args.includes("-loopback"));
+  assert.ok(args.includes("-map"));
+  assert.ok(args.includes("1:a:0"));
+  assert.ok(args.includes("aac"));
+  assert.ok(!args.includes("-an"));
+});
+
 test("metodo auto usa ddagrab quando a build do FFmpeg oferece o filtro", () => {
   assert.equal(selectCaptureMethod("auto", ["ddagrab"]), "ddagrab");
   assert.equal(selectCaptureMethod("auto", []), "gdigrab");

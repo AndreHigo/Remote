@@ -2,7 +2,7 @@ import cors from "cors";
 import express from "express";
 import crypto from "node:crypto";
 import { z } from "zod";
-import { authenticateAgent, type AuthenticatedAgentRequest } from "./agent-auth.js";
+import { authenticateAgent, authorizeAgentDevice, type AuthenticatedAgentRequest } from "./agent-auth.js";
 import { isAgentRemoteIdAllowed } from "./agent-binding.js";
 import {
   authenticate,
@@ -174,7 +174,26 @@ app.get("/ready", async (_request, response) => {
   }
 });
 
-app.post("/auth/login", async (request, response) => {
+app.post(
+  "/auth/login",
+  createRateLimiter({
+    name: "LoginIP",
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    maxEntries: 20_000,
+    key: (request) => `ip:${request.ip ?? request.socket.remoteAddress ?? "unknown"}`
+  }),
+  createRateLimiter({
+    name: "LoginAccount",
+    windowMs: 15 * 60 * 1000,
+    max: 30,
+    maxEntries: 20_000,
+    key: (request) => {
+      const email = typeof request.body?.email === "string" ? request.body.email.trim().toLowerCase() : "unknown";
+      return `email:${email}`;
+    }
+  }),
+  async (request, response) => {
   const parsed = loginSchema.safeParse(request.body);
   if (!parsed.success) {
     response.status(400).json({ message: "Dados invalidos", issues: parsed.error.issues });
@@ -210,8 +229,9 @@ app.post("/auth/login", async (request, response) => {
     return;
   }
 
-  response.json(result);
-});
+    response.json(result);
+  }
+);
 
 app.post("/auth/logout", authenticate, async (request, response) => {
   const user = (request as AuthenticatedRequest).user;
@@ -223,6 +243,13 @@ app.post("/auth/logout", authenticate, async (request, response) => {
 
 app.use(
   "/agent",
+  createRateLimiter({
+    name: "AgentIP",
+    windowMs: 60 * 1000,
+    max: 600,
+    maxEntries: 20_000,
+    key: (request) => `ip:${request.ip ?? request.socket.remoteAddress ?? "unknown"}`
+  }),
   createRateLimiter({
     name: "Agent",
     windowMs: 60 * 1000,
@@ -316,7 +343,7 @@ app.post("/agent/devices/register", authenticateAgent, async (request, response)
   response.status(201).json(device);
 });
 
-app.post("/agent/devices/:id/heartbeat", authenticateAgent, async (request, response) => {
+app.post("/agent/devices/:id/heartbeat", authenticateAgent, authorizeAgentDevice, async (request, response) => {
   const deviceId = z.string().parse(request.params.id);
   const agent = (request as AuthenticatedAgentRequest).agent;
   const device = await repository.heartbeat({ deviceId, customerId: agent.customerId });
@@ -328,7 +355,7 @@ app.post("/agent/devices/:id/heartbeat", authenticateAgent, async (request, resp
   response.json(device);
 });
 
-app.get("/agent/devices/:id/status", authenticateAgent, async (request, response) => {
+app.get("/agent/devices/:id/status", authenticateAgent, authorizeAgentDevice, async (request, response) => {
   const deviceId = z.string().parse(request.params.id);
   const agent = (request as AuthenticatedAgentRequest).agent;
   const device = await repository.getAgentDevice({ deviceId, customerId: agent.customerId });
@@ -340,7 +367,7 @@ app.get("/agent/devices/:id/status", authenticateAgent, async (request, response
   response.json(device);
 });
 
-app.post("/agent/devices/:id/inventory", authenticateAgent, async (request, response) => {
+app.post("/agent/devices/:id/inventory", authenticateAgent, authorizeAgentDevice, async (request, response) => {
   const deviceId = z.string().parse(request.params.id);
   const parsed = inventorySchema.safeParse(request.body);
   if (!parsed.success) {
@@ -365,7 +392,7 @@ app.post("/agent/devices/:id/inventory", authenticateAgent, async (request, resp
   response.status(201).json(snapshot);
 });
 
-app.get("/agent/devices/:id/commands", authenticateAgent, async (request, response) => {
+app.get("/agent/devices/:id/commands", authenticateAgent, authorizeAgentDevice, async (request, response) => {
   const deviceId = z.string().parse(request.params.id);
   const agent = (request as AuthenticatedAgentRequest).agent;
   const commands = await repository.claimPendingCommands({ deviceId, customerId: agent.customerId });
@@ -378,7 +405,7 @@ app.get("/agent/devices/:id/commands", authenticateAgent, async (request, respon
   response.json(commands);
 });
 
-app.get("/agent/devices/:id/remote-sessions", authenticateAgent, async (request, response) => {
+app.get("/agent/devices/:id/remote-sessions", authenticateAgent, authorizeAgentDevice, async (request, response) => {
   const deviceId = z.string().parse(request.params.id);
   const agent = (request as AuthenticatedAgentRequest).agent;
   const sessions = await repository.listAgentRemoteSessions({ deviceId, customerId: agent.customerId });
@@ -399,9 +426,14 @@ app.post("/agent/commands/:id/result", authenticateAgent, async (request, respon
   }
 
   const agent = (request as AuthenticatedAgentRequest).agent;
+  if (!agent.boundRemoteId) {
+    response.status(404).json({ message: "Comando nao encontrado para este agente" });
+    return;
+  }
   const command = await repository.completeCommand({
     commandId,
     customerId: agent.customerId,
+    boundRemoteId: agent.boundRemoteId,
     status: parsed.data.status,
     output: parsed.data.output ? JSON.parse(JSON.stringify(parsed.data.output)) : undefined,
     error: parsed.data.error
@@ -841,49 +873,86 @@ app.post("/devices/:id/heartbeat", requireRole(["owner", "admin", "technician"])
   response.json(device);
 });
 
-app.post("/devices/:id/commands", requireRole(["owner", "admin", "technician"]), async (request, response) => {
-  const deviceId = z.string().parse(request.params.id);
-  const parsed = commandSchema.safeParse(request.body);
-  if (!parsed.success) {
-    response.status(400).json({ message: "Dados invalidos", issues: parsed.error.issues });
-    return;
+app.post(
+  "/devices/:id/commands",
+  requireRole(["owner", "admin", "technician"]),
+  createRateLimiter({
+    name: "CommandCreate",
+    windowMs: 60 * 1000,
+    max: 30,
+    maxEntries: 20_000,
+    key: (request) => {
+      const user = (request as AuthenticatedRequest).user;
+      return `user:${user.id}:device:${request.params.id}`;
+    }
+  }),
+  async (request, response) => {
+    const deviceId = z.string().parse(request.params.id);
+    const parsed = commandSchema.safeParse(request.body);
+    if (!parsed.success) {
+      response.status(400).json({ message: "Dados invalidos", issues: parsed.error.issues });
+      return;
+    }
+
+    const command = await repository.createCommand({
+      deviceId,
+      commandType: parsed.data.commandType,
+      payload: parsed.data.payload ? JSON.parse(JSON.stringify(parsed.data.payload)) : undefined,
+      user: (request as AuthenticatedRequest).user
+    });
+
+    if (!command) {
+      response.status(404).json({ message: "Dispositivo nao encontrado" });
+      return;
+    }
+    if (command.kind === "quota") {
+      response.status(409).json({ message: "Este dispositivo ja possui comandos pendentes demais." });
+      return;
+    }
+
+    response.status(201).json(command.command);
   }
+);
 
-  const command = await repository.createCommand({
-    deviceId,
-    commandType: parsed.data.commandType,
-    payload: parsed.data.payload ? JSON.parse(JSON.stringify(parsed.data.payload)) : undefined,
-    user: (request as AuthenticatedRequest).user
-  });
+app.post(
+  "/remote-sessions",
+  requireRole(["owner", "admin", "technician"]),
+  createRateLimiter({
+    name: "RemoteSessionCreate",
+    windowMs: 60 * 1000,
+    max: 20,
+    maxEntries: 20_000,
+    key: (request) => {
+      const user = (request as AuthenticatedRequest).user;
+      const deviceId = typeof request.body?.deviceId === "string" ? request.body.deviceId : "unknown";
+      return `user:${user.id}:device:${deviceId}`;
+    }
+  }),
+  async (request, response) => {
+    const parsed = remoteSessionSchema.safeParse(request.body);
+    if (!parsed.success) {
+      response.status(400).json({ message: "Dados invalidos", issues: parsed.error.issues });
+      return;
+    }
 
-  if (!command) {
-    response.status(404).json({ message: "Dispositivo nao encontrado" });
-    return;
+    const session = await repository.requestRemoteSession({
+      deviceId: parsed.data.deviceId,
+      reason: parsed.data.reason,
+      mode: parsed.data.mode,
+      user: (request as AuthenticatedRequest).user
+    });
+    if (!session) {
+      response.status(404).json({ message: "Dispositivo nao encontrado" });
+      return;
+    }
+    if (session.kind === "quota") {
+      response.status(409).json({ message: "Este dispositivo ja possui sessoes abertas demais." });
+      return;
+    }
+
+    response.status(201).json(session.session);
   }
-
-  response.status(201).json(command);
-});
-
-app.post("/remote-sessions", requireRole(["owner", "admin", "technician"]), async (request, response) => {
-  const parsed = remoteSessionSchema.safeParse(request.body);
-  if (!parsed.success) {
-    response.status(400).json({ message: "Dados invalidos", issues: parsed.error.issues });
-    return;
-  }
-
-  const session = await repository.requestRemoteSession({
-    deviceId: parsed.data.deviceId,
-    reason: parsed.data.reason,
-    mode: parsed.data.mode,
-    user: (request as AuthenticatedRequest).user
-  });
-  if (!session) {
-    response.status(404).json({ message: "Dispositivo nao encontrado" });
-    return;
-  }
-
-  response.status(201).json(session);
-});
+);
 
 app.post("/remote-sessions/:id/end", requireRole(["owner", "admin", "technician"]), async (request, response) => {
   const session = await repository.endRemoteSession({

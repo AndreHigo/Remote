@@ -1,8 +1,9 @@
-import type { CaptureMethod, CaptureProfile, VideoEncoder, VideoQuality } from "@remoto/desktop-control/capture";
+import type { CaptureAudio, CaptureMethod, CaptureProfile, VideoEncoder, VideoQuality } from "@remoto/desktop-control/capture";
 
 export interface CaptureConfigValues {
   captureQuality?: string;
   captureEncoder?: string;
+  captureAudio?: string;
   captureMethod?: string;
   captureWidth?: number | string;
   captureHeight?: number | string;
@@ -19,6 +20,8 @@ export interface CaptureReadiness {
   encoder: VideoEncoder;
   resolvedEncoder: Exclude<VideoEncoder, "auto">;
   captureMethod: CaptureMethod;
+  audio: CaptureAudio;
+  systemAudioAvailable?: boolean;
   resolvedCaptureMethod: Exclude<CaptureMethod, "auto">;
   availableCaptureMethods: Array<Exclude<CaptureMethod, "auto">>;
   quality: VideoQuality;
@@ -31,16 +34,19 @@ export interface CaptureReadiness {
 
 const qualities = new Set<VideoQuality>(["auto", "low", "balanced", "high"]);
 const encoders = new Set<VideoEncoder>(["auto", "cpu", "nvidia", "amd", "intel"]);
+const audios = new Set<CaptureAudio>(["off", "system"]);
 const captureMethods = new Set<CaptureMethod>(["auto", "gdigrab", "ddagrab"]);
 
 export function readCaptureProfile(fileConfig: CaptureConfigValues, environment: NodeJS.ProcessEnv = process.env): CaptureProfile {
   const quality = readEnum(environment.REMOTO_CAPTURE_QUALITY ?? fileConfig.captureQuality, qualities, "auto", "REMOTO_CAPTURE_QUALITY");
   const encoder = readEnum(environment.REMOTO_CAPTURE_ENCODER ?? fileConfig.captureEncoder, encoders, "auto", "REMOTO_CAPTURE_ENCODER");
+  const audio = readEnum(environment.REMOTO_CAPTURE_AUDIO ?? fileConfig.captureAudio, audios, "off", "REMOTO_CAPTURE_AUDIO");
   const captureMethod = readEnum(environment.REMOTO_CAPTURE_METHOD ?? fileConfig.captureMethod, captureMethods, "auto", "REMOTO_CAPTURE_METHOD");
 
   return {
     quality,
     encoder,
+    audio,
     captureMethod,
     width: readOptionalPositive(environment.REMOTO_CAPTURE_WIDTH ?? fileConfig.captureWidth, "REMOTO_CAPTURE_WIDTH"),
     height: readOptionalPositive(environment.REMOTO_CAPTURE_HEIGHT ?? fileConfig.captureHeight, "REMOTO_CAPTURE_HEIGHT"),
@@ -51,18 +57,21 @@ export function readCaptureProfile(fileConfig: CaptureConfigValues, environment:
 
 export function buildCaptureReadiness(
   profile: CaptureProfile,
-  capabilities: Pick<CaptureReadiness, "ffmpegAvailable" | "videoEncoderAvailable" | "cpuEncoderAvailable" | "selectedEncoderAvailable" | "resolvedEncoder" | "resolvedCaptureMethod" | "availableCaptureMethods"> = {
+  capabilities: Pick<CaptureReadiness, "ffmpegAvailable" | "videoEncoderAvailable" | "cpuEncoderAvailable" | "selectedEncoderAvailable" | "resolvedEncoder" | "resolvedCaptureMethod" | "availableCaptureMethods" | "systemAudioAvailable"> = {
     ffmpegAvailable: false,
     videoEncoderAvailable: false,
     cpuEncoderAvailable: false,
     selectedEncoderAvailable: false,
     resolvedEncoder: "cpu",
     resolvedCaptureMethod: "gdigrab",
-    availableCaptureMethods: []
+    availableCaptureMethods: [],
+    systemAudioAvailable: false
   }
 ): CaptureReadiness {
+  const audio = profile.audio ?? "off";
+  const audioReady = audio !== "system" || capabilities.systemAudioAvailable === true;
   return {
-    gameModeReady: capabilities.ffmpegAvailable && capabilities.selectedEncoderAvailable && capabilities.availableCaptureMethods.includes(capabilities.resolvedCaptureMethod),
+    gameModeReady: capabilities.ffmpegAvailable && capabilities.selectedEncoderAvailable && capabilities.availableCaptureMethods.includes(capabilities.resolvedCaptureMethod) && audioReady,
     ffmpegAvailable: capabilities.ffmpegAvailable,
     videoEncoderAvailable: capabilities.videoEncoderAvailable,
     cpuEncoderAvailable: capabilities.cpuEncoderAvailable,
@@ -70,6 +79,8 @@ export function buildCaptureReadiness(
     encoder: profile.encoder,
     resolvedEncoder: capabilities.resolvedEncoder,
     captureMethod: profile.captureMethod ?? "auto",
+    audio,
+    systemAudioAvailable: capabilities.systemAudioAvailable,
     resolvedCaptureMethod: capabilities.resolvedCaptureMethod,
     availableCaptureMethods: capabilities.availableCaptureMethods,
     quality: profile.quality,
