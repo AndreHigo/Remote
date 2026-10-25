@@ -6,11 +6,12 @@
 - O painel permite escolher o modo ao solicitar acesso.
 - Auditoria e listagem exibem o modo escolhido.
 - Sessoes de suporte continuam abrindo RustDesk.
-- Sessoes de jogo ainda nao sao aprovadas: a API devolve conflito `native-game/not-ready` para evitar que o usuario pense que RustDesk e o modo jogo.
+- Sessoes de jogo podem ser aprovadas somente quando `ENABLE_GAME_MODE=true` e `REALTIME_INTERNAL_SECRET` estao configurados; sem isso a API continua devolvendo conflito `native-game/not-ready`.
+- O painel possui um cliente web experimental com video H.264 e entrada tipada; isso nao deve ser confundido com o cliente desktop nativo final.
 
 ## Proxima implementacao
 
-O proximo componente e o cliente nativo Windows, com host no computador remoto e transporte de video/entrada. O painel ja tem o ponto de integracao para autorizar essa sessao sem misturar o fluxo de suporte.
+O proximo componente opcional e o cliente nativo Windows, com a mesma sessao aprovada e um renderer local. O painel e o cliente web ja integram a sessao experimental sem misturar o fluxo de suporte.
 
 ## Validacao
 

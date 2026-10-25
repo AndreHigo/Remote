@@ -7,7 +7,7 @@
 - Captura de mouse relativo por pointer lock, botoes, roda e teclado por scancode.
 - Encerramento visual da sessao e limpeza do WebSocket, fila de media e URL temporaria.
 - Modo jogo permanece desativado por padrao com `ENABLE_GAME_MODE=false`.
-- Quando habilitado explicitamente, a API devolve `native-game` e o agente conecta como host.
+- Quando habilitado explicitamente, a API devolve uma sessao `native-game`; o agente conecta como host e o painel abre o cliente web experimental como operador.
 
 ## Limite atual
 
@@ -21,4 +21,4 @@ O fluxo ainda e experimental. A fila MSE, o codec H.264, o pointer lock e os per
 4. Solicitar uma sessao em modo jogo, aprovar no painel e clicar dentro do video para capturar o mouse.
 5. Registrar FPS, RTT, perda, CPU, GPU e comportamento ao encerrar.
 
-O padrao continua sendo suporte via RustDesk enquanto esse criterio nao for cumprido.
+O padrao continua sendo suporte via RustDesk. O modo jogo deve permanecer experimental ate que os testes externos e a matriz de jogos definam os limites suportados.

@@ -28,7 +28,7 @@ npx prisma migrate deploy --config services/api/prisma.config.ts
 
 Tambem foram exercidos na API: criacao e edicao de cliente, ativacao e bloqueio temporario de usuario, solicitacao/aprovacao/encerramento de sessao e arquivamento/restauracao de dispositivo.
 
-`npm audit --audit-level=high` ainda aponta alertas transitivos em `deepmerge-ts` e `mysql2` trazidos pelo Prisma 7. O `npm audit fix --force` propoe downgrade quebrador do Prisma e nao foi aplicado; a atualizacao deve ser revisada com uma versao corrigida do Prisma antes da producao.
+`npm audit --audit-level=high` foi executado novamente e retornou `found 0 vulnerabilities`. A auditoria deve continuar no CI e antes de cada release, porque o lockfile e as dependencias podem mudar.
 
 ## Antes da VPS
 

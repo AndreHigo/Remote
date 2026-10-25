@@ -14,17 +14,16 @@
 
 ## Limite atual
 
-O relay e a captura/entrada nativos estao prontos como fundacao de transporte, mas o produto ainda nao deve habilitar o modo jogo para usuarios finais. Falta o cliente visual que decodifica os frames, captura foco/teclado/mouse e mede a experiencia em duas maquinas reais.
+O relay e a captura/entrada nativos estao prontos como fundacao de transporte. Existe um cliente web experimental que decodifica os frames e captura foco/teclado/mouse; ainda falta medir a experiencia em duas maquinas reais e concluir o cliente visual nativo, caso ele seja mantido como produto separado.
 
 O modo suporte continua usando RustDesk. Essa escolha nao mistura os protocolos no mesmo fluxo: cada sessao declara o modo e recebe somente o transporte correspondente.
 
 ## Criterio para habilitar jogo
 
-1. Implementar cliente visual com fila de frames e controle de foco.
-2. Fazer teste de duas maquinas Windows em redes diferentes.
-3. Medir FPS, RTT, perda, bitrate, uso de CPU/GPU e tempo de reconexao.
-4. Validar teclado, mouse relativo, controle e encerramento administrativo.
-5. Habilitar o modo somente com uma flag de producao apos os testes, mantendo o padrao desativado ate la.
+1. Fazer teste de duas maquinas Windows em redes diferentes.
+2. Medir FPS, RTT, perda, bitrate, uso de CPU/GPU e tempo de reconexao.
+3. Validar teclado, mouse relativo, controle e encerramento administrativo.
+4. Habilitar o modo somente com uma flag de producao apos os testes, mantendo o padrao desativado ate la.
 
 ## Validacao desta entrega
 
