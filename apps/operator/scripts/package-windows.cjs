@@ -16,14 +16,15 @@ function buildElectronBuilderArgs(environment = process.env) {
   return args;
 }
 
-function writeOperatorConfig(environment = process.env) {
+function writeOperatorConfig(environment = process.env, rootDirectory = process.cwd()) {
   const apiUrl = String(environment.REMOTO_OPERATOR_API_URL || environment.REMOTO_API_URL || "").trim();
   const realtimeUrl = String(environment.REMOTO_OPERATOR_REALTIME_URL || environment.REMOTO_REALTIME_URL || "").trim();
   if ((apiUrl && !realtimeUrl) || (!apiUrl && realtimeUrl)) {
     throw new Error("Configure REMOTO_OPERATOR_API_URL e REMOTO_OPERATOR_REALTIME_URL juntos.");
   }
-  fs.mkdirSync(path.resolve("build"), { recursive: true });
-  fs.writeFileSync(path.resolve("build", "operator-config.json"), JSON.stringify({ apiUrl, realtimeUrl }, null, 2));
+  const buildDirectory = path.resolve(rootDirectory, "build");
+  fs.mkdirSync(buildDirectory, { recursive: true });
+  fs.writeFileSync(path.join(buildDirectory, "operator-config.json"), JSON.stringify({ apiUrl, realtimeUrl }, null, 2));
   return { apiUrl, realtimeUrl };
 }
 
