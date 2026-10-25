@@ -44,6 +44,10 @@ interface Summary {
   sessions: number;
 }
 
+interface HealthResponse {
+  gameMode: "disabled" | "experimental";
+}
+
 interface AuthUser {
   id: string;
   name: string;
@@ -299,6 +303,7 @@ function App() {
   });
   const [authReady, setAuthReady] = React.useState(false);
   const [summary, setSummary] = React.useState<Summary | null>(null);
+  const [gameModeEnabled, setGameModeEnabled] = React.useState(false);
   const [devices, setDevices] = React.useState<Device[]>([]);
   const [auditEvents, setAuditEvents] = React.useState<AuditEvent[]>([]);
   const [sessions, setSessions] = React.useState<RemoteSession[]>([]);
@@ -341,6 +346,12 @@ function App() {
   const [loading, setLoading] = React.useState(true);
   const [gameSession, setGameSession] = React.useState<GameSessionDescriptor | null>(null);
 
+  React.useEffect(() => {
+    getJson<HealthResponse>("/health", "")
+      .then((health) => setGameModeEnabled(health.gameMode === "experimental"))
+      .catch(() => setGameModeEnabled(false));
+  }, []);
+
   const selectedDevice = devices.find((device) => device.id === selectedDeviceId) ?? devices[0];
   const latestInventory = inventorySnapshots[0];
   const filteredDevices = React.useMemo(() => {
@@ -357,6 +368,10 @@ function App() {
       return matchesFilter && matchesQuery;
     });
   }, [deviceFilter, deviceQuery, devices]);
+
+  React.useEffect(() => {
+    if (!gameModeEnabled && connectMode === "game") setConnectMode("support");
+  }, [connectMode, gameModeEnabled]);
 
   React.useEffect(() => {
     if (filteredDevices.length > 0 && !filteredDevices.some((device) => device.id === selectedDeviceId)) {
@@ -535,6 +550,10 @@ function App() {
   async function confirmConnection() {
     if (!connectDevice || connectReason.trim().length < 4) {
       setStatusMessage("Informe o motivo do acesso antes de continuar");
+      return;
+    }
+    if (connectMode === "game" && !gameModeEnabled) {
+      setStatusMessage("O modo jogo esta desabilitado neste ambiente.");
       return;
     }
 
@@ -924,6 +943,7 @@ function App() {
     canManageKeys={canManageKeys}
     connectDevice={connectDevice}
     connectReason={connectReason}
+    gameModeEnabled={gameModeEnabled}
     connectionLoading={connectionLoading}
     onboardingOpen={onboardingOpen}
     onboardingCustomerId={onboardingCustomerId}
@@ -1027,6 +1047,7 @@ interface OperationsConsoleProps {
   connectDevice: Device | null;
   connectReason: string;
   connectMode: "support" | "game";
+  gameModeEnabled: boolean;
   connectionLoading: boolean;
   onboardingOpen: boolean;
   onboardingCustomerId: string;
@@ -1179,6 +1200,7 @@ function OperationsConsole(props: OperationsConsoleProps) {
     connectDevice,
     connectReason,
     connectMode,
+    gameModeEnabled,
     connectionLoading,
     onboardingOpen,
     onboardingCustomerId,
@@ -1477,9 +1499,9 @@ function OperationsConsole(props: OperationsConsoleProps) {
                 <button className="iconButton" type="button" onClick={onCloseConnection} aria-label="Fechar" title="Fechar"><X size={17} /></button>
               </div>
               <div className="connectionTarget"><span className={`deviceIcon ${connectDevice.status}`}><Monitor size={19} /></span><div><strong>{connectDevice.displayName}</strong><span>{connectDevice.customerName} / ID {connectDevice.remoteId}</span></div><span className={`status ${connectDevice.status}`}>{connectDevice.status === "online" ? "Online" : "Offline"}</span></div>
-              <label className="reasonField"><span>Modo de acesso</span><select value={connectMode} onChange={(event) => onConnectModeChange(event.target.value as "support" | "game")}><option value="support">Suporte tecnico (RustDesk)</option><option value="game">Jogo (experimental)</option></select></label>
+              <label className="reasonField"><span>Modo de acesso</span><select value={connectMode} onChange={(event) => onConnectModeChange(event.target.value as "support" | "game")}><option value="support">Suporte tecnico (RustDesk)</option><option value="game" disabled={!gameModeEnabled}>Jogo (experimental{gameModeEnabled ? "" : " - desabilitado"})</option></select></label>
               <label className="reasonField"><span>Motivo do acesso</span><textarea value={connectReason} onChange={(event) => onConnectReasonChange(event.target.value)} rows={3} placeholder="Ex.: validar falha no caixa" autoFocus /></label>
-              <p className="modalNote">A solicitacao sera registrada na atividade. O suporte abre RustDesk; o modo jogo experimental exige relay e captura ativos.</p>
+              <p className="modalNote">A solicitacao sera registrada na atividade. O suporte abre RustDesk; o modo jogo experimental exige relay e captura ativos{gameModeEnabled ? "." : " e esta desabilitado neste ambiente."}</p>
               <div className="modalActions"><button className="secondary" type="button" onClick={onCloseConnection}>Cancelar</button><button className="primary" type="button" onClick={onConfirmConnection} disabled={connectionLoading || connectReason.trim().length < 4}><Play size={16} />{connectionLoading ? "Registrando..." : "Solicitar acesso"}</button></div>
             </section>
           </div>
