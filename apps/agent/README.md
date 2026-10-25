@@ -63,14 +63,14 @@ REMOTO_AGENT_INVENTORY_SECONDS=300
 REMOTO_AGENT_CONFIG=.remoto-agent.config.json
 REMOTO_AGENT_STATE=.remoto-agent.json
 REMOTO_CAPTURE_QUALITY=auto
-REMOTO_CAPTURE_ENCODER=cpu
+REMOTO_CAPTURE_ENCODER=auto
 REMOTO_CAPTURE_WIDTH=1920
 REMOTO_CAPTURE_HEIGHT=1080
 REMOTO_CAPTURE_FPS=60
 REMOTO_CAPTURE_BITRATE_KBPS=8000
 ```
 
-Os parametros de captura sao opcionais. O padrao `auto` com `cpu` funciona sem placa dedicada; use `low` para maquinas limitadas, `balanced` para uso geral ou `high` quando a rede e o hardware suportarem. Encoder e dimensoes explicitas so devem ser definidos quando o computador remoto tiver esse recurso validado.
+Os parametros de captura sao opcionais. O padrao `auto` escolhe uma aceleracao H.264 disponivel (NVIDIA, AMD ou Intel) e cai para `libx264` por CPU quando nao houver GPU compativel. Use `low` para maquinas limitadas, `balanced` para uso geral ou `high` quando a rede e o hardware suportarem. Um encoder explicito tambem cai para CPU se a build local do FFmpeg nao oferecer aquele encoder.
 
 Identidade coletada pelo agente:
 

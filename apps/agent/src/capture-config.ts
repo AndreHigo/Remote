@@ -22,7 +22,7 @@ export interface CaptureReadiness {
 }
 
 const qualities = new Set<VideoQuality>(["auto", "low", "balanced", "high"]);
-const encoders = new Set<VideoEncoder>(["cpu", "nvidia", "amd", "intel"]);
+const encoders = new Set<VideoEncoder>(["auto", "cpu", "nvidia", "amd", "intel"]);
 
 export function readCaptureProfile(fileConfig: CaptureConfigValues, environment: NodeJS.ProcessEnv = process.env): CaptureProfile {
   const quality = readEnum(environment.REMOTO_CAPTURE_QUALITY ?? fileConfig.captureQuality, qualities, "auto", "REMOTO_CAPTURE_QUALITY");

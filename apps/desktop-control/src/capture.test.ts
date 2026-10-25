@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildWindowsCaptureArgs } from "./capture.js";
+import { buildWindowsCaptureArgs, selectCaptureEncoder } from "./capture.js";
 
 test("captura usa CPU e baixa latencia por padrao acessivel", () => {
   const args = buildWindowsCaptureArgs({ quality: "low", encoder: "cpu" });
@@ -24,4 +24,15 @@ test("captura pode priorizar encoder de GPU sem quebrar fallback de perfil", () 
   assert.ok(args.includes("h264_nvenc"));
   assert.ok(args.includes("scale=1920:1080:force_original_aspect_ratio=decrease"));
   assert.ok(args.includes("60"));
+});
+
+test("perfil auto escolhe a primeira aceleracao disponivel", () => {
+  assert.equal(selectCaptureEncoder("auto", ["h264_qsv", "h264_nvenc"]), "nvidia");
+  assert.equal(selectCaptureEncoder("auto", ["h264_amf"]), "amd");
+  assert.equal(selectCaptureEncoder("auto", []), "cpu");
+});
+
+test("encoder de GPU solicitado cai para CPU quando nao existe na build", () => {
+  assert.equal(selectCaptureEncoder("nvidia", ["h264_qsv"]), "cpu");
+  assert.equal(selectCaptureEncoder("intel", ["h264_qsv"]), "intel");
 });

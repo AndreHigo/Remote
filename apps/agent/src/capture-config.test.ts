@@ -18,6 +18,10 @@ test("permite configurar perfil e limites pelo ambiente", () => {
   assert.deepEqual(profile, { quality: "balanced", encoder: "intel", width: 1920, height: 1080, fps: 60, bitrateKbps: 8000 });
 });
 
+test("permite deixar o encoder em modo automatico", () => {
+  assert.equal(readCaptureProfile({ captureEncoder: "auto" }).encoder, "auto");
+});
+
 test("rejeita perfil e limites invalidos", () => {
   assert.throws(() => readCaptureProfile({ captureQuality: "ultra" }), /REMOTO_CAPTURE_QUALITY/);
   assert.throws(() => readCaptureProfile({}, { REMOTO_CAPTURE_FPS: "121" }), /REMOTO_CAPTURE_FPS/);

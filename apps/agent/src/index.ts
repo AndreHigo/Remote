@@ -736,7 +736,7 @@ async function initializeConfig() {
     agentKey: process.env.REMOTO_AGENT_KEY ?? "",
     stateFile: process.env.REMOTO_AGENT_STATE ?? ".remoto-agent.json",
     captureQuality: process.env.REMOTO_CAPTURE_QUALITY ?? "auto",
-    captureEncoder: process.env.REMOTO_CAPTURE_ENCODER ?? "cpu"
+    captureEncoder: process.env.REMOTO_CAPTURE_ENCODER ?? "auto"
   };
   await fs.writeFile(CONFIG_FILE, `${JSON.stringify(initialConfig, null, 2)}\n`, "utf8");
   console.log(`configuracao criada: ${CONFIG_FILE}`);

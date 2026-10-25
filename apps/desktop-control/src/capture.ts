@@ -1,9 +1,9 @@
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { execFileSync, spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
 export type VideoQuality = "auto" | "low" | "balanced" | "high";
-export type VideoEncoder = "cpu" | "nvidia" | "amd" | "intel";
+export type VideoEncoder = "auto" | "cpu" | "nvidia" | "amd" | "intel";
 
 export interface CaptureProfile {
   quality: VideoQuality;
@@ -45,7 +45,7 @@ export function buildWindowsCaptureArgs(profile: CaptureProfile = defaultProfile
   args.push(
     "-an",
     "-c:v", encoderName(profile.encoder),
-    "-preset", profile.encoder === "cpu" ? "ultrafast" : "p1",
+    "-preset", profile.encoder === "cpu" || profile.encoder === "auto" ? "ultrafast" : "p1",
     "-tune", "zerolatency",
     "-profile:v", "main",
     "-level", "4.2",
@@ -74,7 +74,8 @@ export function startWindowsCapture(profile: CaptureProfile = defaultProfile): C
     throw new Error("FFmpeg nao encontrado em um caminho confiavel para o servico.");
   }
   const executable = resolvedExecutable ?? "ffmpeg.exe";
-  const child = spawn(executable, buildWindowsCaptureArgs(profile), {
+  const selectedEncoder = resolveCaptureEncoder(profile.encoder, executable);
+  const child = spawn(executable, buildWindowsCaptureArgs({ ...profile, encoder: selectedEncoder }), {
     stdio: "pipe",
     windowsHide: true
   });
@@ -85,6 +86,34 @@ export function startWindowsCapture(profile: CaptureProfile = defaultProfile): C
       if (!child.killed) child.kill();
     }
   };
+}
+
+export function selectCaptureEncoder(requested: VideoEncoder, availableEncoders: Iterable<string>): Exclude<VideoEncoder, "auto"> {
+  const available = new Set(availableEncoders);
+  if (requested !== "auto" && requested !== "cpu") {
+    return available.has(encoderName(requested)) ? requested : "cpu";
+  }
+  if (requested === "cpu") return "cpu";
+  for (const candidate of ["nvidia", "amd", "intel"] as const) {
+    if (available.has(encoderName(candidate))) return candidate;
+  }
+  return "cpu";
+}
+
+function resolveCaptureEncoder(requested: VideoEncoder, executable: string): Exclude<VideoEncoder, "auto"> {
+  if (requested === "cpu") return "cpu";
+  try {
+    const output = execFileSync(executable, ["-hide_banner", "-encoders"], {
+      encoding: "utf8",
+      timeout: 2_000,
+      windowsHide: true,
+      stdio: ["ignore", "pipe", "ignore"]
+    });
+    const available = [...output.matchAll(/\bh264_(?:nvenc|amf|qsv)\b/g)].map((match) => match[0]);
+    return selectCaptureEncoder(requested, available);
+  } catch {
+    return "cpu";
+  }
 }
 
 export function resolveFfmpegExecutable(preferredPath?: string) {
@@ -143,6 +172,7 @@ function findFfmpegInWinGet(root: string) {
 
 function encoderName(encoder: VideoEncoder) {
   switch (encoder) {
+    case "auto": return "libx264";
     case "nvidia": return "h264_nvenc";
     case "amd": return "h264_amf";
     case "intel": return "h264_qsv";
