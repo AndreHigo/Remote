@@ -21,12 +21,13 @@ Nao publique tokens, chaves de agente, credenciais ou provas de conceito em issu
 ## Requisitos de producao
 
 - Usar HTTPS/WSS com dominio publico e certificados validos.
-- Gerar `JWT_SECRET`, `DESKTOP_SESSION_SECRET`, `TOTP_ENCRYPTION_KEY`, `REALTIME_INTERNAL_SECRET` e senha do banco aleatorios, longos e fora do Git.
+- Gerar `JWT_SECRET`, `DESKTOP_SESSION_SECRET`, `TOTP_ENCRYPTION_KEY`, `REALTIME_INTERNAL_SECRET`, `REDIS_URL` e senha do banco aleatorios, longos e fora do Git.
 - Manter `REALTIME_ALLOWED_ORIGINS` restrito ao dominio do painel.
 - Rodar `infra/docker/preflight-production.ps1` antes do deploy.
 - Manter portas do PostgreSQL fechadas e expor somente os endpoints necessarios.
 - Ativar 2FA para administradores e tecnicos antes de habilitar acesso operacional.
 - Fazer backup e testar restauracao do PostgreSQL.
+- Usar Redis compartilhado para o rate limit em qualquer deploy com mais de uma replica da API.
 - Assinar o instalador Windows antes de distribuicao publica; o binario atual e uma release de teste.
 
 ## Limites conhecidos do MVP

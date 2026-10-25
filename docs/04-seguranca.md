@@ -179,7 +179,7 @@ Regras:
 
 - testar captura e entrada em duas maquinas reais, incluindo login, bloqueio/desbloqueio e troca de usuario; o servico fica em Session 0 apenas para gestao e o processo `sessions` deve rodar na sessao interativa;
 - assinar o instalador e definir atualizacao assinada;
-- trocar rate limit em memoria por Redis e validar rotacao/armazenamento de segredos;
+- configurar `REDIS_URL` com Redis compartilhado e validar rotacao/armazenamento de segredos;
 - pinar imagens Docker por digest e proteger backups com criptografia operacional;
 - validar a migracao `0006_workspace_scope` no banco de homologacao e, se necessario, evoluir de escopo por workspace para memberships por cliente;
 - confirmar os encoders, FPS, RTT e perda em computadores com GPU dedicada, integrada e somente CPU.
