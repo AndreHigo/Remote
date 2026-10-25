@@ -844,11 +844,13 @@ export const repository = {
 
     const claimed = [];
     for (const command of pending) {
-      const updated = await prisma.commandExecution.update({
-        where: { id: command.id },
+      const claim = await prisma.commandExecution.updateMany({
+        where: { id: command.id, status: "PENDING" },
         data: { status: "RUNNING", startedAt: now() }
       });
-      claimed.push(toCommandView(updated));
+      if (claim.count !== 1) continue;
+      const updated = await prisma.commandExecution.findUnique({ where: { id: command.id } });
+      if (updated) claimed.push(toCommandView(updated));
     }
 
     return claimed;
@@ -865,6 +867,7 @@ export const repository = {
     const command = await prisma.commandExecution.findFirst({
       where: {
         id: input.commandId,
+        status: "RUNNING",
         device: { customerId: input.customerId, remoteId: input.boundRemoteId, archivedAt: null }
       }
     });
