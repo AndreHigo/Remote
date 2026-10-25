@@ -18,7 +18,7 @@
 - `npm audit --audit-level=high`: zero vulnerabilidades.
 - Preflight local de release verde.
 - Smoke local de ponta a ponta verde: Postgres, API, agente, inventario, gate game, aprovacao, relay e primeiro frame FFmpeg real.
-- CI do commit `071e2dc` verde nos jobs de qualidade e empacotamento Windows (run `40237081847`).
+- CI do commit `97dc1e4` verde nos jobs de qualidade e empacotamento Windows (run `40238949808`).
 - Auditoria de seguranca canonica concluida sobre o commit anterior, com tres achados corrigidos nesta entrega: um alto de vinculacao de agente e dois medios de relay e Redis.
 
 ## Ainda falta para liberar publicamente
@@ -29,6 +29,7 @@
 - Validar gamepad, UAC, tela bloqueada, troca de usuario e jogos protegidos, sem tentar contornar anti-cheat.
 - Configurar a VPS com dominio, HTTPS/WSS, Redis TLS, backups e migracoes aplicadas.
 - Assinar os executaveis com Authenticode e publicar uma release assinada.
+- Confirmar o mapa experimental de gamepad em jogos que aceitem teclado/mouse; jogos que exigem XInput/DirectInput continuam fora do escopo atual.
 
 ## Artefatos atuais
 

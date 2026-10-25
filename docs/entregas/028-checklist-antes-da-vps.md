@@ -21,12 +21,13 @@
 - o operador nativo agora exibe RTT e tenta reconectar após queda transitória, conforme `docs/entregas/030-reconexao-e-rtt-operador.md`.
 - o transporte do host preserva segmentos fMP4 completos antes de enviá-los ao relay, conforme `docs/entregas/032-segmentacao-fmp4-baixa-latencia.md`.
 - o CI também executa os testes do agente e valida a sintaxe dos scripts do operador nativo, conforme `docs/entregas/033-ci-agente-e-operador.md`.
-- o CI validou o empacotamento Windows do Agent e do Operator no run `40237081847`, no commit `071e2dc26368410bed72dc93fd0d45669b7c4373`.
+- o CI validou o empacotamento Windows do Agent e do Operator no run `40238949808`, no commit `97dc1e49fa37f5729257a3ae8dafdbdd0dcc9151`.
 - a revisão de segurança do diff de descoberta/inicialização do RustDesk terminou com cobertura completa e zero achados reportáveis.
 - `npm run validate:release`: testes, typecheck, build, auditoria, sintaxe, hashes e gate de áudio executados no workspace local.
 - o bridge de entrada libera teclas e botões mantidos quando a sessão encerra, conforme `docs/entregas/039-liberacao-de-entrada.md`.
 - o login passa para uma coluna em janelas menores para evitar corte horizontal, conforme `docs/entregas/040-login-responsivo.md`.
 - o hardening de sessão, limites, seed, relay, RustDesk e release está registrado em `docs/entregas/041-hardening-seguranca-operacao.md`.
+- o mapa experimental de gamepad para teclado/mouse está documentado em `docs/entregas/081-mapa-gamepad-teclado-mouse.md`; ele não cria um dispositivo XInput/DirectInput real no host.
 
 ## Fechamento antes da producao
 
