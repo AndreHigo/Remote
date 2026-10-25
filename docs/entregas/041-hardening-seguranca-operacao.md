@@ -9,7 +9,7 @@
 - inventário, saída de comando e erros de agente têm limites semânticos menores que o body HTTP;
 - `db:seed` exige confirmação explícita, recusa `NODE_ENV=production` e não imprime credenciais;
 - o engine de suporte mantém o processo RustDesk e encerra-o quando a sessão termina;
-- relay tem limites globais de conexões e salas, além dos limites por endereço e por frame já existentes;
+- relay tem limites globais de conexões e salas, além dos limites por endereço, por frame e por taxa de frames/bytes do host;
 - o instalador remove ACEs de usuários comuns antes de proteger o arquivo de configuração;
 - o instalador não passa a chave do agente na linha de comando; usa arquivo temporário e remove-o depois da leitura;
 - backups PostgreSQL exigem `BACKUP_ENCRYPTION_KEY` e são gravados cifrados com verificação de integridade;

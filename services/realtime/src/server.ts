@@ -6,6 +6,8 @@ import { maxControlMessageBytes, parseControlMessage, verifyChannelToken, type C
 const port = Number(process.env.REALTIME_PORT ?? 4200);
 const maxFrameBytes = Number(process.env.REALTIME_MAX_FRAME_BYTES ?? 8 * 1024 * 1024);
 const maxBufferedBytes = Number(process.env.REALTIME_MAX_BUFFERED_BYTES ?? 16 * 1024 * 1024);
+const maxFrameRate = positiveLimit(process.env.REALTIME_MAX_FRAME_RATE, 120);
+const maxFrameBytesPerSecond = positiveLimit(process.env.REALTIME_MAX_FRAME_BYTES_PER_SECOND, 64 * 1024 * 1024);
 const maxPendingHandshakesPerAddress = Number(process.env.REALTIME_MAX_PENDING_HANDSHAKES ?? 8);
 const maxConnections = Number(process.env.REALTIME_MAX_CONNECTIONS ?? 256);
 const maxRooms = Number(process.env.REALTIME_MAX_ROOMS ?? 128);
@@ -21,6 +23,11 @@ interface Peer {
   payload: ChannelTokenPayload;
   role: SessionRole;
   accessToken: string;
+  frameRateLimiter: FrameRateLimiter;
+}
+
+export interface FrameRateLimiter {
+  allow(byteLength: number): boolean;
 }
 
 interface Room {
@@ -112,7 +119,13 @@ export function createRealtimeServer() {
         if (!rooms.has(payload.sessionId) && rooms.size >= maxRooms) return close(socket, "too-many-rooms");
         if (room[payload.role]) return close(socket, "role-already-connected");
         if (payload.role === "host") room.initialFrame = undefined;
-        peer = { socket, payload, role: payload.role, accessToken: hello.accessToken };
+        peer = {
+          socket,
+          payload,
+          role: payload.role,
+          accessToken: hello.accessToken,
+          frameRateLimiter: createFrameRateLimiter(maxFrameRate, maxFrameBytesPerSecond)
+        };
         room[payload.role] = peer;
         const nextExpiry = Math.min(room.expiresAt ?? payload.exp, payload.exp);
         if (room.expiryTimer) clearTimeout(room.expiryTimer);
@@ -138,6 +151,7 @@ export function createRealtimeServer() {
     if (isBinary) {
       const frame = toBuffer(data);
       if (peer.role !== "host" || frame.byteLength > maxFrameBytes) return close(socket, "frame-too-large-or-role-not-allowed");
+      if (!peer.frameRateLimiter.allow(frame.byteLength)) return close(socket, "frame-rate-limit");
       const room = rooms.get(peer.payload.sessionId);
       if (room && !room.initialFrame) room.initialFrame = frame;
       const client = room?.client;
@@ -232,12 +246,43 @@ export function startRealtimeServer(listenPort = port) {
   return runtime;
 }
 
+export function createFrameRateLimiter(
+  maxFramesPerSecond: number,
+  maxBytesPerSecond: number,
+  now: () => number = Date.now
+): FrameRateLimiter {
+  let windowStartedAt = now();
+  let frameCount = 0;
+  let byteCount = 0;
+
+  return {
+    allow(byteLength) {
+      if (!Number.isInteger(byteLength) || byteLength < 0) return false;
+      const current = now();
+      if (current - windowStartedAt >= 1_000) {
+        windowStartedAt = current;
+        frameCount = 0;
+        byteCount = 0;
+      }
+      if (frameCount + 1 > maxFramesPerSecond || byteCount + byteLength > maxBytesPerSecond) return false;
+      frameCount += 1;
+      byteCount += byteLength;
+      return true;
+    }
+  };
+}
+
 function send(socket: WebSocket, message: ServerMessage) {
   if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
 }
 
 function close(socket: WebSocket, reason: string) {
   socket.close(1008, reason.slice(0, 120));
+}
+
+function positiveLimit(rawValue: string | undefined, fallback: number) {
+  const value = Number(rawValue ?? fallback);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
 function secretsMatch(received: string, expected: string) {
