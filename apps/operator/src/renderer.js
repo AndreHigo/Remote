@@ -7,6 +7,7 @@ const errorBox = document.getElementById("error");
 const statusText = document.getElementById("status");
 const statusDot = document.getElementById("status-dot");
 const fpsText = document.getElementById("fps");
+const latencyText = document.getElementById("latency");
 const frameQueue = [];
 let frameCount = 0;
 let fpsTimer;
@@ -123,6 +124,9 @@ window.remotoOperator.onStatus(({ status, detail: message }) => {
   if (status === "error") showDetail("Sessao indisponivel", message, true);
   else if (status === "closed") showDetail("Sessao encerrada", message);
   else detail.textContent = message || detail.textContent;
+});
+window.remotoOperator.onMetrics(({ latencyMs }) => {
+  if (Number.isFinite(latencyMs)) latencyText.textContent = `RTT ${Math.round(latencyMs)} ms`;
 });
 window.remotoOperator.onFrame(receiveFrame);
 try { startMedia(); } catch (error) { fail(error); }

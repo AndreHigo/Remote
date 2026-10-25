@@ -5,6 +5,7 @@ export interface NativeOperatorOptions {
   url?: string;
   onFrame?: (frame: Buffer) => void;
   onReady?: (peerConnected: boolean) => void;
+  onLatencyMs?: (latencyMs: number) => void;
   onClosed?: (reason: string) => void;
 }
 
@@ -30,6 +31,7 @@ export async function openNativeOperatorSession(
     url: options.url,
     onFrame: options.onFrame,
     onReady: options.onReady,
+    onLatencyMs: options.onLatencyMs,
     onClosed: options.onClosed
   };
   const connection = await connectRemoteSession(descriptor, connectionOptions);

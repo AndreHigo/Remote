@@ -6,6 +6,10 @@ const { pathToFileURL } = require("node:url");
 let mainWindow;
 let nativeSession;
 let activeDescriptor;
+let reconnectTimer;
+let reconnectAttempt = 0;
+let closingSession = false;
+let sessionModule;
 
 function parseArgs(argv) {
   const index = argv.indexOf("--descriptor-file");
@@ -81,6 +85,11 @@ function sendStatus(status, detail = "") {
   mainWindow.webContents.send("status", { status, detail });
 }
 
+function sendMetrics(metrics) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send("metrics", metrics);
+}
+
 function isFiniteNumber(value) {
   return typeof value === "number" && Number.isFinite(value);
 }
@@ -104,34 +113,71 @@ async function startSession() {
   try {
     const descriptor = await readDescriptor(descriptorPath);
     activeDescriptor = descriptor;
+    closingSession = false;
+    reconnectAttempt = 0;
     const apiUrl = normalizeEndpoint(descriptor.apiUrl || process.env.REMOTO_API_URL, "api");
     const realtimeUrl = normalizeEndpoint(descriptor.realtimeUrl || process.env.REMOTO_REALTIME_URL, "realtime");
     await consumeSession(descriptor, apiUrl);
     const transportModule = app.isPackaged
       ? pathToFileURL(path.join(app.getAppPath(), "build", "desktop-control.mjs")).href
       : "@remoto/desktop-control/operator";
-    const { openNativeOperatorSession } = await import(transportModule);
+    sessionModule = sessionModule || await import(transportModule);
     sendStatus("connecting", "Autenticando a sessao...");
-    nativeSession = await openNativeOperatorSession(descriptor, {
-      url: realtimeUrl,
-      onFrame(frame) {
-        if (!mainWindow || mainWindow.isDestroyed()) return;
-        mainWindow.webContents.send("video-frame", Uint8Array.from(frame));
-      },
-      onReady(peerConnected) {
-        sendStatus(peerConnected ? "connected" : "waiting", peerConnected ? "Computador remoto conectado." : "Aguardando o agente remoto...");
-      },
-      onClosed(reason) {
-        sendStatus("closed", reason);
-      }
-    });
+    await connectNativeSession(descriptor, realtimeUrl);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     sendStatus("error", message);
   }
 }
 
+async function connectNativeSession(descriptor, realtimeUrl) {
+  if (closingSession || activeDescriptor?.sessionId !== descriptor.sessionId) return;
+  try {
+    nativeSession = await sessionModule.openNativeOperatorSession(descriptor, {
+      url: realtimeUrl,
+      onFrame(frame) {
+        if (!mainWindow || mainWindow.isDestroyed()) return;
+        mainWindow.webContents.send("video-frame", Uint8Array.from(frame));
+      },
+      onReady(peerConnected) {
+        reconnectAttempt = 0;
+        sendStatus(peerConnected ? "connected" : "waiting", peerConnected ? "Computador remoto conectado." : "Aguardando o agente remoto...");
+      },
+      onLatencyMs(latencyMs) {
+        sendMetrics({ latencyMs });
+      },
+      onClosed(reason) {
+        if (closingSession || activeDescriptor?.sessionId !== descriptor.sessionId) return;
+        nativeSession = undefined;
+        scheduleReconnect(descriptor, realtimeUrl, reason);
+      }
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (closingSession || activeDescriptor?.sessionId !== descriptor.sessionId) return;
+    scheduleReconnect(descriptor, realtimeUrl, message);
+  }
+}
+
+function scheduleReconnect(descriptor, realtimeUrl, reason) {
+  if (closingSession || reconnectTimer || reconnectAttempt >= 8) {
+    if (reconnectAttempt >= 8) sendStatus("error", "Nao foi possivel reconectar ao computador.");
+    return;
+  }
+  const delay = Math.min(15_000, 500 * 2 ** reconnectAttempt);
+  reconnectAttempt += 1;
+  sendStatus("connecting", `${reason}. Tentando reconectar em ${Math.ceil(delay / 1000)}s...`);
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = undefined;
+    void connectNativeSession(descriptor, realtimeUrl);
+  }, delay);
+}
+
 async function closeSession() {
+  closingSession = true;
+  if (reconnectTimer) clearTimeout(reconnectTimer);
+  reconnectTimer = undefined;
+  reconnectAttempt = 0;
   const session = nativeSession;
   const descriptor = activeDescriptor;
   nativeSession = undefined;

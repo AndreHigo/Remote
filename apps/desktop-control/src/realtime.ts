@@ -11,6 +11,7 @@ export interface RealtimeClientOptions {
   inputFactory?: () => RealtimeInputBridge;
   onFrame?: (frame: Buffer) => void;
   onReady?: (peerConnected: boolean) => void;
+  onLatencyMs?: (latencyMs: number) => void;
   onClosed?: (reason: string) => void;
 }
 
@@ -35,6 +36,7 @@ export async function connectRemoteSession(
   let capture: CaptureProcess | undefined;
   let input: RealtimeInputBridge | undefined;
   let detachCapture: (() => void) | undefined;
+  let pingTimer: NodeJS.Timeout | undefined;
   let closedNotified = false;
 
   function notifyClosed(reason: string) {
@@ -51,7 +53,11 @@ export async function connectRemoteSession(
       reject(error);
     };
 
-    socket.once("error", fail);
+    const handleSocketError = (error: Error) => {
+      if (!settled) fail(error);
+      else notifyClosed(error.message || "erro-de-rede");
+    };
+    socket.on("error", handleSocketError);
     socket.once("open", () => {
       socket.send(JSON.stringify({ type: "hello", accessToken: session.accessToken }));
     });
@@ -61,7 +67,7 @@ export async function connectRemoteSession(
         return;
       }
 
-      let message: { type?: string; peerConnected?: boolean; reason?: string };
+      let message: { type?: string; peerConnected?: boolean; reason?: string; sentAt?: number };
       try {
         message = JSON.parse(toBuffer(data).toString("utf8")) as typeof message;
       } catch {
@@ -72,8 +78,10 @@ export async function connectRemoteSession(
       if (message.type === "ready") {
         if (settled) return;
         settled = true;
-        socket.off("error", fail);
         options.onReady?.(message.peerConnected === true);
+        pingTimer = setInterval(() => {
+          if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: "ping", sentAt: Date.now() }));
+        }, 2000);
         if (session.role === "host") {
           try {
             input = options.inputFactory?.() ?? new WindowsInputBridge();
@@ -95,6 +103,11 @@ export async function connectRemoteSession(
           }
         }
         resolve();
+        return;
+      }
+
+      if (message.type === "pong" && typeof message.sentAt === "number") {
+        options.onLatencyMs?.(Math.max(0, Date.now() - message.sentAt));
         return;
       }
 
@@ -120,6 +133,8 @@ export async function connectRemoteSession(
     }
 
     function cleanup() {
+      if (pingTimer) clearInterval(pingTimer);
+      pingTimer = undefined;
       detachCapture?.();
       detachCapture = undefined;
       capture?.stop();

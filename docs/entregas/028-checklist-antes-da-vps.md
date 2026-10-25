@@ -13,11 +13,12 @@
 - agente arquivado nao aceita heartbeat, inventario ou comandos;
 - instalador do operador gerado localmente:
   `apps/operator/release/Remoto-Operator-Setup-0.1.0.exe`;
-- SHA256 do instalador: `53F8931CEF8625A0D196ED6F92B57F34FE2C28E156204099A071C1A3713EF098`.
+- SHA256 do instalador: `D8DC663ABB6D73A7F7819035865060F5C28F7B3D5DF6B8022F9FE7AACCB217DA`.
 - instalador do agente Windows gerado localmente:
   `apps/agent/release/RemotoAgent-Setup.exe`;
 - SHA256 atual do instalador do agente: `D3703E18B72DE2FEADB700E77536AB87AE9063000DD3E60898070D793C81B7A1`;
 - o instalador do agente encerra o serviço e o processo interativo antes da atualização para evitar arquivo bloqueado.
+- o operador nativo agora exibe RTT e tenta reconectar após queda transitória, conforme `docs/entregas/030-reconexao-e-rtt-operador-nativo.md`.
 
 ## Fechamento antes da producao
 

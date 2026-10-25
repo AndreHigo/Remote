@@ -50,6 +50,7 @@ test("transporte realtime integra host e cliente com captura e entrada tipadas",
   const sockets = new Map<string, WebSocket>();
   const receivedInputs: unknown[] = [];
   const frames: Buffer[] = [];
+  const latencies: number[] = [];
   const inputBridge: RealtimeInputBridge = {
     send(value) {
       receivedInputs.push(value);
@@ -69,6 +70,7 @@ test("transporte realtime integra host e cliente com captura e entrada tipadas",
         const role = message.accessToken === "host-token" ? "host" : "client";
         sockets.set(role, socket);
         socket.send(JSON.stringify({ type: "ready", peerConnected: sockets.has(role === "host" ? "client" : "host") }));
+        socket.send(JSON.stringify({ type: "pong", sentAt: Date.now() - 5 }));
         return;
       }
       if (message.type === "input") sockets.get("host")?.send(JSON.stringify({ type: "input", event: message.event }));
@@ -111,9 +113,13 @@ test("transporte realtime integra host e cliente com captura e entrada tipadas",
     { sessionId: "session-test", deviceId: "device-test", mode: "game", role: "client", accessToken: "client-token" },
     {
       url: `ws://127.0.0.1:${address.port}/sessions/session-test`,
-      onFrame: (frame) => frames.push(frame)
+      onFrame: (frame) => frames.push(frame),
+      onLatencyMs: (latencyMs) => latencies.push(latencyMs)
     }
   );
+
+  await waitFor(() => latencies.length === 1);
+  assert.ok(latencies[0] >= 0 && latencies[0] < 1000);
 
   const frame = Buffer.from("encoded-frame");
   stdout.write(frame);
