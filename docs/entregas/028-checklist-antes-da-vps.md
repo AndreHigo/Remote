@@ -13,7 +13,7 @@
 - agente arquivado nao aceita heartbeat, inventario ou comandos;
 - instalador do operador gerado localmente:
   `apps/operator/release/Remoto-Operator-Setup-0.1.0.exe`;
-- SHA256 do instalador: `3971F20D1213F694F2A699D70A942397EFB2A9C948D205D496BE56BB97AB4C00`.
+- SHA256 do instalador: `B8348F6F6B0F9116EFB8F76FAD702CCEE0C1D8470A6F9591865A63D26E8AE013`.
 - instalador do agente Windows gerado localmente:
   `apps/agent/release/RemotoAgent-Setup.exe`;
 - SHA256 atual do instalador do agente: `D3703E18B72DE2FEADB700E77536AB87AE9063000DD3E60898070D793C81B7A1`;

@@ -162,15 +162,74 @@ export async function connectRemoteSession(
 }
 
 export function forwardCaptureFrames(stdout: Readable, socket: WebSocket) {
-  const onData = (chunk: Buffer) => {
+  let pending = Buffer.alloc(0);
+  let initializationBoxes: Buffer[] = [];
+  let mediaBoxes: Buffer[] = [];
+  let initialized = false;
+
+  const sendSegment = (segment: Buffer, force = false) => {
     if (socket.readyState !== WebSocket.OPEN) return;
-    // Drop stale chunks instead of building a queue that makes gameplay lag.
-    if (socket.bufferedAmount > 4 * 1024 * 1024) return;
-    socket.send(chunk);
+    // Drop a complete fMP4 segment instead of cutting a box and corrupting MSE.
+    if ((!force && socket.bufferedAmount > 4 * 1024 * 1024) || segment.byteLength > 8 * 1024 * 1024) return;
+    socket.send(segment);
+  };
+
+  const onData = (chunk: Buffer) => {
+    if (!chunk.byteLength) return;
+    pending = Buffer.concat([pending, chunk]);
+    if (pending.byteLength > 32 * 1024 * 1024) {
+      pending = Buffer.alloc(0);
+      initializationBoxes = [];
+      mediaBoxes = [];
+      initialized = false;
+      return;
+    }
+
+    while (true) {
+      const box = readMp4Box(pending);
+      if (!box) return;
+      pending = pending.subarray(box.byteLength);
+
+      if (!initialized) {
+        initializationBoxes.push(box.data);
+        if (box.type === "moov") {
+          sendSegment(Buffer.concat(initializationBoxes), true);
+          initializationBoxes = [];
+          initialized = true;
+        }
+        continue;
+      }
+
+      if (box.type === "styp" && mediaBoxes.length === 0) {
+        mediaBoxes.push(box.data);
+        continue;
+      }
+      if (box.type === "moof") {
+        mediaBoxes.push(box.data);
+        continue;
+      }
+      if (box.type === "mdat" && mediaBoxes.length > 0) {
+        mediaBoxes.push(box.data);
+        sendSegment(Buffer.concat(mediaBoxes));
+        mediaBoxes = [];
+      }
+    }
   };
 
   stdout.on("data", onData);
   return () => stdout.off("data", onData);
+}
+
+function readMp4Box(buffer: Buffer) {
+  if (buffer.byteLength < 8) return null;
+  const declaredSize = buffer.readUInt32BE(0);
+  const type = buffer.toString("ascii", 4, 8);
+  const headerSize = declaredSize === 1 ? 16 : 8;
+  if (buffer.byteLength < headerSize) return null;
+  const byteLength = declaredSize === 1 ? Number(buffer.readBigUInt64BE(8)) : declaredSize;
+  if (!Number.isSafeInteger(byteLength) || byteLength < headerSize || byteLength > 32 * 1024 * 1024) return null;
+  if (buffer.byteLength < byteLength) return null;
+  return { type, byteLength, data: buffer.subarray(0, byteLength) };
 }
 
 export function buildRealtimeSessionUrl(configured: string, sessionId: string) {

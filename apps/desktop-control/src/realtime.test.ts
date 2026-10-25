@@ -37,11 +37,14 @@ test("captura realtime encaminha bytes que chegam no stdout do FFmpeg", () => {
   } as unknown as WebSocket;
 
   const detach = forwardCaptureFrames(stdout, socket);
-  stdout.write(Buffer.from("fragment-1"));
+  const initialization = Buffer.concat([mp4Box("ftyp", Buffer.from("init")), mp4Box("moov", Buffer.from("meta"))]);
+  const media = Buffer.concat([mp4Box("moof", Buffer.from("header")), mp4Box("mdat", Buffer.from("payload"))]);
+  stdout.write(initialization.subarray(0, 9));
+  stdout.write(Buffer.concat([initialization.subarray(9), media.subarray(0, 7)]));
+  stdout.write(media.subarray(7));
   detach();
-  stdout.write(Buffer.from("fragment-2"));
 
-  assert.deepEqual(frames, [Buffer.from("fragment-1")]);
+  assert.deepEqual(frames, [initialization, media]);
 });
 
 test("transporte realtime integra host e cliente com captura e entrada tipadas", async (t) => {
@@ -121,10 +124,11 @@ test("transporte realtime integra host e cliente com captura e entrada tipadas",
   await waitFor(() => latencies.length === 1);
   assert.ok(latencies[0] >= 0 && latencies[0] < 1000);
 
-  const frame = Buffer.from("encoded-frame");
-  stdout.write(frame);
-  await waitFor(() => frames.length === 1);
-  assert.deepEqual(frames, [frame]);
+  const initialization = Buffer.concat([mp4Box("ftyp", Buffer.from("init")), mp4Box("moov", Buffer.from("meta"))]);
+  const media = Buffer.concat([mp4Box("moof", Buffer.from("header")), mp4Box("mdat", Buffer.from("payload"))]);
+  stdout.write(Buffer.concat([initialization, media]));
+  await waitFor(() => frames.length === 2);
+  assert.deepEqual(frames, [initialization, media]);
 
   client.sendInput({ type: "key", scanCode: 30, action: "down" });
   await waitFor(() => receivedInputs.length === 1);
@@ -164,4 +168,12 @@ async function waitFor(predicate: () => boolean) {
   const deadline = Date.now() + 3000;
   while (!predicate() && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 10));
   assert.equal(predicate(), true);
+}
+
+function mp4Box(type: string, payload: Buffer) {
+  const box = Buffer.alloc(8 + payload.byteLength);
+  box.writeUInt32BE(box.byteLength, 0);
+  box.write(type, 4, 4, "ascii");
+  payload.copy(box, 8);
+  return box;
 }
