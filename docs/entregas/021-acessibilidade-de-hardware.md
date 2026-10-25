@@ -16,10 +16,12 @@ O Remoto sera apresentado como um unico aplicativo. O usuario nao precisa conhec
 - O agente coleta adaptadores de video, memoria aproximada, driver e modo de codificacao possivel no Windows.
 - O painel exibe o hardware de video e informa se existe fallback de CPU.
 - A documentacao do desktop-control fixa a regra de um unico aplicativo e instalador.
+- A captura Windows usa `gdigrab` com `libx264` por CPU como padrao e encoders NVIDIA/AMD/Intel como aceleracao opcional.
+- O instalador e o agente descobrem FFmpeg em caminhos comuns do Windows, incluindo WinGet, sem exigir placa de video dedicada.
+- O transporte local foi exercido com FFmpeg/CPU e os bytes enviados ao relay possuem teste automatizado.
 
 ## Ainda falta
 
-- Implementar a captura de tela e codificacao reais.
 - Medir FPS e latencia por perfil.
 - Criar o fallback adaptativo de resolucao, bitrate e FPS.
 - Testar com computador com GPU dedicada, video integrado e sem aceleracao utilizavel.

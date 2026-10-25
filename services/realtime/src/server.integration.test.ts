@@ -130,9 +130,14 @@ test("relay autentica os dois papeis e encaminha video e entrada", async (t) => 
   if (!controlClientReady.peerConnected) assert.equal((await nextJson(controlClientMessages)).peerConnected, true);
   const closeResponse = await fetch(`http://127.0.0.1:${relayAddress.port}/internal/sessions/session-control/close`, {
     method: "POST",
+    headers: { "X-Realtime-Secret": "wrong-secret" }
+  });
+  assert.equal(closeResponse.status, 401);
+  const authorizedCloseResponse = await fetch(`http://127.0.0.1:${relayAddress.port}/internal/sessions/session-control/close`, {
+    method: "POST",
     headers: { "X-Realtime-Secret": process.env.REALTIME_INTERNAL_SECRET ?? "" }
   });
-  assert.equal(closeResponse.status, 204);
+  assert.equal(authorizedCloseResponse.status, 204);
   assert.deepEqual(await nextJson(controlHostMessages), { type: "closed", reason: "session-ended" });
   assert.deepEqual(await nextJson(controlClientMessages), { type: "closed", reason: "session-ended" });
 
