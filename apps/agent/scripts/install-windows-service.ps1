@@ -44,10 +44,16 @@ if ([string]::IsNullOrWhiteSpace($AgentRoot)) {
 }
 $AgentRoot = (Resolve-Path $AgentRoot).Path
 Assert-ProtectedAgentRoot -Path $AgentRoot
+$CurrentUserSid = ([Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
+$CurrentUserName = "$env:USERDOMAIN\$env:USERNAME"
+$InteractiveTaskName = "RemotoAgentDesktop"
 
 if ($Uninstall) {
   try { Invoke-Sc @("stop", $ServiceName) } catch { }
   Invoke-Sc @("delete", $ServiceName)
+  if (Get-Command Unregister-ScheduledTask -ErrorAction SilentlyContinue) {
+    Unregister-ScheduledTask -TaskName $InteractiveTaskName -Confirm:$false -ErrorAction SilentlyContinue
+  }
   Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "RemotoAgentDesktop" -ErrorAction SilentlyContinue
   Write-Output "Servico removido: $ServiceName"
   exit 0
@@ -87,9 +93,20 @@ Invoke-Sc @("failure", $ServiceName, "reset=", "86400", "actions=", "restart/500
 Invoke-Sc @("start", $ServiceName)
 
 $runKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
-$desktopCommand = '"{0}" "{1}" sessions' -f $NodePath, $runner
-New-Item -Path $runKey -Force | Out-Null
-New-ItemProperty -Path $runKey -Name "RemotoAgentDesktop" -PropertyType String -Value $desktopCommand -Force | Out-Null
+Remove-ItemProperty -Path $runKey -Name "RemotoAgentDesktop" -ErrorAction SilentlyContinue
+if (Get-Command Register-ScheduledTask -ErrorAction SilentlyContinue) {
+  $action = New-ScheduledTaskAction -Execute $NodePath -Argument ('"{0}" sessions' -f $runner) -WorkingDirectory $AgentRoot
+  $trigger = New-ScheduledTaskTrigger -AtLogOn -User $CurrentUserName
+  $principal = New-ScheduledTaskPrincipal -UserId $CurrentUserSid -LogonType Interactive -RunLevel Limited
+  Register-ScheduledTask -TaskName $InteractiveTaskName -Action $action -Trigger $trigger -Principal $principal -Force | Out-Null
+  try { Start-ScheduledTask -TaskName $InteractiveTaskName -ErrorAction Stop } catch { Write-Warning "O processo interativo sera iniciado no proximo logon: $($_.Exception.Message)" }
+} else {
+  $desktopCommand = '"{0}" "{1}" sessions' -f $NodePath, $runner
+  New-Item -Path $runKey -Force | Out-Null
+  New-ItemProperty -Path $runKey -Name "RemotoAgentDesktop" -PropertyType String -Value $desktopCommand -Force | Out-Null
+  Write-Warning "O modulo ScheduledTasks nao esta disponivel; usando autostart legado do usuario."
+}
 
 Write-Output "Servico instalado e iniciado: $ServiceName"
 Write-Output "Root: $AgentRoot"
+Write-Output "Processo interativo: tarefa $InteractiveTaskName para $CurrentUserName"
