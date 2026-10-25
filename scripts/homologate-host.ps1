@@ -71,18 +71,6 @@ function Get-SafeEndpointSummary {
 $os = Get-OptionalCimInstance -ClassName "Win32_OperatingSystem"
 $computer = Get-OptionalCimInstance -ClassName "Win32_ComputerSystem"
 $controllers = @(Get-OptionalCimInstance -ClassName "Win32_VideoController")
-$ffmpegCommand = Get-Command ffmpeg.exe -ErrorAction SilentlyContinue
-$ffmpegPath = if ($ffmpegCommand) { $ffmpegCommand.Source } else { $null }
-$protectedFfmpegPath = Find-ProtectedFfmpeg
-$serviceFfmpegPath = if ($ffmpegPath -and (Test-UnderTrustedRoot $ffmpegPath)) { $ffmpegPath } elseif ($protectedFfmpegPath) { $protectedFfmpegPath } else { $null }
-$encoderOutput = if ($ffmpegPath) { Get-SafeCommandOutput $ffmpegPath @("-hide_banner", "-encoders") } else { "" }
-$filterOutput = if ($ffmpegPath) { Get-SafeCommandOutput $ffmpegPath @("-hide_banner", "-filters") } else { "" }
-$deviceOutput = if ($ffmpegPath) { Get-SafeCommandOutput $ffmpegPath @("-hide_banner", "-devices") } else { "" }
-$gpuEncoderNames = @("h264_nvenc", "h264_amf", "h264_qsv") | Where-Object { $encoderOutput -match "\b$($_)\b" }
-$hasDesktopDuplication = $filterOutput -match "(?m)\bddagrab\b"
-$hasDirectShow = $deviceOutput -match "(?m)\bdshow\b"
-$hasNativeWasapi = $deviceOutput -match "(?im)\bwasapi\b"
-$service = Get-Service -Name "RemotoAgent" -ErrorAction SilentlyContinue
 $agentConfigPath = Join-Path ${env:ProgramFiles} "Remoto Agent\.remoto-agent.config.json"
 $agentConfig = $null
 try {
@@ -92,6 +80,42 @@ try {
 } catch {
   $agentConfig = $null
 }
+
+$ffmpegCommand = Get-Command ffmpeg.exe -ErrorAction SilentlyContinue
+$pathFfmpegPath = if ($ffmpegCommand) { $ffmpegCommand.Source } else { $null }
+$configuredFfmpegPath = if ($agentConfig -and -not [string]::IsNullOrWhiteSpace([string]$agentConfig.ffmpegPath) -and (Test-Path -LiteralPath ([string]$agentConfig.ffmpegPath) -PathType Leaf)) {
+  [string]$agentConfig.ffmpegPath
+} else {
+  $null
+}
+$protectedCandidates = @($configuredFfmpegPath, (Find-ProtectedFfmpeg)) |
+  Where-Object { $_ -and (Test-UnderTrustedRoot $_) -and (Test-Path -LiteralPath $_ -PathType Leaf) } |
+  Select-Object -First 1
+$protectedFfmpegPath = if ($protectedCandidates) { [string]$protectedCandidates } else { $null }
+$ffmpegPath = @($configuredFfmpegPath, $pathFfmpegPath, $protectedFfmpegPath) |
+  Where-Object { $_ -and (Test-Path -LiteralPath $_ -PathType Leaf) } |
+  Select-Object -First 1
+$ffmpegSource = if (-not $ffmpegPath) { $null }
+  elseif ($configuredFfmpegPath -eq $ffmpegPath) { "agent-config" }
+  elseif ($pathFfmpegPath -eq $ffmpegPath) { "PATH" }
+  else { "protected-discovery" }
+$serviceFfmpegPath = if ($configuredFfmpegPath -and (Test-UnderTrustedRoot $configuredFfmpegPath)) {
+  $configuredFfmpegPath
+} elseif ($pathFfmpegPath -and (Test-UnderTrustedRoot $pathFfmpegPath)) {
+  $pathFfmpegPath
+} elseif ($protectedFfmpegPath) {
+  $protectedFfmpegPath
+} else {
+  $null
+}
+$encoderOutput = if ($ffmpegPath) { Get-SafeCommandOutput $ffmpegPath @("-hide_banner", "-encoders") } else { "" }
+$filterOutput = if ($ffmpegPath) { Get-SafeCommandOutput $ffmpegPath @("-hide_banner", "-filters") } else { "" }
+$deviceOutput = if ($ffmpegPath) { Get-SafeCommandOutput $ffmpegPath @("-hide_banner", "-devices") } else { "" }
+$gpuEncoderNames = @("h264_nvenc", "h264_amf", "h264_qsv") | Where-Object { $encoderOutput -match "\b$($_)\b" }
+$hasDesktopDuplication = $filterOutput -match "(?m)\bddagrab\b"
+$hasDirectShow = $deviceOutput -match "(?m)\bdshow\b"
+$hasNativeWasapi = $deviceOutput -match "(?im)\bwasapi\b"
+$service = Get-Service -Name "RemotoAgent" -ErrorAction SilentlyContinue
 $configurationStatus = if (-not $agentConfig) {
   "missing"
 } elseif ([string]::IsNullOrWhiteSpace([string]$agentConfig.apiUrl)) {
@@ -146,6 +170,7 @@ $report = [ordered]@{
   }
   capture = [ordered]@{
     ffmpegPath = $ffmpegPath
+    ffmpegSource = $ffmpegSource
     ffmpegAvailable = [bool]$ffmpegPath
     serviceFfmpegPath = $serviceFfmpegPath
     serviceFfmpegAvailable = [bool]$serviceFfmpegPath

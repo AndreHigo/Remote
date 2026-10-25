@@ -52,6 +52,10 @@ if ($serviceInstaller -match '(?i)LOCALAPPDATA.*Programs') {
 if ($serviceInstaller -notmatch '(?i)icacls\.exe\s+\$configPath') {
   throw "O instalador standalone precisa proteger a ACL da configuracao do agente."
 }
+$hostDiagnostics = Get-Content -LiteralPath "scripts/homologate-host.ps1" -Raw
+if ($hostDiagnostics -notmatch '(?i)ffmpegSource' -or $hostDiagnostics -notmatch '(?i)configuredFfmpegPath') {
+  throw "O diagnostico do host precisa sondar o FFmpeg configurado/protegido e declarar a origem."
+}
 Write-Host "Runtime privilegiado e ACL da configuracao verificados." -ForegroundColor Green
 
 Write-Host "`n== Instaladores ==" -ForegroundColor Cyan
