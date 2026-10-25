@@ -9,7 +9,7 @@ $ErrorActionPreference = "Stop"
 $AgentRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $RepoRoot = (Resolve-Path (Join-Path $AgentRoot "..\..")).Path
 if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
-  $OutputRoot = Join-Path $AgentRoot "release\RemotoAgent-Windows"
+  $OutputRoot = if ($env:REMOTO_AGENT_OUTPUT_ROOT) { $env:REMOTO_AGENT_OUTPUT_ROOT } else { Join-Path $AgentRoot "release\RemotoAgent-Windows" }
 }
 $FfmpegPath = if ([string]::IsNullOrWhiteSpace($FfmpegPath)) { $env:REMOTO_BUNDLE_FFMPEG_PATH } else { $FfmpegPath }
 $Version = if ([string]::IsNullOrWhiteSpace($Version)) { if ($env:REMOTO_RELEASE_VERSION) { $env:REMOTO_RELEASE_VERSION } else { "0.1.0" } } else { $Version }

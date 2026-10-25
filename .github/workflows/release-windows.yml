@@ -67,10 +67,10 @@ jobs:
           }
 
       - name: Package agent
-        run: npm run agent:package:windows -- -Version $env:REMOTO_RELEASE_VERSION
+        run: npm run agent:package:windows
 
       - name: Package native operator
-        run: npm run operator:package:windows -- --config.extraMetadata.version=$env:REMOTO_RELEASE_VERSION
+        run: npm run operator:package:windows
 
       - name: Sign Windows installers
         if: startsWith(github.ref, 'refs/tags/')

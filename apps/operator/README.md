@@ -42,7 +42,7 @@ Gere o instalador x64 com atalho, menu iniciar e associacao `.remoto-session`:
 npm run operator:package:windows
 ```
 
-O arquivo sai em `apps/operator/release/Remoto-Operator-Setup-0.1.0.exe`. O build local atual nao e assinado; para distribuicao publica ainda faltam certificado de assinatura, atualizacao automatica e teste em duas maquinas.
+O arquivo sai em `apps/operator/release/Remoto-Operator-Setup-${versao}.exe`; sem `REMOTO_RELEASE_VERSION`, a versao do `package.json` continua sendo usada. O build local atual nao e assinado; para distribuicao publica ainda faltam certificado de assinatura, atualizacao automatica e teste em duas maquinas.
 
 ## Limites desta entrega
 

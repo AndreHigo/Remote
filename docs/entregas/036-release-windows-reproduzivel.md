@@ -17,4 +17,4 @@
 
 ## Limites
 
-Execuções manuais geram artefatos de homologação sem assinatura. Publicações por tag `v*` exigem `WINDOWS_CODESIGN_PFX_B64` e `WINDOWS_CODESIGN_PFX_PASSWORD`, executam testes, typecheck, build e auditoria, propagam a versão da tag, assinam os executáveis com Authenticode e só então publicam a release. Isso ainda não substitui homologação entre duas máquinas Windows nem transforma o modo jogo em compatível com todos os jogos.
+Execuções manuais geram artefatos de homologação sem assinatura. Publicações por tag `v*` exigem `WINDOWS_CODESIGN_PFX_B64` e `WINDOWS_CODESIGN_PFX_PASSWORD`, executam testes, typecheck, build e auditoria, propagam a versão da tag por `REMOTO_RELEASE_VERSION`, assinam os executáveis com Authenticode e só então publicam a release. O pacote do agente aceita `REMOTO_AGENT_OUTPUT_ROOT` para uma saída isolada de homologação. Isso ainda não substitui homologação entre duas máquinas Windows nem transforma o modo jogo em compatível com todos os jogos.
