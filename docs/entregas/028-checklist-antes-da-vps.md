@@ -2,7 +2,7 @@
 
 ## Estado validado
 
-- commit de referência publicado: `d9219f2`;
+- commit de referência publicado: `d9124f6`;
 - `npm test`: 28 testes passando;
 - `npm run typecheck`: API, web, desktop-control, agent e realtime sem erros;
 - `npm run build`: build completo validado no estado atual do workspace;
