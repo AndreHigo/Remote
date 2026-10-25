@@ -972,14 +972,14 @@ export const repository = {
 
     const current = await prisma.remoteSession.findUnique({ where: { id: payload.sessionId } });
     if (!current || current.connectionTokenHash !== hashToken(token)) return { kind: "invalid" as const };
-    if (current.status === "ENDED") return { kind: "ended" as const };
+    if (current.status === "ENDED") return { kind: "ended" as const, sessionId: current.id };
 
     const endedAt = now();
     const claimed = await prisma.remoteSession.updateMany({
       where: { id: current.id, connectionTokenHash: hashToken(token), status: { not: "ENDED" } },
       data: { status: "ENDED", endedAt, connectionTokenUsedAt: endedAt }
     });
-    if (claimed.count !== 1) return { kind: "ended" as const };
+    if (claimed.count !== 1) return { kind: "ended" as const, sessionId: current.id };
 
     await addAudit(
       "remote-session.ended",
@@ -989,7 +989,7 @@ export const repository = {
       current.deviceId,
       current.userId ?? undefined
     );
-    return { kind: "ended" as const };
+    return { kind: "ended" as const, sessionId: current.id };
   },
 
   async authorizeDesktopSessionChannel(token: string) {

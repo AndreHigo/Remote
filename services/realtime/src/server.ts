@@ -18,6 +18,7 @@ interface Peer {
   socket: WebSocket;
   payload: ChannelTokenPayload;
   role: SessionRole;
+  accessToken: string;
 }
 
 interface Room {
@@ -25,6 +26,7 @@ interface Room {
   client?: Peer;
   initialFrame?: Buffer;
   expiryTimer?: NodeJS.Timeout;
+  revalidationTimer?: NodeJS.Timeout;
   expiresAt?: number;
 }
 
@@ -98,13 +100,18 @@ export function createRealtimeServer() {
         const room = rooms.get(payload.sessionId) ?? {};
         if (room[payload.role]) return close(socket, "role-already-connected");
         if (payload.role === "host") room.initialFrame = undefined;
-        peer = { socket, payload, role: payload.role };
+        peer = { socket, payload, role: payload.role, accessToken: hello.accessToken };
         room[payload.role] = peer;
         const nextExpiry = Math.min(room.expiresAt ?? payload.exp, payload.exp);
         if (room.expiryTimer) clearTimeout(room.expiryTimer);
         room.expiresAt = nextExpiry;
         room.expiryTimer = setTimeout(() => closeRoom(payload.sessionId, "session-expired", 1008), Math.max(1, nextExpiry - Date.now()));
         rooms.set(payload.sessionId, room);
+        if (!room.revalidationTimer) {
+          room.revalidationTimer = setInterval(() => {
+            void revalidateRoom(payload.sessionId);
+          }, 10_000);
+        }
         clearTimeout(helloTimeout);
         releasePendingHandshake();
         send(socket, { type: "ready", sessionId: payload.sessionId, mode: payload.mode, peerConnected: Boolean(room.host && room.client) });
@@ -152,6 +159,7 @@ export function createRealtimeServer() {
       if (other?.socket.readyState === WebSocket.OPEN) send(other.socket, { type: "closed", reason: "peer-disconnected" });
       if (!room.host && !room.client) {
         if (room.expiryTimer) clearTimeout(room.expiryTimer);
+        if (room.revalidationTimer) clearInterval(room.revalidationTimer);
         rooms.delete(peer.payload.sessionId);
       }
     });
@@ -174,6 +182,7 @@ export function createRealtimeServer() {
     const room = rooms.get(sessionId);
     if (!room) return false;
     if (room.expiryTimer) clearTimeout(room.expiryTimer);
+    if (room.revalidationTimer) clearInterval(room.revalidationTimer);
     rooms.delete(sessionId);
     for (const peer of [room.host, room.client]) {
       if (!peer) continue;
@@ -182,6 +191,20 @@ export function createRealtimeServer() {
     }
     return true;
   }
+
+  async function revalidateRoom(sessionId: string) {
+    const room = rooms.get(sessionId);
+    if (!room) return;
+    const peers = [room.host, room.client].filter((peer): peer is Peer => Boolean(peer));
+    for (const peer of peers) {
+      const authorized = await authorizeChannel(peer.accessToken);
+      if (!authorized || authorized.sessionId !== sessionId || authorized.role !== peer.role) {
+        closeRoom(sessionId, "session-revoked", 1008);
+        return;
+      }
+    }
+  }
+
 }
 
 export function startRealtimeServer(listenPort = port) {

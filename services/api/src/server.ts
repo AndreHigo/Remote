@@ -392,6 +392,7 @@ app.post(
       return;
     }
 
+    void closeRealtimeSession(result.sessionId);
     response.json({ ok: true });
   }
 );
