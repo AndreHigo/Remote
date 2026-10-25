@@ -25,7 +25,8 @@ import { createRateLimiter } from "./rate-limit.js";
 const app = express();
 const port = Number(process.env.PORT ?? 4100);
 const nodeEnv = process.env.NODE_ENV ?? "development";
-const gameModeEnabled = process.env.ENABLE_GAME_MODE === "true";
+const realtimeInternalSecret = process.env.REALTIME_INTERNAL_SECRET;
+const gameModeEnabled = process.env.ENABLE_GAME_MODE === "true" && Boolean(realtimeInternalSecret);
 
 if (nodeEnv === "production" && (!process.env.JWT_SECRET || !process.env.TOTP_ENCRYPTION_KEY)) {
   throw new Error("JWT_SECRET e TOTP_ENCRYPTION_KEY sao obrigatorios em producao");
@@ -100,8 +101,6 @@ const remoteSessionSchema = z.object({
 const desktopSessionConsumeSchema = z.object({
   accessToken: z.string().min(32).max(2048)
 });
-
-const realtimeInternalSecret = process.env.REALTIME_INTERNAL_SECRET;
 
 const inventorySchema = z.object({
   hardware: z.record(z.string(), z.unknown()),

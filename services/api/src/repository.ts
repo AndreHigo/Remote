@@ -805,7 +805,7 @@ export const repository = {
     });
     if (!current) return null;
     if (current.status !== "REQUESTED") return { kind: "unchanged" as const, status: current.status.toLowerCase() };
-    if (current.mode === "GAME" && process.env.ENABLE_GAME_MODE !== "true") {
+    if (current.mode === "GAME" && (process.env.ENABLE_GAME_MODE !== "true" || !process.env.REALTIME_INTERNAL_SECRET)) {
       await addAudit(
         "remote-session.unavailable",
         input.user.name,
