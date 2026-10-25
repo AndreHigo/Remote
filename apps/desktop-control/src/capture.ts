@@ -4,10 +4,12 @@ import path from "node:path";
 
 export type VideoQuality = "auto" | "low" | "balanced" | "high";
 export type VideoEncoder = "auto" | "cpu" | "nvidia" | "amd" | "intel";
+export type CaptureMethod = "auto" | "gdigrab" | "ddagrab";
 
 export interface CaptureProfile {
   quality: VideoQuality;
   encoder: VideoEncoder;
+  captureMethod?: CaptureMethod;
   width?: number;
   height?: number;
   fps?: number;
@@ -25,18 +27,16 @@ const defaultProfile: Required<Pick<CaptureProfile, "quality" | "encoder">> = {
   encoder: "cpu"
 };
 
-export function buildWindowsCaptureArgs(profile: CaptureProfile = defaultProfile) {
+export function buildWindowsCaptureArgs(profile: CaptureProfile = defaultProfile, captureMethod: Exclude<CaptureMethod, "auto"> = "gdigrab") {
   const fps = profile.fps ?? qualityDefaults(profile.quality).fps;
   const bitrateKbps = profile.bitrateKbps ?? qualityDefaults(profile.quality).bitrateKbps;
   const keyframeInterval = Math.max(15, Math.round(fps / 2));
-  const args = [
-    "-hide_banner",
-    "-loglevel", "error",
-    "-f", "gdigrab",
-    "-framerate", String(fps),
-    "-draw_mouse", "1",
-    "-i", "desktop"
-  ];
+  const args = ["-hide_banner", "-loglevel", "error"];
+  if (captureMethod === "ddagrab") {
+    args.push("-f", "lavfi", "-i", `ddagrab=framerate=${fps}:draw_mouse=1`);
+  } else {
+    args.push("-f", "gdigrab", "-framerate", String(fps), "-draw_mouse", "1", "-i", "desktop");
+  }
 
   if (profile.width && profile.height) {
     args.push("-vf", `scale=${profile.width}:${profile.height}:force_original_aspect_ratio=decrease`);
@@ -75,7 +75,8 @@ export function startWindowsCapture(profile: CaptureProfile = defaultProfile): C
   }
   const executable = resolvedExecutable ?? "ffmpeg.exe";
   const selectedEncoder = resolveCaptureEncoder(profile.encoder, executable);
-  const child = spawn(executable, buildWindowsCaptureArgs({ ...profile, encoder: selectedEncoder }), {
+  const selectedMethod = resolveCaptureMethod(profile.captureMethod ?? "auto", executable);
+  const child = spawn(executable, buildWindowsCaptureArgs({ ...profile, encoder: selectedEncoder }, selectedMethod), {
     stdio: "pipe",
     windowsHide: true
   });
@@ -100,6 +101,13 @@ export function selectCaptureEncoder(requested: VideoEncoder, availableEncoders:
   return "cpu";
 }
 
+export function selectCaptureMethod(requested: CaptureMethod, availableFilters: Iterable<string>): Exclude<CaptureMethod, "auto"> {
+  const available = new Set(availableFilters);
+  if (requested === "gdigrab") return "gdigrab";
+  if (requested === "ddagrab") return available.has("ddagrab") ? "ddagrab" : "gdigrab";
+  return available.has("ddagrab") ? "ddagrab" : "gdigrab";
+}
+
 function resolveCaptureEncoder(requested: VideoEncoder, executable: string): Exclude<VideoEncoder, "auto"> {
   if (requested === "cpu") return "cpu";
   try {
@@ -113,6 +121,22 @@ function resolveCaptureEncoder(requested: VideoEncoder, executable: string): Exc
     return selectCaptureEncoder(requested, available);
   } catch {
     return "cpu";
+  }
+}
+
+function resolveCaptureMethod(requested: CaptureMethod, executable: string): Exclude<CaptureMethod, "auto"> {
+  if (requested === "gdigrab") return "gdigrab";
+  try {
+    const output = execFileSync(executable, ["-hide_banner", "-filters"], {
+      encoding: "utf8",
+      timeout: 2_000,
+      windowsHide: true,
+      stdio: ["ignore", "pipe", "ignore"]
+    });
+    const available = [...output.matchAll(/(?:^|\s)ddagrab\s+/gm)].map(() => "ddagrab");
+    return selectCaptureMethod(requested, available);
+  } catch {
+    return "gdigrab";
   }
 }
 

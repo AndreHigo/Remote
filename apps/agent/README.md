@@ -64,6 +64,7 @@ REMOTO_AGENT_CONFIG=.remoto-agent.config.json
 REMOTO_AGENT_STATE=.remoto-agent.json
 REMOTO_CAPTURE_QUALITY=auto
 REMOTO_CAPTURE_ENCODER=auto
+REMOTO_CAPTURE_METHOD=auto
 REMOTO_CAPTURE_WIDTH=1920
 REMOTO_CAPTURE_HEIGHT=1080
 REMOTO_CAPTURE_FPS=60
@@ -71,6 +72,8 @@ REMOTO_CAPTURE_BITRATE_KBPS=8000
 ```
 
 Os parametros de captura sao opcionais. O padrao `auto` escolhe uma aceleracao H.264 disponivel (NVIDIA, AMD ou Intel) e cai para `libx264` por CPU quando nao houver GPU compativel. Use `low` para maquinas limitadas, `balanced` para uso geral ou `high` quando a rede e o hardware suportarem. Um encoder explicito tambem cai para CPU se a build local do FFmpeg nao oferecer aquele encoder.
+
+O metodo de captura pode ser `auto`, `ddagrab` ou `gdigrab`. Em `auto`, o agente usa o Desktop Duplication API (`ddagrab`) quando a build do FFmpeg oferece o filtro, melhorando a compatibilidade com jogos em tela cheia, e cai para `gdigrab` quando necessario.
 
 Identidade coletada pelo agente:
 

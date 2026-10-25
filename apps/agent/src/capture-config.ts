@@ -1,8 +1,9 @@
-import type { CaptureProfile, VideoEncoder, VideoQuality } from "@remoto/desktop-control/capture";
+import type { CaptureMethod, CaptureProfile, VideoEncoder, VideoQuality } from "@remoto/desktop-control/capture";
 
 export interface CaptureConfigValues {
   captureQuality?: string;
   captureEncoder?: string;
+  captureMethod?: string;
   captureWidth?: number | string;
   captureHeight?: number | string;
   captureFps?: number | string;
@@ -13,6 +14,7 @@ export interface CaptureReadiness {
   gameModeReady: boolean;
   ffmpegAvailable: boolean;
   encoder: VideoEncoder;
+  captureMethod: CaptureMethod;
   quality: VideoQuality;
   width?: number;
   height?: number;
@@ -23,14 +25,17 @@ export interface CaptureReadiness {
 
 const qualities = new Set<VideoQuality>(["auto", "low", "balanced", "high"]);
 const encoders = new Set<VideoEncoder>(["auto", "cpu", "nvidia", "amd", "intel"]);
+const captureMethods = new Set<CaptureMethod>(["auto", "gdigrab", "ddagrab"]);
 
 export function readCaptureProfile(fileConfig: CaptureConfigValues, environment: NodeJS.ProcessEnv = process.env): CaptureProfile {
   const quality = readEnum(environment.REMOTO_CAPTURE_QUALITY ?? fileConfig.captureQuality, qualities, "auto", "REMOTO_CAPTURE_QUALITY");
   const encoder = readEnum(environment.REMOTO_CAPTURE_ENCODER ?? fileConfig.captureEncoder, encoders, "cpu", "REMOTO_CAPTURE_ENCODER");
+  const captureMethod = readEnum(environment.REMOTO_CAPTURE_METHOD ?? fileConfig.captureMethod, captureMethods, "auto", "REMOTO_CAPTURE_METHOD");
 
   return {
     quality,
     encoder,
+    captureMethod,
     width: readOptionalPositive(environment.REMOTO_CAPTURE_WIDTH ?? fileConfig.captureWidth, "REMOTO_CAPTURE_WIDTH"),
     height: readOptionalPositive(environment.REMOTO_CAPTURE_HEIGHT ?? fileConfig.captureHeight, "REMOTO_CAPTURE_HEIGHT"),
     fps: readOptionalPositive(environment.REMOTO_CAPTURE_FPS ?? fileConfig.captureFps, "REMOTO_CAPTURE_FPS", 120),
@@ -43,6 +48,7 @@ export function buildCaptureReadiness(profile: CaptureProfile, ffmpegAvailable: 
     gameModeReady: ffmpegAvailable,
     ffmpegAvailable,
     encoder: profile.encoder,
+    captureMethod: profile.captureMethod ?? "auto",
     quality: profile.quality,
     width: profile.width,
     height: profile.height,

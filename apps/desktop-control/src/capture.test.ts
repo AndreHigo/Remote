@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildWindowsCaptureArgs, selectCaptureEncoder } from "./capture.js";
+import { buildWindowsCaptureArgs, selectCaptureEncoder, selectCaptureMethod } from "./capture.js";
 
 test("captura usa CPU e baixa latencia por padrao acessivel", () => {
   const args = buildWindowsCaptureArgs({ quality: "low", encoder: "cpu" });
@@ -24,6 +24,21 @@ test("captura pode priorizar encoder de GPU sem quebrar fallback de perfil", () 
   assert.ok(args.includes("h264_nvenc"));
   assert.ok(args.includes("scale=1920:1080:force_original_aspect_ratio=decrease"));
   assert.ok(args.includes("60"));
+});
+
+test("captura pode usar Desktop Duplication para jogos em tela cheia", () => {
+  const args = buildWindowsCaptureArgs({ quality: "balanced", encoder: "cpu" }, "ddagrab");
+
+  assert.deepEqual(args.slice(0, 7), [
+    "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "ddagrab=framerate=60:draw_mouse=1"
+  ]);
+  assert.ok(!args.includes("gdigrab"));
+});
+
+test("metodo auto usa ddagrab quando a build do FFmpeg oferece o filtro", () => {
+  assert.equal(selectCaptureMethod("auto", ["ddagrab"]), "ddagrab");
+  assert.equal(selectCaptureMethod("auto", []), "gdigrab");
+  assert.equal(selectCaptureMethod("ddagrab", []), "gdigrab");
 });
 
 test("perfil auto escolhe a primeira aceleracao disponivel", () => {

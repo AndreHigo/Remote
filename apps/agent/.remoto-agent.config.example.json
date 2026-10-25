@@ -5,6 +5,7 @@
   "stateFile": ".remoto-agent.json",
   "captureQuality": "auto",
   "captureEncoder": "cpu",
+  "captureMethod": "auto",
   "captureWidth": 1920,
   "captureHeight": 1080,
   "captureFps": 60,

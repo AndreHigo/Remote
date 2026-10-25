@@ -23,6 +23,7 @@ interface AgentConfigFile {
   ffmpegPath?: string;
   captureQuality?: string;
   captureEncoder?: string;
+  captureMethod?: string;
   captureWidth?: number | string;
   captureHeight?: number | string;
   captureFps?: number | string;
@@ -736,7 +737,8 @@ async function initializeConfig() {
     agentKey: process.env.REMOTO_AGENT_KEY ?? "",
     stateFile: process.env.REMOTO_AGENT_STATE ?? ".remoto-agent.json",
     captureQuality: process.env.REMOTO_CAPTURE_QUALITY ?? "auto",
-    captureEncoder: process.env.REMOTO_CAPTURE_ENCODER ?? "auto"
+    captureEncoder: process.env.REMOTO_CAPTURE_ENCODER ?? "auto",
+    captureMethod: process.env.REMOTO_CAPTURE_METHOD ?? "auto"
   };
   await fs.writeFile(CONFIG_FILE, `${JSON.stringify(initialConfig, null, 2)}\n`, "utf8");
   console.log(`configuracao criada: ${CONFIG_FILE}`);
@@ -759,6 +761,7 @@ async function printStatus() {
   console.log(`agent.key.configured=${hasKey}`);
   console.log(`capture.profile=${config.captureProfile.quality}`);
   console.log(`capture.encoder=${config.captureProfile.encoder}`);
+  console.log(`capture.method=${config.captureProfile.captureMethod ?? "auto"}`);
   console.log(`capture.fps=${config.captureProfile.fps ?? "auto"}`);
   console.log(`capture.bitrateKbps=${config.captureProfile.bitrateKbps ?? "auto"}`);
   console.log(`capture.size=${config.captureProfile.width && config.captureProfile.height ? `${config.captureProfile.width}x${config.captureProfile.height}` : "desktop"}`);

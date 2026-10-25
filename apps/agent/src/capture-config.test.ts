@@ -3,7 +3,7 @@ import test from "node:test";
 import { buildCaptureReadiness, readCaptureProfile } from "./capture-config.js";
 
 test("usa CPU e perfil auto como padrao acessivel", () => {
-  assert.deepEqual(readCaptureProfile({}), { quality: "auto", encoder: "cpu", width: undefined, height: undefined, fps: undefined, bitrateKbps: undefined });
+  assert.deepEqual(readCaptureProfile({}), { quality: "auto", encoder: "cpu", captureMethod: "auto", width: undefined, height: undefined, fps: undefined, bitrateKbps: undefined });
 });
 
 test("permite configurar perfil e limites pelo ambiente", () => {
@@ -15,7 +15,7 @@ test("permite configurar perfil e limites pelo ambiente", () => {
     REMOTO_CAPTURE_FPS: "60",
     REMOTO_CAPTURE_BITRATE_KBPS: "8000"
   });
-  assert.deepEqual(profile, { quality: "balanced", encoder: "intel", width: 1920, height: 1080, fps: 60, bitrateKbps: 8000 });
+  assert.deepEqual(profile, { quality: "balanced", encoder: "intel", captureMethod: "auto", width: 1920, height: 1080, fps: 60, bitrateKbps: 8000 });
 });
 
 test("permite deixar o encoder em modo automatico", () => {
@@ -33,6 +33,7 @@ test("expõe prontidao do modo jogo sem esconder o fallback de CPU", () => {
     gameModeReady: true,
     ffmpegAvailable: true,
     encoder: "cpu",
+    captureMethod: "auto",
     quality: "balanced",
     width: undefined,
     height: undefined,
@@ -41,4 +42,9 @@ test("expõe prontidao do modo jogo sem esconder o fallback de CPU", () => {
     cpuFallback: true
   });
   assert.equal(buildCaptureReadiness(profile, false).gameModeReady, false);
+});
+
+test("permite escolher o metodo de captura pelo ambiente", () => {
+  assert.equal(readCaptureProfile({}, { REMOTO_CAPTURE_METHOD: "ddagrab" }).captureMethod, "ddagrab");
+  assert.throws(() => readCaptureProfile({}, { REMOTO_CAPTURE_METHOD: "desktop-duplication" }), /REMOTO_CAPTURE_METHOD/);
 });

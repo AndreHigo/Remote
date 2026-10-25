@@ -154,6 +154,7 @@ interface InventorySnapshot {
       gameModeReady?: boolean;
       ffmpegAvailable?: boolean;
       encoder?: string;
+      captureMethod?: string;
       quality?: string;
       width?: number;
       height?: number;
@@ -1449,7 +1450,7 @@ function OperationsConsole(props: OperationsConsoleProps) {
                         <div><dt>Discos</dt><dd>{latestInventory.hardware.disks?.length ? latestInventory.hardware.disks.map((disk) => `${disk.name ?? disk.mountedAt ?? "disco"} ${formatBytes(disk.freeBytes)} livre`).join(", ") : "n/a"}</dd></div>
                         <div><dt>Video</dt><dd>{latestInventory.hardware.graphics?.adapters?.map((adapter) => adapter.name).join(", ") || "nao detectado"}</dd></div>
                         <div><dt>Codificacao</dt><dd>{latestInventory.hardware.graphics?.encoding === "cpu-fallback" ? "CPU permitido; qualidade pode variar" : latestInventory.hardware.graphics?.encoding === "hardware-preferred-with-cpu-fallback" ? "GPU preferencial com fallback de CPU" : "Nao avaliada"}</dd></div>
-                        <div><dt>Modo jogo</dt><dd>{latestInventory.software.capture?.gameModeReady ? `Pronto (${latestInventory.software.capture.encoder ?? "CPU"} / ${latestInventory.software.capture.quality ?? "auto"})` : "FFmpeg nao detectado"}</dd></div>
+                        <div><dt>Modo jogo</dt><dd>{latestInventory.software.capture?.gameModeReady ? `Pronto (${latestInventory.software.capture.encoder ?? "CPU"} / ${latestInventory.software.capture.captureMethod ?? "auto"} / ${latestInventory.software.capture.quality ?? "auto"})` : "FFmpeg nao detectado"}</dd></div>
                         <div><dt>Perfil captura</dt><dd>{latestInventory.software.capture ? `${latestInventory.software.capture.width && latestInventory.software.capture.height ? `${latestInventory.software.capture.width}x${latestInventory.software.capture.height}` : "desktop"} / ${latestInventory.software.capture.fps ?? "auto"} FPS / ${latestInventory.software.capture.bitrateKbps ?? "auto"} kbps` : "Nao avaliado"}</dd></div>
                         <div><dt>Runtime</dt><dd>{latestInventory.software.runtime?.node ?? "n/a"}</dd></div>
                       </dl> : null}
