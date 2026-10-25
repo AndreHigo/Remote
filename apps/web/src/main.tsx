@@ -1665,6 +1665,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
   const mediaQueueRef = React.useRef<Uint8Array[]>([]);
   const mediaQueueBytesRef = React.useRef(0);
   const pressedKeysRef = React.useRef(new Set<string>());
+  const pressedButtonsRef = React.useRef(new Set<"left" | "middle" | "right">());
   const pingTimerRef = React.useRef<number | null>(null);
   const frameCountRef = React.useRef(0);
   const fpsTimerRef = React.useRef<number | null>(null);
@@ -1866,7 +1867,11 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
   }, [realtimeUrl, session.accessToken, session.sessionId, started]);
 
   React.useEffect(() => {
-    const releasePressedKeys = () => {
+    const releasePressedInputs = () => {
+      for (const button of pressedButtonsRef.current) {
+        sendInput({ type: "mouse.button", button, action: "up" });
+      }
+      pressedButtonsRef.current.clear();
       for (const code of pressedKeysRef.current) {
         const scanCode = scanCodes[code];
         if (!scanCode) continue;
@@ -1875,13 +1880,18 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
       }
       pressedKeysRef.current.clear();
     };
+    const releaseOnPointerLockChange = () => {
+      if (document.pointerLockElement !== videoRef.current) releasePressedInputs();
+    };
 
-    window.addEventListener("blur", releasePressedKeys);
-    document.addEventListener("visibilitychange", releasePressedKeys);
+    window.addEventListener("blur", releasePressedInputs);
+    document.addEventListener("visibilitychange", releasePressedInputs);
+    document.addEventListener("pointerlockchange", releaseOnPointerLockChange);
     return () => {
-      window.removeEventListener("blur", releasePressedKeys);
-      document.removeEventListener("visibilitychange", releasePressedKeys);
-      releasePressedKeys();
+      window.removeEventListener("blur", releasePressedInputs);
+      document.removeEventListener("visibilitychange", releasePressedInputs);
+      document.removeEventListener("pointerlockchange", releaseOnPointerLockChange);
+      releasePressedInputs();
     };
   }, [session.sessionId]);
 
@@ -1949,8 +1959,8 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
             onClick={(event) => void event.currentTarget.requestPointerLock?.()}
             onContextMenu={(event) => event.preventDefault()}
             onMouseMove={(event) => sendInput({ type: "mouse.relative", dx: event.movementX, dy: event.movementY })}
-            onMouseDown={(event) => sendInput({ type: "mouse.button", button: mouseButtons[event.button] ?? "left", action: "down" })}
-            onMouseUp={(event) => sendInput({ type: "mouse.button", button: mouseButtons[event.button] ?? "left", action: "up" })}
+            onMouseDown={(event) => { const button = mouseButtons[event.button] ?? "left"; pressedButtonsRef.current.add(button); sendInput({ type: "mouse.button", button, action: "down" }); }}
+            onMouseUp={(event) => { const button = mouseButtons[event.button] ?? "left"; pressedButtonsRef.current.delete(button); sendInput({ type: "mouse.button", button, action: "up" }); }}
             onWheel={(event) => sendInput({ type: "mouse.wheel", delta: Math.round(event.deltaY * -1) })}
             onKeyDown={(event) => sendKey(event, "down")}
             onKeyUp={(event) => sendKey(event, "up")}

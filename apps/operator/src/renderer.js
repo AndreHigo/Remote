@@ -20,6 +20,7 @@ let mediaSource;
 let queuedBytes = 0;
 let droppedFrames = 0;
 const pressedKeys = new Set();
+const pressedButtons = new Set();
 
 const mouseButtons = ["left", "middle", "right"];
 const scanCodes = {
@@ -117,7 +118,9 @@ function sendKey(event, action) {
   if (action === "down") pressedKeys.add(event.code); else pressedKeys.delete(event.code);
   send({ type: "key", scanCode, action, ...(extendedScanCodes.has(event.code) ? { extended: true } : {}) });
 }
-function releaseKeys() {
+function releaseInputs() {
+  for (const button of pressedButtons) send({ type: "mouse.button", button, action: "up" });
+  pressedButtons.clear();
   for (const code of pressedKeys) {
     if (scanCodes[code]) send({ type: "key", scanCode: scanCodes[code], action: "up", ...(extendedScanCodes.has(code) ? { extended: true } : {}) });
   }
@@ -132,13 +135,14 @@ function fail(error) {
 video.addEventListener("click", () => { video.focus(); video.requestPointerLock?.(); });
 video.addEventListener("contextmenu", (event) => event.preventDefault());
 video.addEventListener("mousemove", (event) => send({ type: "mouse.relative", dx: event.movementX, dy: event.movementY }));
-video.addEventListener("mousedown", (event) => send({ type: "mouse.button", button: mouseButtons[event.button] || "left", action: "down" }));
-video.addEventListener("mouseup", (event) => send({ type: "mouse.button", button: mouseButtons[event.button] || "left", action: "up" }));
+video.addEventListener("mousedown", (event) => { const button = mouseButtons[event.button] || "left"; pressedButtons.add(button); send({ type: "mouse.button", button, action: "down" }); });
+video.addEventListener("mouseup", (event) => { const button = mouseButtons[event.button] || "left"; pressedButtons.delete(button); send({ type: "mouse.button", button, action: "up" }); });
 video.addEventListener("wheel", (event) => { event.preventDefault(); send({ type: "mouse.wheel", delta: Math.round(event.deltaY * -1) }); }, { passive: false });
 video.addEventListener("keydown", (event) => sendKey(event, "down"));
 video.addEventListener("keyup", (event) => sendKey(event, "up"));
-window.addEventListener("blur", releaseKeys);
-document.addEventListener("visibilitychange", releaseKeys);
+window.addEventListener("blur", releaseInputs);
+document.addEventListener("visibilitychange", releaseInputs);
+document.addEventListener("pointerlockchange", () => { if (document.pointerLockElement !== video) releaseInputs(); });
 document.getElementById("close").addEventListener("click", () => window.remotoOperator.closeSession());
 window.remotoOperator.onStatus(({ status, detail: message }) => {
   setStatus(status);
