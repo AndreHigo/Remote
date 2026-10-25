@@ -1091,6 +1091,13 @@ h3 { color: #24343b; font-size: 13px; }
   .detailPanel { position: static; }
 }
 
+@media (max-width: 900px) {
+  .loginPanel { grid-template-columns: 1fr; width: min(520px, 100%); }
+  .loginAside { min-height: auto; }
+  .loginBrandCopy { display: none; }
+  .loginBrand { padding: 24px 28px; }
+}
+
 @media (max-width: 720px) {
   .workspace { padding: 22px 14px 34px; }
   .topbar { align-items: flex-start; flex-direction: column; }

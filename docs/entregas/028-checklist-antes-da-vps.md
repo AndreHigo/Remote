@@ -25,6 +25,7 @@
 - a revisão de segurança do diff de descoberta/inicialização do RustDesk terminou com cobertura completa e zero achados reportáveis.
 - `npm run validate:release`: testes, typecheck, build, auditoria, sintaxe, hashes e gate de áudio executados no workspace local.
 - o bridge de entrada libera teclas e botões mantidos quando a sessão encerra, conforme `docs/entregas/039-liberacao-de-entrada.md`.
+- o login passa para uma coluna em janelas menores para evitar corte horizontal, conforme `docs/entregas/040-login-responsivo.md`.
 
 ## Fechamento antes da producao
 
