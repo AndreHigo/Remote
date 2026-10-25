@@ -5,6 +5,8 @@ import { maxControlMessageBytes, parseControlMessage, verifyChannelToken, type C
 
 const port = Number(process.env.REALTIME_PORT ?? 4200);
 const maxFrameBytes = Number(process.env.REALTIME_MAX_FRAME_BYTES ?? 8 * 1024 * 1024);
+const maxBufferedBytes = Number(process.env.REALTIME_MAX_BUFFERED_BYTES ?? 16 * 1024 * 1024);
+const maxPendingHandshakesPerAddress = Number(process.env.REALTIME_MAX_PENDING_HANDSHAKES ?? 8);
 const apiUrl = process.env.REALTIME_API_URL ?? "http://localhost:4100";
 const internalSecret = process.env.REALTIME_INTERNAL_SECRET;
 const allowedOrigins = new Set((process.env.REALTIME_ALLOWED_ORIGINS ?? "http://localhost:5173,http://127.0.0.1:5173")
@@ -23,10 +25,12 @@ interface Room {
   client?: Peer;
   initialFrame?: Buffer;
   expiryTimer?: NodeJS.Timeout;
+  expiresAt?: number;
 }
 
 export function createRealtimeServer() {
   const rooms = new Map<string, Room>();
+  const pendingHandshakes = new Map<string, number>();
   const server = http.createServer((request, response) => {
     const pathname = new URL(request.url ?? "/", "http://localhost").pathname;
     if (request.method === "POST" && pathname.startsWith("/internal/sessions/") && pathname.endsWith("/close")) {
@@ -36,7 +40,7 @@ export function createRealtimeServer() {
         return;
       }
       const sessionId = pathname.slice("/internal/sessions/".length, -"/close".length).replace(/\/$/, "");
-      const closed = closeRoom(sessionId);
+      const closed = closeRoom(sessionId, "session-ended", 1000);
       response.writeHead(closed ? 204 : 404).end();
       return;
     }
@@ -54,6 +58,22 @@ export function createRealtimeServer() {
       close(socket, "origin-not-allowed");
       return;
     }
+
+    const address = request.socket.remoteAddress ?? "unknown";
+    const pendingForAddress = pendingHandshakes.get(address) ?? 0;
+    if (pendingForAddress >= maxPendingHandshakesPerAddress) {
+      close(socket, "too-many-pending-handshakes");
+      return;
+    }
+    pendingHandshakes.set(address, pendingForAddress + 1);
+    let pendingReleased = false;
+    const releasePendingHandshake = () => {
+      if (pendingReleased) return;
+      pendingReleased = true;
+      const next = (pendingHandshakes.get(address) ?? 1) - 1;
+      if (next > 0) pendingHandshakes.set(address, next);
+      else pendingHandshakes.delete(address);
+    };
 
     let peer: Peer | null = null;
     let authenticating = false;
@@ -80,17 +100,13 @@ export function createRealtimeServer() {
         if (payload.role === "host") room.initialFrame = undefined;
         peer = { socket, payload, role: payload.role };
         room[payload.role] = peer;
-        if (!room.expiryTimer) {
-          room.expiryTimer = setTimeout(() => {
-            for (const connectedPeer of [room.host, room.client]) {
-              if (!connectedPeer) continue;
-              send(connectedPeer.socket, { type: "closed", reason: "session-expired" });
-              connectedPeer.socket.close(1008, "session-expired");
-            }
-          }, Math.max(1, payload.exp - Date.now()));
-        }
+        const nextExpiry = Math.min(room.expiresAt ?? payload.exp, payload.exp);
+        if (room.expiryTimer) clearTimeout(room.expiryTimer);
+        room.expiresAt = nextExpiry;
+        room.expiryTimer = setTimeout(() => closeRoom(payload.sessionId, "session-expired", 1008), Math.max(1, nextExpiry - Date.now()));
         rooms.set(payload.sessionId, room);
         clearTimeout(helloTimeout);
+        releasePendingHandshake();
         send(socket, { type: "ready", sessionId: payload.sessionId, mode: payload.mode, peerConnected: Boolean(room.host && room.client) });
         const other = payload.role === "host" ? room.client : room.host;
         if (other) send(other.socket, { type: "ready", sessionId: payload.sessionId, mode: payload.mode, peerConnected: true });
@@ -106,7 +122,9 @@ export function createRealtimeServer() {
       const room = rooms.get(peer.payload.sessionId);
       if (room && !room.initialFrame) room.initialFrame = frame;
       const client = room?.client;
-      if (client?.socket.readyState === WebSocket.OPEN) client.socket.send(frame, { binary: true });
+      if (client?.socket.readyState === WebSocket.OPEN && client.socket.bufferedAmount <= maxBufferedBytes) {
+        client.socket.send(frame, { binary: true });
+      }
       return;
     }
 
@@ -124,6 +142,7 @@ export function createRealtimeServer() {
     });
 
     socket.on("close", () => {
+      releasePendingHandshake();
       clearTimeout(helloTimeout);
       if (!peer) return;
       const room = rooms.get(peer.payload.sessionId);
@@ -151,15 +170,15 @@ export function createRealtimeServer() {
     }
   };
 
-  function closeRoom(sessionId: string) {
+  function closeRoom(sessionId: string, reason: string, code: number) {
     const room = rooms.get(sessionId);
     if (!room) return false;
     if (room.expiryTimer) clearTimeout(room.expiryTimer);
     rooms.delete(sessionId);
     for (const peer of [room.host, room.client]) {
       if (!peer) continue;
-      send(peer.socket, { type: "closed", reason: "session-ended" });
-      peer.socket.close(1000, "session-ended");
+      send(peer.socket, { type: "closed", reason });
+      peer.socket.close(code, reason);
     }
     return true;
   }

@@ -7,6 +7,7 @@ const entryPoint = path.join(agentRoot, "dist", "index.js");
 process.chdir(agentRoot);
 process.env.REMOTO_AGENT_CONFIG ??= path.join(agentRoot, ".remoto-agent.config.json");
 process.env.REMOTO_AGENT_STATE ??= path.join(agentRoot, ".remoto-agent.json");
+process.env.REMOTO_AGENT_SERVICE = "1";
 
 const child = spawn(process.execPath, [entryPoint, "loop"], {
   cwd: agentRoot,

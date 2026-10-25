@@ -6,6 +6,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { connectRemoteSession, type RealtimeConnection } from "@remoto/desktop-control/realtime";
 import { resolveFfmpegExecutable } from "@remoto/desktop-control/capture";
+import { validateEndpointUrl } from "./url-policy.js";
 
 const execFileAsync = promisify(execFile);
 const packagedProcess = process as NodeJS.Process & { pkg?: unknown };
@@ -661,10 +662,12 @@ async function loadConfig(): Promise<AgentConfig> {
   }
 
   const stateFile = process.env.REMOTO_AGENT_STATE ?? fileConfig.stateFile ?? ".remoto-agent.json";
+  const apiUrl = validateEndpointUrl(process.env.REMOTO_API_URL ?? fileConfig.apiUrl ?? "http://localhost:4100", "api");
+  const realtimeUrl = validateEndpointUrl(process.env.REMOTO_REALTIME_URL ?? fileConfig.realtimeUrl ?? "ws://localhost:4200", "realtime");
 
   return {
-    apiUrl: process.env.REMOTO_API_URL ?? fileConfig.apiUrl ?? "http://localhost:4100",
-    realtimeUrl: process.env.REMOTO_REALTIME_URL ?? fileConfig.realtimeUrl ?? "ws://localhost:4200",
+    apiUrl,
+    realtimeUrl,
     agentKey: process.env.REMOTO_AGENT_KEY ?? fileConfig.agentKey ?? DEMO_AGENT_KEY,
     stateFile: path.isAbsolute(stateFile) ? stateFile : path.resolve(path.dirname(CONFIG_FILE), stateFile),
     heartbeatIntervalSeconds: readInterval("REMOTO_AGENT_HEARTBEAT_SECONDS", 30),

@@ -199,7 +199,9 @@ app.post("/auth/login", async (request, response) => {
   response.json(result);
 });
 
-app.post("/auth/logout", (_request, response) => {
+app.post("/auth/logout", authenticate, async (request, response) => {
+  const user = (request as AuthenticatedRequest).user;
+  await prisma.user.update({ where: { id: user.id }, data: { sessionVersion: { increment: 1 } } });
   clearSessionCookie(response);
   response.json({ ok: true });
 });
@@ -813,11 +815,11 @@ app.post("/remote-sessions/:id/deny", requireRole(["owner", "admin"]), async (re
   response.json(result);
 });
 
-app.get("/remote-sessions", async (_request, response) => {
+app.get("/remote-sessions", requireRole(["owner", "admin", "technician"]), async (_request, response) => {
   response.json(await repository.listSessions());
 });
 
-app.get("/audit-events", async (_request, response) => {
+app.get("/audit-events", requireRole(["owner", "admin"]), async (_request, response) => {
   response.json(await repository.listAuditEvents());
 });
 

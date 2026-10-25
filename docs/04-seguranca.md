@@ -164,6 +164,26 @@ Regras:
 - Instalador assinado.
 - Atualizacao automatica com assinatura/verificacao.
 
+### Endurecimentos implementados nesta rodada
+
+- respostas de sessao nao devolvem hash/token interno de conexao;
+- aprovacao, negacao e encerramento usam transicoes condicionais para evitar corrida de estado;
+- logout invalida a versao da sessao autenticada;
+- sessoes e auditoria exigem os papeis administrativos correspondentes;
+- agentes exigem HTTPS/WSS fora de loopback e rejeitam credenciais embutidas nas URLs;
+- o relay limita handshakes pendentes, aplica limite de buffer por cliente e encerra salas pela menor expiracao dos pares;
+- a captura em servico nao procura executaveis FFmpeg em pastas mutaveis de usuario;
+- a configuracao do agente instalado recebe ACL restritiva e o proxy inclui `object-src 'none'` na CSP.
+
+### Pendencias de producao que continuam explicitas
+
+- testar captura e entrada em duas maquinas reais, inclusive quando o agente roda em Session 0 do servico Windows;
+- assinar o instalador e definir atualizacao assinada;
+- trocar rate limit em memoria por Redis e validar rotacao/armazenamento de segredos;
+- pinar imagens Docker por digest e proteger backups com criptografia operacional;
+- concluir isolamento multi-tenant: o MVP atual ainda representa um workspace unico;
+- confirmar os encoders, FPS, RTT e perda em computadores com GPU dedicada, integrada e somente CPU.
+
 ## Limite atual do MVP
 
 O schema atual representa um workspace unico. As regras de segregacao por organizacao descritas acima sao objetivo de produto, mas ainda nao devem ser tratadas como isolamento multi-tenant implementado.

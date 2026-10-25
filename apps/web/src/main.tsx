@@ -29,8 +29,10 @@ import {
 } from "lucide-react";
 import "./styles.css";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:4100";
-const REALTIME_URL = import.meta.env.VITE_REALTIME_URL ?? (window.location.protocol === "https:" ? `wss://${window.location.host}/realtime` : "ws://localhost:4200");
+const API_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.PROD ? "/api" : "http://localhost:4100");
+const REALTIME_URL = import.meta.env.VITE_REALTIME_URL ?? (import.meta.env.PROD
+  ? `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/realtime`
+  : "ws://localhost:4200");
 const TOKEN_KEY = "remoto.auth.token";
 const USER_KEY = "remoto.auth.user";
 
@@ -579,7 +581,6 @@ function App() {
   async function approveRemoteSession(session: RemoteSession) {
     try {
       const approved = await postJson<RemoteSessionResponse>(`/remote-sessions/${session.id}/approve`, token);
-      await refresh();
       if (approved.connection?.desktopSession?.mode === "game" && approved.connection.desktopSession.accessToken) {
         const consumed = await postJson<Omit<GameSessionDescriptor, "accessToken">>("/desktop-sessions/consume", token, {
           accessToken: approved.connection.desktopSession.accessToken
@@ -588,6 +589,7 @@ function App() {
         setStatusMessage("Sessao de jogo autorizada. Preparando video e entrada...");
       } else if (approved.connection?.uri) window.location.assign(approved.connection.uri);
       else if (approved.connection?.message) setStatusMessage(approved.connection.message);
+      await refresh();
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : "Nao foi possivel aprovar a sessao");
     }

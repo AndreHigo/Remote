@@ -64,6 +64,39 @@ begin
   Result := (Pos('"', Value) > 0) or (Pos(#13, Value) > 0) or (Pos(#10, Value) > 0);
 end;
 
+function HasExactHost(Value: string; Prefix: string): Boolean;
+var
+  Tail: string;
+begin
+  Result := CompareText(Copy(Value, 1, Length(Prefix)), Prefix) = 0;
+  if not Result then Exit;
+  Tail := Copy(Value, Length(Prefix) + 1, Length(Value));
+  if Tail = '' then begin
+    Result := True;
+    Exit;
+  end;
+  Result := (Tail[1] = ':') or (Tail[1] = '/') or (Tail[1] = '?') or (Tail[1] = '#');
+end;
+
+function IsLoopbackUrl(Value: string): Boolean;
+var
+  LowerValue: string;
+begin
+  LowerValue := Lowercase(Trim(Value));
+  Result := HasExactHost(LowerValue, 'http://localhost') or
+    HasExactHost(LowerValue, 'https://localhost') or
+    HasExactHost(LowerValue, 'ws://localhost') or
+    HasExactHost(LowerValue, 'wss://localhost') or
+    HasExactHost(LowerValue, 'http://127.0.0.1') or
+    HasExactHost(LowerValue, 'https://127.0.0.1') or
+    HasExactHost(LowerValue, 'ws://127.0.0.1') or
+    HasExactHost(LowerValue, 'wss://127.0.0.1') or
+    HasExactHost(LowerValue, 'http://[::1]') or
+    HasExactHost(LowerValue, 'https://[::1]') or
+    HasExactHost(LowerValue, 'ws://[::1]') or
+    HasExactHost(LowerValue, 'wss://[::1]');
+end;
+
 function NextButtonClick(CurPageID: Integer): Boolean;
 var
   ApiUrl: string;
@@ -84,9 +117,21 @@ begin
     Exit;
   end;
 
+  if (not IsLoopbackUrl(ApiUrl)) and (CompareText(Copy(ApiUrl, 1, 8), 'https://') <> 0) then begin
+    MsgBox('A API deve usar https:// fora de localhost.', mbError, MB_OK);
+    Result := False;
+    Exit;
+  end;
+
   if ((CompareText(Copy(RealtimeUrl, 1, 5), 'ws://') <> 0) and
       (CompareText(Copy(RealtimeUrl, 1, 6), 'wss://') <> 0)) then begin
     MsgBox('A URL do relay deve iniciar com ws:// ou wss://.', mbError, MB_OK);
+    Result := False;
+    Exit;
+  end;
+
+  if (not IsLoopbackUrl(RealtimeUrl)) and (CompareText(Copy(RealtimeUrl, 1, 6), 'wss://') <> 0) then begin
+    MsgBox('O relay deve usar wss:// fora de localhost.', mbError, MB_OK);
     Result := False;
     Exit;
   end;
@@ -97,8 +142,9 @@ begin
     Exit;
   end;
 
-  if HasInvalidInput(ApiUrl) or HasInvalidInput(RealtimeUrl) or HasInvalidInput(AgentKey) then begin
-    MsgBox('As URLs e a chave nao podem conter aspas ou quebras de linha.', mbError, MB_OK);
+  if HasInvalidInput(ApiUrl) or HasInvalidInput(RealtimeUrl) or HasInvalidInput(AgentKey) or
+     (Pos('@', ApiUrl) > 0) or (Pos('@', RealtimeUrl) > 0) then begin
+    MsgBox('As URLs e a chave nao podem conter credenciais, aspas ou quebras de linha.', mbError, MB_OK);
     Result := False;
   end;
 end;

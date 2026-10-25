@@ -60,6 +60,30 @@ function toCommandView(command: Awaited<ReturnType<typeof prisma.commandExecutio
   };
 }
 
+function toRemoteSessionView(session: {
+  id: string;
+  deviceId: string;
+  userId: string | null;
+  technicianName: string;
+  reason: string;
+  mode: string;
+  status: string;
+  requestedAt: Date;
+  endedAt: Date | null;
+}) {
+  return {
+    id: session.id,
+    deviceId: session.deviceId,
+    userId: session.userId,
+    technicianName: session.technicianName,
+    reason: session.reason,
+    mode: session.mode.toLowerCase(),
+    status: session.status.toLowerCase(),
+    requestedAt: session.requestedAt.toISOString(),
+    endedAt: toIso(session.endedAt)
+  };
+}
+
 async function addAudit(
   action: string,
   actor: string,
@@ -789,13 +813,7 @@ export const repository = {
       })
     ]);
 
-    return {
-      ...session,
-      requestedAt: session.requestedAt.toISOString(),
-      endedAt: toIso(session.endedAt),
-      mode: session.mode.toLowerCase(),
-      status: session.status.toLowerCase()
-    };
+    return toRemoteSessionView(session);
   },
 
   async approveRemoteSession(input: { id: string; user: AuthUser }) {
@@ -828,25 +846,30 @@ export const repository = {
       remoteId: current.device.remoteId
     });
 
-    const session = await prisma.remoteSession.update({
-      where: { id: current.id },
+    const claimed = await prisma.remoteSession.updateMany({
+      where: { id: current.id, status: "REQUESTED" },
       data: {
         status: "APPROVED",
         connectionTokenHash: desktopToken.hash,
         connectionTokenExpiresAt: desktopToken.expiresAt,
         connectionTokenUsedAt: null
-      },
+      }
+    });
+    if (claimed.count !== 1) {
+      const latest = await prisma.remoteSession.findUnique({ where: { id: current.id } });
+      return latest ? { kind: "unchanged" as const, status: latest.status.toLowerCase() } : null;
+    }
+    const session = await prisma.remoteSession.findUnique({
+      where: { id: current.id },
       include: { device: true }
     });
+    if (!session) return null;
     await addAudit("remote-session.approved", input.user.name, session.deviceId, { sessionId: session.id }, session.deviceId, input.user.id);
+    const sessionView = toRemoteSessionView(session);
     return {
       kind: "approved" as const,
       session: {
-        ...session,
-        requestedAt: session.requestedAt.toISOString(),
-        endedAt: toIso(session.endedAt),
-        mode: session.mode.toLowerCase(),
-        status: session.status.toLowerCase(),
+        ...sessionView,
         connection: session.mode === "SUPPORT"
           ? {
               protocol: "rustdesk",
@@ -1003,7 +1026,16 @@ export const repository = {
     if (!current) return null;
     if (current.status !== "REQUESTED") return { kind: "unchanged" as const, status: current.status.toLowerCase() };
 
-    const session = await prisma.remoteSession.update({ where: { id: current.id }, data: { status: "DENIED" } });
+    const claimed = await prisma.remoteSession.updateMany({
+      where: { id: current.id, status: "REQUESTED" },
+      data: { status: "DENIED" }
+    });
+    if (claimed.count !== 1) {
+      const latest = await prisma.remoteSession.findUnique({ where: { id: current.id } });
+      return latest ? { kind: "unchanged" as const, status: latest.status.toLowerCase() } : null;
+    }
+    const session = await prisma.remoteSession.findUnique({ where: { id: current.id } });
+    if (!session) return null;
     await addAudit("remote-session.denied", input.user.name, session.deviceId, { sessionId: session.id }, session.deviceId, input.user.id);
     return { kind: "denied" as const, status: session.status.toLowerCase() };
   },
@@ -1015,15 +1047,10 @@ export const repository = {
       include: { device: { select: { displayName: true, remoteId: true, customer: { select: { name: true } } } } }
     });
     return sessions.map((session) => ({
-      ...session,
+      ...toRemoteSessionView(session),
       deviceName: session.device.displayName,
       customerName: session.device.customer.name,
-      remoteId: session.device.remoteId,
-      device: undefined,
-      mode: session.mode.toLowerCase(),
-      requestedAt: session.requestedAt.toISOString(),
-      endedAt: toIso(session.endedAt),
-      status: session.status.toLowerCase()
+      remoteId: session.device.remoteId
     }));
   },
 
@@ -1045,10 +1072,18 @@ export const repository = {
       };
     }
 
-    const session = await prisma.remoteSession.update({
-      where: { id: input.id },
-      data: { status: "ENDED", endedAt: now(), connectionTokenUsedAt: now() }
+    const endedAt = now();
+    const claimed = await prisma.remoteSession.updateMany({
+      where: { id: current.id, status: { not: "ENDED" }, ...(input.user.role === "technician" ? { userId: input.user.id } : {}) },
+      data: { status: "ENDED", endedAt, connectionTokenUsedAt: endedAt }
     });
+    if (claimed.count !== 1) {
+      const latest = await prisma.remoteSession.findFirst({ where: { id: current.id, ...(input.user.role === "technician" ? { userId: input.user.id } : {}) } });
+      if (!latest) return null;
+      return toRemoteSessionView(latest);
+    }
+    const session = await prisma.remoteSession.findUnique({ where: { id: current.id } });
+    if (!session) return null;
     await addAudit(
       "remote-session.ended",
       input.user.name,
@@ -1058,13 +1093,7 @@ export const repository = {
       input.user.id
     );
 
-    return {
-      ...session,
-      requestedAt: session.requestedAt.toISOString(),
-      endedAt: toIso(session.endedAt),
-      mode: session.mode.toLowerCase(),
-      status: session.status.toLowerCase()
-    };
+    return toRemoteSessionView(session);
   },
 
   async listAuditEvents() {

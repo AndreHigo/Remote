@@ -24,6 +24,20 @@ function Invoke-Sc {
   }
 }
 
+function Assert-SecureEndpoint {
+  param([string]$Value, [ValidateSet("api", "realtime")][string]$Kind)
+  try { $uri = [Uri]$Value } catch { throw "URL $Kind invalida." }
+  if (-not $uri.IsAbsoluteUri -or $uri.UserInfo) { throw "URL $Kind invalida ou com credenciais embutidas." }
+  $loopback = $uri.IsLoopback -or $uri.Host -eq "localhost"
+  if ($Kind -eq "api") {
+    if (($loopback -and $uri.Scheme -notin @("http", "https")) -or (-not $loopback -and $uri.Scheme -ne "https")) {
+      throw "A URL da API deve usar https:// fora de localhost."
+    }
+  } elseif (($loopback -and $uri.Scheme -notin @("ws", "wss")) -or (-not $loopback -and $uri.Scheme -ne "wss")) {
+    throw "A URL do relay deve usar wss:// fora de localhost."
+  }
+}
+
 Assert-Administrator
 $AgentRoot = (Resolve-Path $PSScriptRoot).Path
 $AgentExe = Join-Path $AgentRoot "RemotoAgent.exe"
@@ -46,9 +60,8 @@ if ([string]::IsNullOrWhiteSpace($AgentKey)) {
 if ([string]::IsNullOrWhiteSpace($ApiUrl) -or [string]::IsNullOrWhiteSpace($RealtimeUrl) -or [string]::IsNullOrWhiteSpace($AgentKey)) {
   throw "URL da API, URL do relay e chave sao obrigatorias."
 }
-if ($RealtimeUrl -notmatch '^wss?://') {
-  throw "A URL do relay deve iniciar com ws:// ou wss://."
-}
+Assert-SecureEndpoint -Value $ApiUrl -Kind api
+Assert-SecureEndpoint -Value $RealtimeUrl -Kind realtime
 
 $configJson = @{
   apiUrl = $ApiUrl.TrimEnd("/")
@@ -64,6 +77,8 @@ $configJson = @{
   )
 } | ConvertTo-Json
 [System.IO.File]::WriteAllText($ConfigPath, $configJson, [System.Text.UTF8Encoding]::new($false))
+& icacls.exe $ConfigPath /inheritance:r /grant:r "*S-1-5-18:(F)" "*S-1-5-32-544:(F)" | Out-Host
+if ($LASTEXITCODE -ne 0) { throw "Nao foi possivel proteger a configuracao do agente." }
 
 $existingService = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
 if ($existingService) {

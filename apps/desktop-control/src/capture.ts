@@ -90,16 +90,14 @@ export function resolveFfmpegExecutable(preferredPath?: string) {
     path.join(path.dirname(process.execPath), "ffmpeg.exe"),
     path.join(process.env.ProgramFiles ?? "C:\\Program Files", "ffmpeg", "bin", "ffmpeg.exe"),
     path.join(process.env.ProgramFiles ?? "C:\\Program Files", "FFmpeg", "bin", "ffmpeg.exe"),
-    path.join(process.env.ProgramData ?? "C:\\ProgramData", "chocolatey", "bin", "ffmpeg.exe"),
-    path.join(process.env.LOCALAPPDATA ?? "", "Microsoft", "WinGet", "Packages", "Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe", "ffmpeg-8.1.2-full_build", "bin", "ffmpeg.exe")
+    path.join(process.env.ProgramData ?? "C:\\ProgramData", "chocolatey", "bin", "ffmpeg.exe")
   ].filter((candidate): candidate is string => Boolean(candidate));
-  const direct = candidates.find((candidate) => fs.existsSync(candidate));
+  const direct = candidates.find((candidate) => isAllowedFfmpegPath(candidate) && fs.existsSync(candidate));
   if (direct) return direct;
 
-  const roots = [
-    process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, "Microsoft", "WinGet", "Packages") : "",
-    ...(process.env.SystemDrive ? listWindowsUserPackageRoots(path.join(process.env.SystemDrive, "Users")) : [])
-  ];
+  const roots = process.env.ProgramData
+    ? [path.join(process.env.ProgramData, "Microsoft", "WinGet", "Packages")]
+    : [];
   for (const root of roots) {
     const discovered = findFfmpegInWinGet(root);
     if (discovered) return discovered;
@@ -107,14 +105,15 @@ export function resolveFfmpegExecutable(preferredPath?: string) {
   return null;
 }
 
-function listWindowsUserPackageRoots(usersRoot: string) {
-  try {
-    return fs.readdirSync(usersRoot, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory() && !/^(Default|Public|Default User|All Users)$/i.test(entry.name))
-      .map((entry) => path.join(usersRoot, entry.name, "AppData", "Local", "Microsoft", "WinGet", "Packages"));
-  } catch {
-    return [];
-  }
+function isAllowedFfmpegPath(candidate: string) {
+  if (process.env.REMOTO_AGENT_SERVICE !== "1" || process.platform !== "win32") return true;
+  const resolved = path.resolve(candidate).toLowerCase();
+  const trustedRoots = [
+    path.dirname(process.execPath),
+    process.env.ProgramFiles ?? "C:\\Program Files",
+    process.env.ProgramData ?? "C:\\ProgramData"
+  ].map((root) => path.resolve(root).toLowerCase());
+  return trustedRoots.some((root) => resolved === root || resolved.startsWith(`${root}${path.sep}`));
 }
 
 function findFfmpegInWinGet(root: string) {
