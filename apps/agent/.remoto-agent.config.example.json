@@ -1,5 +1,12 @@
 {
   "apiUrl": "http://localhost:4100",
+  "realtimeUrl": "ws://localhost:4200",
   "agentKey": "COLE_A_CHAVE_DO_AGENTE_AQUI",
-  "stateFile": ".remoto-agent.json"
+  "stateFile": ".remoto-agent.json",
+  "captureQuality": "auto",
+  "captureEncoder": "cpu",
+  "captureWidth": 1920,
+  "captureHeight": 1080,
+  "captureFps": 60,
+  "captureBitrateKbps": 8000
 }

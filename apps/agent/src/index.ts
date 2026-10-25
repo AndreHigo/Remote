@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 import { connectRemoteSession, type RealtimeConnection } from "@remoto/desktop-control/realtime";
 import { resolveFfmpegExecutable } from "@remoto/desktop-control/capture";
 import { validateEndpointUrl } from "./url-policy.js";
+import { readCaptureProfile } from "./capture-config.js";
 
 const execFileAsync = promisify(execFile);
 const packagedProcess = process as NodeJS.Process & { pkg?: unknown };
@@ -21,6 +22,12 @@ interface AgentConfigFile {
   agentKey?: string;
   stateFile?: string;
   ffmpegPath?: string;
+  captureQuality?: string;
+  captureEncoder?: string;
+  captureWidth?: number | string;
+  captureHeight?: number | string;
+  captureFps?: number | string;
+  captureBitrateKbps?: number | string;
 }
 
 interface AgentConfig {
@@ -33,6 +40,7 @@ interface AgentConfig {
   inventoryIntervalSeconds: number;
   remoteSessionIntervalSeconds: number;
   ffmpegPath?: string;
+  captureProfile: ReturnType<typeof readCaptureProfile>;
 }
 
 let config: AgentConfig;
@@ -292,7 +300,7 @@ async function reportRemoteSessions(state: AgentState) {
     try {
       const connection = await connectRemoteSession(session, {
         url: config.realtimeUrl,
-        capture: { quality: "auto", encoder: "cpu", ffmpegPath: config.ffmpegPath },
+        capture: { ...config.captureProfile, ffmpegPath: config.ffmpegPath },
         onClosed: (reason) => {
           activeRemoteSessions.delete(session.sessionId);
           console.log(`sessao remota encerrada: ${session.sessionId} (${reason})`);
@@ -674,7 +682,8 @@ async function loadConfig(): Promise<AgentConfig> {
     commandIntervalSeconds: readInterval("REMOTO_AGENT_COMMAND_SECONDS", 10),
     inventoryIntervalSeconds: readInterval("REMOTO_AGENT_INVENTORY_SECONDS", 300),
     remoteSessionIntervalSeconds: readInterval("REMOTO_AGENT_SESSION_SECONDS", 5),
-    ffmpegPath: process.env.REMOTO_FFMPEG_PATH ?? fileConfig.ffmpegPath
+    ffmpegPath: process.env.REMOTO_FFMPEG_PATH ?? fileConfig.ffmpegPath,
+    captureProfile: readCaptureProfile(fileConfig)
   };
 }
 
@@ -692,7 +701,9 @@ async function initializeConfig() {
     apiUrl: process.env.REMOTO_API_URL ?? "http://localhost:4100",
     realtimeUrl: process.env.REMOTO_REALTIME_URL ?? "ws://localhost:4200",
     agentKey: process.env.REMOTO_AGENT_KEY ?? "",
-    stateFile: process.env.REMOTO_AGENT_STATE ?? ".remoto-agent.json"
+    stateFile: process.env.REMOTO_AGENT_STATE ?? ".remoto-agent.json",
+    captureQuality: process.env.REMOTO_CAPTURE_QUALITY ?? "auto",
+    captureEncoder: process.env.REMOTO_CAPTURE_ENCODER ?? "cpu"
   };
   await fs.writeFile(CONFIG_FILE, `${JSON.stringify(initialConfig, null, 2)}\n`, "utf8");
   console.log(`configuracao criada: ${CONFIG_FILE}`);
@@ -713,6 +724,11 @@ async function printStatus() {
   console.log(`api.reachable=${health.reachable} status=${health.status ?? "-"}`);
   console.log(`realtime.reachable=${realtimeHealth.reachable} status=${realtimeHealth.status ?? "-"}`);
   console.log(`agent.key.configured=${hasKey}`);
+  console.log(`capture.profile=${config.captureProfile.quality}`);
+  console.log(`capture.encoder=${config.captureProfile.encoder}`);
+  console.log(`capture.fps=${config.captureProfile.fps ?? "auto"}`);
+  console.log(`capture.bitrateKbps=${config.captureProfile.bitrateKbps ?? "auto"}`);
+  console.log(`capture.size=${config.captureProfile.width && config.captureProfile.height ? `${config.captureProfile.width}x${config.captureProfile.height}` : "desktop"}`);
   console.log(`capture.ffmpeg=${resolveFfmpegExecutable(config.ffmpegPath) ?? "nao-encontrado"}`);
 
   if (!state) {

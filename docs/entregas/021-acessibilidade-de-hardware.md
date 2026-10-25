@@ -19,9 +19,10 @@ O Remoto sera apresentado como um unico aplicativo. O usuario nao precisa conhec
 - A captura Windows usa `gdigrab` com `libx264` por CPU como padrao e encoders NVIDIA/AMD/Intel como aceleracao opcional.
 - O instalador e o agente descobrem FFmpeg em caminhos comuns do Windows, incluindo WinGet, sem exigir placa de video dedicada.
 - O transporte local foi exercido com FFmpeg/CPU e os bytes enviados ao relay possuem teste automatizado.
+- O agente aceita perfil de qualidade, encoder, dimensao, FPS e bitrate por arquivo de configuracao ou variavel de ambiente, mantendo CPU/auto como padrao.
 
 ## Ainda falta
 
 - Medir FPS e latencia por perfil.
-- Criar o fallback adaptativo de resolucao, bitrate e FPS.
+- Evoluir os perfis configuraveis para fallback adaptativo baseado em RTT, fila e perda observados.
 - Testar com computador com GPU dedicada, video integrado e sem aceleracao utilizavel.
