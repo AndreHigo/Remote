@@ -2,7 +2,7 @@
 
 ## Estado validado
 
-- commit de referência publicado: `b0df489`;
+- commit de referência publicado: `bd22fcb`;
 - `npm test`: 29 testes passando;
 - `npm run typecheck`: API, web, desktop-control, agent e realtime sem erros;
 - `npm run build`: build completo validado no estado atual do workspace;
@@ -13,7 +13,7 @@
 - agente arquivado nao aceita heartbeat, inventario ou comandos;
 - instalador do operador gerado localmente:
   `apps/operator/release/Remoto-Operator-Setup-0.1.0.exe`;
-- SHA256 do instalador: `CE0218B812AF548367D1DE5AF1FFC96543AC61240AAB62C77B40749BC62DDDAA`.
+- SHA256 do instalador: `53F8931CEF8625A0D196ED6F92B57F34FE2C28E156204099A071C1A3713EF098`.
 - instalador do agente Windows gerado localmente:
   `apps/agent/release/RemotoAgent-Setup.exe`;
 - SHA256 atual do instalador do agente: `D3703E18B72DE2FEADB700E77536AB87AE9063000DD3E60898070D793C81B7A1`;
