@@ -34,6 +34,8 @@ const API_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.PROD ? "/api" :
 const REALTIME_URL = import.meta.env.VITE_REALTIME_URL ?? (import.meta.env.PROD
   ? `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/realtime`
   : "ws://localhost:4200");
+const AGENT_INSTALLER_URL = import.meta.env.VITE_AGENT_INSTALLER_URL
+  ?? "https://github.com/AndreHigo/Remote/releases/latest/download/RemotoAgent-Setup.exe";
 const TOKEN_KEY = "remoto.auth.token";
 const USER_KEY = "remoto.auth.user";
 
@@ -1631,9 +1633,9 @@ function OperationsConsole(props: OperationsConsoleProps) {
                 <>
                   <div className="onboardingSuccess"><span className="successMark">✓</span><div><strong>Chave criada para {onboardingKey.customerName}</strong><span>Copie agora. Por segurança, ela não será exibida novamente.</span></div></div>
                   <div className="onboardingKeyBox"><code>{onboardingKey.key}</code><button className="iconButton compact" type="button" onClick={onCopyOnboardingKey} aria-label="Copiar chave de cadastro" title="Copiar chave"><Copy size={15} /></button></div>
-                  <div className="modalInfo"><strong>Próximo passo</strong><span>Use o instalador Windows <code>RemotoAgent-Setup.exe</code> da release, informe a URL da API e esta chave. Ele instala o agente como serviço e inicia o cadastro automaticamente.</span></div>
-                  <pre className="setupCommand">{[`$env:REMOTO_API_URL="${API_URL}"`, `$env:REMOTO_AGENT_KEY="${onboardingKey.key}"`, "npm run agent:register"].join("\n")}</pre>
-                  <a className="agentSourceLink" href="https://github.com/AndreHigo/Remote/tree/main/apps/agent" target="_blank" rel="noreferrer">Abrir código do agente de desenvolvimento <ArrowUpRight size={14} /></a>
+                  <div className="modalInfo"><strong>Próximo passo</strong><span>Baixe o instalador Windows, abra-o no computador que será cadastrado e cole esta chave. O instalador configura o serviço e inicia o cadastro automaticamente. Não é necessário usar o terminal.</span></div>
+                  <a className="primary installerDownload" href={AGENT_INSTALLER_URL} target="_blank" rel="noreferrer" download><Download size={16} />Baixar instalador do agente <ArrowUpRight size={14} /></a>
+                  <details className="advancedSetup"><summary>Instalação avançada para desenvolvimento</summary><pre className="setupCommand">{[`$env:REMOTO_API_URL="${API_URL}"`, `$env:REMOTO_AGENT_KEY="${onboardingKey.key}"`, "npm run agent:register"].join("\n")}</pre><a className="agentSourceLink" href="https://github.com/AndreHigo/Remote/tree/main/apps/agent" target="_blank" rel="noreferrer">Abrir código do agente <ArrowUpRight size={14} /></a></details>
                   <div className="modalActions"><button className="primary" type="button" onClick={onCloseOnboarding}>Concluir</button></div>
                 </>
               )}

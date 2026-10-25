@@ -1075,11 +1075,22 @@ h3 { color: #24343b; font-size: 13px; }
 .setupCommand { overflow: auto; margin: 12px 0 0; padding: 13px; border-radius: 8px; background: #17242b; color: #c4f0df; font: 11px/1.65 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; word-break: break-word; }
 .agentSourceLink { display: inline-flex; align-items: center; gap: 5px; margin-top: 12px; color: var(--accent-dark); font-size: 11px; font-weight: 800; text-decoration: none; }
 .agentSourceLink:hover { text-decoration: underline; }
+.installerDownload { width: 100%; min-height: 42px; margin-top: 14px; text-decoration: none; }
+.advancedSetup { margin-top: 14px; color: var(--muted); font-size: 11px; }
+.advancedSetup summary { cursor: pointer; color: var(--accent-dark); font-weight: 800; }
+.advancedSetup[open] summary { margin-bottom: 8px; }
 
 @media (max-width: 1180px) {
   .workspace { padding: 28px 24px 44px; }
   .contentGrid { grid-template-columns: minmax(0, 1fr) 330px; }
   .deviceTableHead, .deviceRow { grid-template-columns: minmax(145px, 1.2fr) minmax(85px, .7fr) 80px 72px 84px; gap: 7px; padding-left: 8px; padding-right: 8px; }
+}
+
+@media (max-width: 1100px) {
+  .loginPanel { grid-template-columns: 1fr; width: min(520px, calc(100vw - 40px)); }
+  .loginAside { min-height: auto; }
+  .loginBrandCopy { display: none; }
+  .loginBrand { padding: 24px 28px; }
 }
 
 @media (max-width: 960px) {
@@ -1096,10 +1107,7 @@ h3 { color: #24343b; font-size: 13px; }
 }
 
 @media (max-width: 900px) {
-  .loginPanel { grid-template-columns: 1fr; width: min(520px, 100%); }
-  .loginAside { min-height: auto; }
-  .loginBrandCopy { display: none; }
-  .loginBrand { padding: 24px 28px; }
+  .loginPanel { width: min(520px, 100%); }
 }
 
 @media (max-width: 720px) {
