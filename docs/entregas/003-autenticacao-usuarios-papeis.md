@@ -12,7 +12,7 @@
 - Rotas principais protegidas.
 - Restricao por papel para cadastro de dispositivo e heartbeat.
 - Solicitacao de sessao remota usando o usuario autenticado, sem `Tecnico Demo` fixo.
-- Seed com 3 usuarios locais; as senhas sao aleatorias por execucao e aparecem somente no output do seed.
+- Seed local destrutivo com 3 usuarios; exige confirmação e senhas `SEED_*` explícitas, sem imprimir segredos.
 - Tela de login no painel web.
 - Botao de sair e identificacao do usuario logado no topo.
 

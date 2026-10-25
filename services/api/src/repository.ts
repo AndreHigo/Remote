@@ -390,8 +390,12 @@ export const repository = {
       }
     });
 
-    if (!updated.active) {
-      await repository.revokeUserRemoteSessions({ userId: updated.id, actor: input.user.name, reason: "user-deactivated" });
+    if (!updated.active || current.role !== updated.role) {
+      await repository.revokeUserRemoteSessions({
+        userId: updated.id,
+        actor: input.user.name,
+        reason: !updated.active ? "user-deactivated" : "role-changed"
+      });
     }
 
     await addAudit(
@@ -537,6 +541,11 @@ export const repository = {
       where: { id: device.id },
       data: { customerId: customer.id },
       include: { customer: { select: { name: true } } }
+    });
+    const endedAt = now();
+    await prisma.remoteSession.updateMany({
+      where: { deviceId: updated.id, status: { not: "ENDED" } },
+      data: { status: "ENDED", endedAt, connectionTokenUsedAt: endedAt }
     });
 
     await addAudit(

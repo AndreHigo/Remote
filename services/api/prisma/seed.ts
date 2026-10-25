@@ -1,5 +1,4 @@
 import "dotenv/config";
-import crypto from "node:crypto";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client.js";
 import { hashAgentKey } from "../src/agent-auth.js";
@@ -13,6 +12,16 @@ const prisma = new PrismaClient({
 });
 
 async function main() {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("O seed destrutivo nao pode ser executado em producao.");
+  }
+  if (process.env.SEED_CONFIRMATION !== "RESET_LOCAL_DEMO_DATA") {
+    throw new Error("Defina SEED_CONFIRMATION=RESET_LOCAL_DEMO_DATA para confirmar a recriacao dos dados locais.");
+  }
+  const ownerPlainPassword = requireSeedSecret("SEED_OWNER_PASSWORD");
+  const technicianPlainPassword = requireSeedSecret("SEED_TECHNICIAN_PASSWORD");
+  const viewerPlainPassword = requireSeedSecret("SEED_VIEWER_PASSWORD");
+  const seedAgentKey = requireSeedSecret("SEED_AGENT_KEY");
   await prisma.workspace.upsert({
     where: { id: "ws_default" },
     update: { name: "Workspace Remoto" },
@@ -26,11 +35,6 @@ async function main() {
   await prisma.agentEnrollmentKey.deleteMany();
   await prisma.customer.deleteMany();
   await prisma.user.deleteMany();
-
-  const ownerPlainPassword = process.env.SEED_OWNER_PASSWORD ?? `remoto-${crypto.randomBytes(12).toString("base64url")}`;
-  const technicianPlainPassword = process.env.SEED_TECHNICIAN_PASSWORD ?? `tecnico-${crypto.randomBytes(12).toString("base64url")}`;
-  const viewerPlainPassword = process.env.SEED_VIEWER_PASSWORD ?? `viewer-${crypto.randomBytes(12).toString("base64url")}`;
-  const seedAgentKey = process.env.SEED_AGENT_KEY ?? `rm_seed_${crypto.randomBytes(24).toString("base64url")}`;
 
   const [ownerPassword, technicianPassword, viewerPassword] = await Promise.all([
     hashPassword(ownerPlainPassword),
@@ -160,26 +164,23 @@ async function main() {
     }
   });
 
-  return {
-    ownerPlainPassword,
-    technicianPlainPassword,
-    viewerPlainPassword,
-    seedAgentKey
-  };
+  return true;
 }
 
 main()
-  .then(async (credentials) => {
+  .then(async () => {
     await prisma.$disconnect();
     console.log("Seed concluido.");
-    console.log("Credenciais geradas nesta execucao:");
-    console.log(`admin@remoto.local / ${credentials.ownerPlainPassword}`);
-    console.log(`tecnico@remoto.local / ${credentials.technicianPlainPassword}`);
-    console.log(`viewer@remoto.local / ${credentials.viewerPlainPassword}`);
-    console.log(`Chave do agente: ${credentials.seedAgentKey}`);
+    console.log("Credenciais lidas das variaveis SEED_*; nenhum segredo foi impresso.");
   })
   .catch(async (error) => {
     console.error(error);
     await prisma.$disconnect();
     process.exit(1);
   });
+
+function requireSeedSecret(name: string) {
+  const value = process.env[name]?.trim();
+  if (!value || value.length < 12) throw new Error(`${name} deve ser informado e ter pelo menos 12 caracteres.`);
+  return value;
+}

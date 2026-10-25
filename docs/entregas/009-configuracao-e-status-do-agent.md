@@ -21,7 +21,7 @@ npm run agent:register
 npm run agent:loop
 ```
 
-Depois de `config:init`, preencher `agentKey` com uma chave ativa do cliente. Em ambiente local, a chave seed continua disponivel no README; em ambiente real ela deve ser criada por um fluxo administrativo e rotacionada.
+Depois de `config:init`, preencher `agentKey` com uma chave ativa do cliente. Em ambiente local, defina `SEED_AGENT_KEY` antes do seed; em ambiente real a chave deve ser criada por um fluxo administrativo e rotacionada.
 
 ## Validacao prevista
 

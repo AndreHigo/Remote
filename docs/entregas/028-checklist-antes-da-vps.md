@@ -3,7 +3,7 @@
 ## Estado validado
 
 - commit de referência: branch `main` no repositorio remoto;
-- `npm test`: 31 testes passando;
+- `npm test`: testes passando no estado atual;
 - `npm run typecheck`: API, web, desktop-control, agent e realtime sem erros;
 - `npm run build`: build completo validado no estado atual do workspace;
 - `npm audit --audit-level=high`: 0 vulnerabilidades;
@@ -26,14 +26,15 @@
 - `npm run validate:release`: testes, typecheck, build, auditoria, sintaxe, hashes e gate de áudio executados no workspace local.
 - o bridge de entrada libera teclas e botões mantidos quando a sessão encerra, conforme `docs/entregas/039-liberacao-de-entrada.md`.
 - o login passa para uma coluna em janelas menores para evitar corte horizontal, conforme `docs/entregas/040-login-responsivo.md`.
+- o hardening de sessão, limites, seed, relay, RustDesk e release está registrado em `docs/entregas/041-hardening-seguranca-operacao.md`.
 
 ## Fechamento antes da producao
 
 1. O limite de instalacao agora esta explicito no schema e na migracao `0006_workspace_scope`: usuarios, clientes e todas as operacoes administrativas sao filtrados pelo workspace autenticado. O MVP continua workspace-wide dentro de cada workspace; memberships por cliente e papeis por cliente ficam para uma etapa posterior, caso o produto precise desse nivel de delegacao.
-2. Assinar o instalador e os binarios Windows com Authenticode e publicar checksums assinados. As imagens Docker agora estao fixadas por digest e as ferramentas do pacote do agente ficam declaradas no lockfile; o script usa `npx --no-install` e falha se elas nao estiverem disponiveis localmente.
+2. Configurar o certificado Authenticode no GitHub e publicar uma tag de teste; o workflow agora bloqueia a publicação se os instaladores não forem assinados e recalcula os checksums depois da assinatura. As imagens Docker continuam fixadas por digest.
 3. Executar o teste de duas maquinas Windows seguindo `docs/entregas/029-runbook-homologacao-jogo.md`, primeiro na rede local e depois pela internet com HTTPS/WSS, medindo FPS, RTT, perda, CPU/GPU, UAC, troca de sessao, bloqueio de tela, gamepad e compatibilidade por jogo.
 4. Configurar na VPS os segredos reais, dominio, TLS, banco, backup, firewall e observabilidade. O preflight de producao deve falhar se algum segredo obrigatorio estiver ausente.
 
 ## Decisao
 
-O sistema esta pronto para homologacao controlada e para preparar a VPS. Os bloqueios para uma release publica sao a assinatura dos binarios, o teste real entre duas maquinas e a configuracao validada da VPS; a migracao `0006_workspace_scope` ainda deve ser aplicada e confirmada no banco de homologacao.
+O sistema está pronto para homologação controlada e para preparar a VPS. Os bloqueios para uma release pública continuam sendo a assinatura real dos binários, o teste entre duas máquinas e a configuração validada da VPS; a migração `0006_workspace_scope` ainda deve ser aplicada e confirmada no banco de homologação.

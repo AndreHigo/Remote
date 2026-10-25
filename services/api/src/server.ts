@@ -84,8 +84,8 @@ const registerDeviceSchema = z.object({
 const agentRegisterDeviceSchema = registerDeviceSchema.omit({ customerId: true });
 
 const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
+  email: z.string().email().max(160),
+  password: z.string().min(1).max(200),
   totpCode: z.string().regex(/^\d{6}$/).optional()
 });
 
@@ -104,8 +104,8 @@ const desktopSessionConsumeSchema = z.object({
 });
 
 const inventorySchema = z.object({
-  hardware: z.record(z.string(), z.unknown()),
-  software: z.record(z.string(), z.unknown()).default({})
+  hardware: z.record(z.string().max(80), z.unknown()).refine((value) => JSON.stringify(value).length <= 250_000, "hardware inventory too large"),
+  software: z.record(z.string().max(80), z.unknown()).default({}).refine((value) => JSON.stringify(value).length <= 250_000, "software inventory too large")
 });
 
 const commandSchema = z.object({
@@ -115,8 +115,8 @@ const commandSchema = z.object({
 
 const commandResultSchema = z.object({
   status: z.enum(["succeeded", "failed"]),
-  output: z.record(z.string(), z.unknown()).optional(),
-  error: z.string().nullable().optional()
+  output: z.record(z.string().max(80), z.unknown()).refine((value) => JSON.stringify(value).length <= 128_000, "command output too large").optional(),
+  error: z.string().max(4_000).nullable().optional()
 });
 
 const agentKeySchema = z.object({
@@ -171,15 +171,17 @@ app.post("/auth/login", async (request, response) => {
     return;
   }
 
-  const loginKey = `${request.ip ?? request.socket.remoteAddress ?? "unknown"}:${parsed.data.email.toLowerCase()}`;
-  if (isLoginRateLimited(loginKey)) {
+  const clientIp = request.ip ?? request.socket.remoteAddress ?? "unknown";
+  const normalizedEmail = parsed.data.email.toLowerCase();
+  const loginKeys = [`pair:${clientIp}:${normalizedEmail}`, `ip:${clientIp}`, `email:${normalizedEmail}`];
+  if (isLoginRateLimited(loginKeys)) {
     response.status(429).json({ message: "Muitas tentativas. Aguarde alguns minutos e tente novamente." });
     return;
   }
 
   const result = await login(parsed.data.email, parsed.data.password, parsed.data.totpCode);
   if (!result) {
-    const attempt = recordLoginFailure(loginKey);
+    const attempt = recordLoginFailure(loginKeys);
     if (attempt.blockedUntil > Date.now()) {
       response.status(429).json({ message: "Muitas tentativas. Aguarde alguns minutos e tente novamente." });
       return;
@@ -189,7 +191,7 @@ app.post("/auth/login", async (request, response) => {
     return;
   }
 
-  clearLoginFailures(loginKey);
+  clearLoginFailures(loginKeys);
   if ("token" in result && result.token) setSessionCookie(response, result.token);
   if (nodeEnv === "production" && "token" in result) {
     response.json({ user: result.user });
@@ -399,7 +401,17 @@ app.post(
 
 app.post(
   "/desktop-sessions/authorize-channel",
-  createRateLimiter({ name: "RealtimeChannel", windowMs: 60 * 1000, max: 120 }),
+  createRateLimiter({
+    name: "RealtimeChannel",
+    windowMs: 60 * 1000,
+    max: 120,
+    key: (request) => {
+      const accessToken = typeof request.body?.accessToken === "string" ? request.body.accessToken : "";
+      return accessToken
+        ? `session:${crypto.createHash("sha256").update(accessToken).digest("hex")}`
+        : `ip:${request.ip ?? request.socket.remoteAddress ?? "unknown"}`;
+    }
+  }),
   async (request, response) => {
     if (!realtimeInternalSecret || !secretsMatch(request.header("x-realtime-secret"), realtimeInternalSecret)) {
       response.status(503).json({ message: "Canal realtime nao configurado" });

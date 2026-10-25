@@ -7,6 +7,8 @@ const port = Number(process.env.REALTIME_PORT ?? 4200);
 const maxFrameBytes = Number(process.env.REALTIME_MAX_FRAME_BYTES ?? 8 * 1024 * 1024);
 const maxBufferedBytes = Number(process.env.REALTIME_MAX_BUFFERED_BYTES ?? 16 * 1024 * 1024);
 const maxPendingHandshakesPerAddress = Number(process.env.REALTIME_MAX_PENDING_HANDSHAKES ?? 8);
+const maxConnections = Number(process.env.REALTIME_MAX_CONNECTIONS ?? 256);
+const maxRooms = Number(process.env.REALTIME_MAX_ROOMS ?? 128);
 const apiUrl = process.env.REALTIME_API_URL ?? "http://localhost:4100";
 const internalSecret = process.env.REALTIME_INTERNAL_SECRET;
 const allowedOrigins = new Set((process.env.REALTIME_ALLOWED_ORIGINS ?? "http://localhost:5173,http://127.0.0.1:5173")
@@ -33,6 +35,7 @@ interface Room {
 export function createRealtimeServer() {
   const rooms = new Map<string, Room>();
   const pendingHandshakes = new Map<string, number>();
+  let activeConnections = 0;
   const server = http.createServer((request, response) => {
     const pathname = new URL(request.url ?? "/", "http://localhost").pathname;
     if (request.method === "POST" && pathname.startsWith("/internal/sessions/") && pathname.endsWith("/close")) {
@@ -56,7 +59,14 @@ export function createRealtimeServer() {
   const wss = new WebSocketServer({ server, maxPayload: Math.max(maxFrameBytes, maxControlMessageBytes()) });
 
   wss.on("connection", (socket, request) => {
+    activeConnections += 1;
+    if (activeConnections > maxConnections) {
+      activeConnections -= 1;
+      close(socket, "too-many-connections");
+      return;
+    }
     if (request.headers.origin && !allowedOrigins.has(request.headers.origin)) {
+      activeConnections -= 1;
       close(socket, "origin-not-allowed");
       return;
     }
@@ -64,6 +74,7 @@ export function createRealtimeServer() {
     const address = request.socket.remoteAddress ?? "unknown";
     const pendingForAddress = pendingHandshakes.get(address) ?? 0;
     if (pendingForAddress >= maxPendingHandshakesPerAddress) {
+      activeConnections -= 1;
       close(socket, "too-many-pending-handshakes");
       return;
     }
@@ -98,6 +109,7 @@ export function createRealtimeServer() {
         }
 
         const room = rooms.get(payload.sessionId) ?? {};
+        if (!rooms.has(payload.sessionId) && rooms.size >= maxRooms) return close(socket, "too-many-rooms");
         if (room[payload.role]) return close(socket, "role-already-connected");
         if (payload.role === "host") room.initialFrame = undefined;
         peer = { socket, payload, role: payload.role, accessToken: hello.accessToken };
@@ -149,6 +161,7 @@ export function createRealtimeServer() {
     });
 
     socket.on("close", () => {
+      activeConnections = Math.max(0, activeConnections - 1);
       releasePendingHandshake();
       clearTimeout(helloTimeout);
       if (!peer) return;

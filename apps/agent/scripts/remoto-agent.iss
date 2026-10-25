@@ -161,20 +161,24 @@ procedure InstallAgentService;
 var
   PowerShellPath: string;
   ScriptPath: string;
+  AgentKeyFile: string;
   Parameters: string;
   ExecResult: Boolean;
 begin
   PowerShellPath := ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe');
   ScriptPath := ExpandConstant('{app}\install-package.ps1');
+  AgentKeyFile := AddBackslash(ExpandConstant('{tmp}')) + 'remoto-agent-key.txt';
+  SaveStringToFile(AgentKeyFile, Trim(ConnectionPage.Values[2]), False);
   Parameters := '-NoProfile -ExecutionPolicy Bypass -File ' + QuoteArgument(ScriptPath) +
     ' -ApiUrl ' + QuoteArgument(Trim(ConnectionPage.Values[0])) +
     ' -RealtimeUrl ' + QuoteArgument(Trim(ConnectionPage.Values[1])) +
-    ' -AgentKey ' + QuoteArgument(Trim(ConnectionPage.Values[2]));
+    ' -AgentKeyFile ' + QuoteArgument(AgentKeyFile);
   if Trim(ConnectionPage.Values[3]) <> '' then begin
     Parameters := Parameters + ' -FfmpegPath ' + QuoteArgument(Trim(ConnectionPage.Values[3]));
   end;
 
   ExecResult := Exec(PowerShellPath, Parameters, '', SW_HIDE, ewWaitUntilTerminated, ServiceInstallResult);
+  DeleteFile(AgentKeyFile);
   if (not ExecResult) or (ServiceInstallResult <> 0) then begin
     MsgBox('O agente foi copiado, mas o servico nao pode ser iniciado. Codigo: ' +
       IntToStr(ServiceInstallResult) + '.', mbError, MB_OK);

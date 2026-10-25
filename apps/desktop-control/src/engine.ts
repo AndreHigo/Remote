@@ -66,6 +66,12 @@ class SupportEngine implements DesktopEngine {
         stdio: "ignore",
         windowsHide: true
       });
+      activeSupportProcesses.set(session.sessionId, child);
+      const cleanup = () => {
+        if (activeSupportProcesses.get(session.sessionId) === child) activeSupportProcesses.delete(session.sessionId);
+      };
+      child.once("exit", cleanup);
+      child.once("error", cleanup);
       child.once("error", (error) => resolve({ started: false, message: `Cliente de suporte nao iniciou: ${error.message}` }));
       child.once("spawn", () => {
         child.unref();
@@ -74,8 +80,12 @@ class SupportEngine implements DesktopEngine {
     });
   }
 
-  async stop(_session: DesktopSessionDescriptor): Promise<EngineLaunchResult> {
-    return { started: true, message: "Encerramento solicitado ao cliente de suporte." };
+  async stop(session: DesktopSessionDescriptor): Promise<EngineLaunchResult> {
+    const child = activeSupportProcesses.get(session.sessionId);
+    if (!child) return { started: true, message: "Nenhum cliente de suporte local estava associado a sessao." };
+    activeSupportProcesses.delete(session.sessionId);
+    try { child.kill(); } catch { /* o processo ja pode ter encerrado */ }
+    return { started: true, message: "Cliente de suporte encerrado." };
   }
 }
 
@@ -131,6 +141,7 @@ class GameEngine implements DesktopEngine {
 }
 
 const activeOperatorProcesses = new Map<string, { child: ReturnType<typeof spawn>; directory: string }>();
+const activeSupportProcesses = new Map<string, ReturnType<typeof spawn>>();
 
 async function findOperatorLaunch() {
   if (process.platform !== "win32") return null;

@@ -45,7 +45,7 @@ docs/
 npm install
 npm run db:up
 npm run db:push
-npm run db:seed
+SEED_CONFIRMATION=RESET_LOCAL_DEMO_DATA SEED_OWNER_PASSWORD='troque-local-owner-123' SEED_TECHNICIAN_PASSWORD='troque-local-tech-123' SEED_VIEWER_PASSWORD='troque-local-viewer-123' SEED_AGENT_KEY='rm_local_agent_key_123456' npm run db:seed
 npm run dev
 ```
 
@@ -58,13 +58,13 @@ Servicos locais:
 Usuarios seed:
 
 ```text
-O seed gera senhas aleatorias e as imprime no terminal ao terminar. Para repetir credenciais previsiveis somente em desenvolvimento, defina `SEED_OWNER_PASSWORD`, `SEED_TECHNICIAN_PASSWORD` e `SEED_VIEWER_PASSWORD` antes de executar.
+O seed e destrutivo e exige `SEED_CONFIRMATION=RESET_LOCAL_DEMO_DATA`. Defina tambem as quatro variaveis `SEED_*` antes de executar; nenhum segredo e impresso nos logs. Nunca execute o seed contra banco de producao.
 ```
 
 Chave seed do agente:
 
 ```text
-O seed tambem gera uma chave aleatoria e a imprime no terminal. Para desenvolvimento, defina `SEED_AGENT_KEY` antes de executar.
+A chave deve ser informada por `SEED_AGENT_KEY` antes do seed e deve ser rotacionada depois do teste local.
 ```
 
 Scripts uteis:

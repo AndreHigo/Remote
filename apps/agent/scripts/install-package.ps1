@@ -3,6 +3,7 @@ param(
   [string]$ApiUrl = "",
   [string]$RealtimeUrl = "",
   [string]$AgentKey = "",
+  [string]$AgentKeyFile = "",
   [string]$FfmpegPath = "",
   [string]$ServiceName = "RemotoAgent"
 )
@@ -103,7 +104,15 @@ if ([string]::IsNullOrWhiteSpace($RealtimeUrl)) {
   $RealtimeUrl = Read-Host "URL do relay realtime (ex.: wss://remoto.seudominio.com/realtime)"
 }
 if ([string]::IsNullOrWhiteSpace($AgentKey)) {
-  $AgentKey = Read-Host "Chave gerada no painel"
+  if ($AgentKeyFile) {
+    try {
+      $AgentKey = (Get-Content -LiteralPath $AgentKeyFile -Raw).Trim()
+    } finally {
+      Remove-Item -LiteralPath $AgentKeyFile -Force -ErrorAction SilentlyContinue
+    }
+  } else {
+    $AgentKey = Read-Host "Chave gerada no painel"
+  }
 }
 if ([string]::IsNullOrWhiteSpace($ApiUrl) -or [string]::IsNullOrWhiteSpace($RealtimeUrl) -or [string]::IsNullOrWhiteSpace($AgentKey)) {
   throw "URL da API, URL do relay e chave sao obrigatorias."
@@ -122,7 +131,8 @@ $configJson = @{
 [System.IO.Directory]::CreateDirectory($StateDirectory) | Out-Null
 [System.IO.File]::WriteAllText($ConfigPath, $configJson, [System.Text.UTF8Encoding]::new($false))
 if (-not (Test-Path -LiteralPath $StatePath)) { [System.IO.File]::WriteAllText($StatePath, "{}", [System.Text.UTF8Encoding]::new($false)) }
-& icacls.exe $ConfigPath /inheritance:r /grant:r "*S-1-5-18:(F)" "*S-1-5-32-544:(F)" $CurrentUserReadGrant | Out-Host
+& icacls.exe $ConfigPath /inheritance:r /remove "*S-1-5-11" "*S-1-5-32-545" | Out-Host
+& icacls.exe $ConfigPath /grant:r "*S-1-5-18:(F)" "*S-1-5-32-544:(F)" $CurrentUserReadGrant | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "Nao foi possivel proteger a configuracao do agente." }
 & icacls.exe $StateDirectory /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)(F)" "*S-1-5-32-544:(OI)(CI)(F)" $CurrentUserModifyGrant | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "Nao foi possivel proteger o estado operacional do agente." }

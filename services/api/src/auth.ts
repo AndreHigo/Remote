@@ -16,6 +16,7 @@ const JWT_SECRET = process.env.JWT_SECRET ?? crypto.randomBytes(32).toString("he
 const SESSION_COOKIE = "remoto_session";
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_MAX_FAILURES = 5;
+const LOGIN_MAX_TRACKED_KEYS = 10_000;
 
 interface LoginAttempt {
   count: number;
@@ -31,6 +32,14 @@ const loginAttemptCleanup = setInterval(() => {
   }
 }, LOGIN_WINDOW_MS);
 loginAttemptCleanup.unref();
+
+function normalizeLoginKeys(keyOrKeys: string | string[]) {
+  return [...new Set(Array.isArray(keyOrKeys) ? keyOrKeys : [keyOrKeys])].filter(Boolean);
+}
+
+function getLoginAttempt(key: string) {
+  return loginAttempts.get(key);
+}
 
 export interface AuthenticatedRequest extends Request {
   user: AuthUser;
@@ -81,25 +90,35 @@ export async function login(email: string, password: string, totpCode?: string) 
   };
 }
 
-export function isLoginRateLimited(key: string) {
-  const attempt = loginAttempts.get(key);
-  return Boolean(attempt && attempt.blockedUntil > Date.now());
+export function isLoginRateLimited(keyOrKeys: string | string[]) {
+  return normalizeLoginKeys(keyOrKeys).some((key) => {
+    const attempt = getLoginAttempt(key);
+    return Boolean(attempt && attempt.blockedUntil > Date.now());
+  });
 }
 
-export function recordLoginFailure(key: string) {
+export function recordLoginFailure(keyOrKeys: string | string[]) {
   const now = Date.now();
-  const current = loginAttempts.get(key);
-  const attempt = !current || current.firstAt + LOGIN_WINDOW_MS <= now
-    ? { count: 1, firstAt: now, blockedUntil: 0 }
-    : { ...current, count: current.count + 1 };
+  let latestAttempt: LoginAttempt = { count: 0, firstAt: now, blockedUntil: 0 };
+  for (const key of normalizeLoginKeys(keyOrKeys)) {
+    const current = getLoginAttempt(key);
+    const attempt = !current || current.firstAt + LOGIN_WINDOW_MS <= now
+      ? { count: 1, firstAt: now, blockedUntil: 0 }
+      : { ...current, count: current.count + 1 };
 
-  if (attempt.count >= LOGIN_MAX_FAILURES) attempt.blockedUntil = now + LOGIN_WINDOW_MS;
-  loginAttempts.set(key, attempt);
-  return attempt;
+    if (attempt.count >= LOGIN_MAX_FAILURES) attempt.blockedUntil = now + LOGIN_WINDOW_MS;
+    if (!loginAttempts.has(key) && loginAttempts.size >= LOGIN_MAX_TRACKED_KEYS) {
+      const oldestKey = loginAttempts.keys().next().value;
+      if (oldestKey) loginAttempts.delete(oldestKey);
+    }
+    loginAttempts.set(key, attempt);
+    if (attempt.count > latestAttempt.count || attempt.blockedUntil > latestAttempt.blockedUntil) latestAttempt = attempt;
+  }
+  return latestAttempt;
 }
 
-export function clearLoginFailures(key: string) {
-  loginAttempts.delete(key);
+export function clearLoginFailures(keyOrKeys: string | string[]) {
+  for (const key of normalizeLoginKeys(keyOrKeys)) loginAttempts.delete(key);
 }
 
 export async function getTwoFactorStatus(userId: string) {

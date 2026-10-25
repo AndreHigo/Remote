@@ -24,6 +24,7 @@ $required = @(
   "POSTGRES_DB",
   "POSTGRES_USER",
   "POSTGRES_PASSWORD",
+  "BACKUP_ENCRYPTION_KEY",
   "JWT_SECRET",
   "DESKTOP_SESSION_SECRET",
   "TOTP_ENCRYPTION_KEY",
@@ -40,6 +41,7 @@ foreach ($name in $required) {
 }
 
 if ($values["POSTGRES_PASSWORD"].Length -lt 20) { throw "POSTGRES_PASSWORD deve ter pelo menos 20 caracteres" }
+if ($values["BACKUP_ENCRYPTION_KEY"].Length -lt 32) { throw "BACKUP_ENCRYPTION_KEY deve ter pelo menos 32 caracteres" }
 if ($values["JWT_SECRET"].Length -lt 32) { throw "JWT_SECRET deve ter pelo menos 32 caracteres" }
 if ($values["DESKTOP_SESSION_SECRET"].Length -lt 32) { throw "DESKTOP_SESSION_SECRET deve ter pelo menos 32 caracteres" }
 if ($values["TOTP_ENCRYPTION_KEY"].Length -lt 32) { throw "TOTP_ENCRYPTION_KEY deve ter pelo menos 32 caracteres" }
