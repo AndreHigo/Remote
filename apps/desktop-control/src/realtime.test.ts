@@ -4,7 +4,12 @@ import test from "node:test";
 import { PassThrough } from "node:stream";
 import WebSocket, { WebSocketServer } from "ws";
 import { validateInputEvent } from "./input.js";
-import { connectRemoteSession, forwardCaptureFrames } from "./realtime.js";
+import { buildRealtimeSessionUrl, connectRemoteSession, forwardCaptureFrames } from "./realtime.js";
+
+test("monta o caminho da sessao quando o agente recebe apenas a base do relay", () => {
+  assert.equal(buildRealtimeSessionUrl("wss://remoto.example/realtime", "session-1"), "wss://remoto.example/realtime/sessions/session-1");
+  assert.equal(buildRealtimeSessionUrl("ws://127.0.0.1:4200/sessions/session-1", "session-1"), "ws://127.0.0.1:4200/sessions/session-1");
+});
 
 test("entrada realtime continua tipada antes do envio", () => {
   assert.deepEqual(validateInputEvent({ type: "mouse.relative", dx: 18, dy: -9 }), {

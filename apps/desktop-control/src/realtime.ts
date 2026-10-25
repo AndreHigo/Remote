@@ -23,7 +23,7 @@ export async function connectRemoteSession(
   options: RealtimeClientOptions = {}
 ): Promise<RealtimeConnection> {
   if (!session.accessToken) throw new Error("Sessao realtime exige accessToken");
-  const url = options.url ?? defaultRealtimeUrl(session.sessionId);
+  const url = buildRealtimeSessionUrl(options.url ?? (process.env.REMOTO_REALTIME_URL ?? "ws://localhost:4200"), session.sessionId);
   const socket = new WebSocket(url);
   let capture: CaptureProcess | undefined;
   let input: WindowsInputBridge | undefined;
@@ -151,9 +151,10 @@ export function forwardCaptureFrames(stdout: Readable, socket: WebSocket) {
   return () => stdout.off("data", onData);
 }
 
-function defaultRealtimeUrl(sessionId: string) {
-  const configured = process.env.REMOTO_REALTIME_URL ?? "ws://localhost:4200";
-  return `${configured.replace(/\/$/, "")}/sessions/${encodeURIComponent(sessionId)}`;
+export function buildRealtimeSessionUrl(configured: string, sessionId: string) {
+  const base = configured.replace(/\/+$/, "");
+  const sessionPath = `/sessions/${encodeURIComponent(sessionId)}`;
+  return base.endsWith(sessionPath) ? base : `${base}${sessionPath}`;
 }
 
 function toBuffer(data: WebSocket.RawData) {
