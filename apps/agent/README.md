@@ -46,7 +46,7 @@ npm run agent:status
 
 O arquivo `.remoto-agent.config.json` fica local ao agente e nunca deve ser versionado. A chave tambem pode continuar sendo fornecida por `REMOTO_AGENT_KEY`, que tem prioridade sobre o arquivo.
 
-No instalador Windows, a configuracao e somente leitura para usuarios locais e o estado operacional fica em `C:\ProgramData\Remoto\state`. A credencial do agente continua sendo um segredo local que deve ser revogado no painel quando o computador for desativado.
+No instalador Windows, a configuracao e somente leitura para o usuario que instalou o agente e o estado operacional fica em `C:\ProgramData\Remoto\state`. O processo desktop e registrado no autostart do Windows; somente o usuario com ACL de leitura consegue iniciar o fluxo, e a credencial do agente deve ser revogada no painel quando o computador for desativado.
 
 Variaveis opcionais:
 
