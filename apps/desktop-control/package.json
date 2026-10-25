@@ -3,6 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "exports": {
+    "./realtime": {
+      "types": "./dist/realtime.d.ts",
+      "default": "./dist/realtime.js"
+    }
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -10,9 +16,12 @@
     "open": "tsx src/index.ts open",
     "test": "tsx --test src/*.test.ts"
   },
-  "dependencies": {},
+  "dependencies": {
+    "ws": "^8.18.3"
+  },
   "devDependencies": {
     "@types/node": "^24.1.0",
+    "@types/ws": "^8.18.1",
     "tsx": "^4.20.3",
     "typescript": "^5.9.2"
   }

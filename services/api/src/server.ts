@@ -1,5 +1,6 @@
 import cors from "cors";
 import express from "express";
+import crypto from "node:crypto";
 import { z } from "zod";
 import { authenticateAgent, type AuthenticatedAgentRequest } from "./agent-auth.js";
 import {
@@ -98,6 +99,8 @@ const remoteSessionSchema = z.object({
 const desktopSessionConsumeSchema = z.object({
   accessToken: z.string().min(32).max(2048)
 });
+
+const realtimeInternalSecret = process.env.REALTIME_INTERNAL_SECRET;
 
 const inventorySchema = z.object({
   hardware: z.record(z.string(), z.unknown()),
@@ -308,6 +311,18 @@ app.get("/agent/devices/:id/commands", authenticateAgent, async (request, respon
   response.json(commands);
 });
 
+app.get("/agent/devices/:id/remote-sessions", authenticateAgent, async (request, response) => {
+  const deviceId = z.string().parse(request.params.id);
+  const agent = (request as AuthenticatedAgentRequest).agent;
+  const sessions = await repository.listAgentRemoteSessions({ deviceId, customerId: agent.customerId });
+  if (!sessions) {
+    response.status(404).json({ message: "Dispositivo nao encontrado para este agente" });
+    return;
+  }
+
+  response.json(sessions);
+});
+
 app.post("/agent/commands/:id/result", authenticateAgent, async (request, response) => {
   const commandId = z.string().parse(request.params.id);
   const parsed = commandResultSchema.safeParse(request.body);
@@ -350,6 +365,35 @@ app.post(
     }
     if (result.kind === "expired") {
       response.status(410).json({ message: "Token de sessao expirado ou ja utilizado" });
+      return;
+    }
+
+    response.json(result.session);
+  }
+);
+
+app.post(
+  "/desktop-sessions/authorize-channel",
+  createRateLimiter({ name: "RealtimeChannel", windowMs: 60 * 1000, max: 120 }),
+  async (request, response) => {
+    if (!realtimeInternalSecret || !secretsMatch(request.header("x-realtime-secret"), realtimeInternalSecret)) {
+      response.status(503).json({ message: "Canal realtime nao configurado" });
+      return;
+    }
+
+    const parsed = desktopSessionConsumeSchema.safeParse(request.body);
+    if (!parsed.success) {
+      response.status(400).json({ message: "Token de sessao invalido" });
+      return;
+    }
+
+    const result = await repository.authorizeDesktopSessionChannel(parsed.data.accessToken);
+    if (result.kind === "invalid") {
+      response.status(401).json({ message: "Token de canal invalido" });
+      return;
+    }
+    if (result.kind === "expired") {
+      response.status(410).json({ message: "Sessao expirada ou encerrada" });
       return;
     }
 
@@ -788,3 +832,10 @@ process.on("SIGINT", async () => {
 app.listen(port, () => {
   console.log(`Remoto API running on http://localhost:${port}`);
 });
+
+function secretsMatch(received: string | undefined, expected: string) {
+  if (!received) return false;
+  const receivedBuffer = Buffer.from(received);
+  const expectedBuffer = Buffer.from(expected);
+  return receivedBuffer.length === expectedBuffer.length && crypto.timingSafeEqual(receivedBuffer, expectedBuffer);
+}

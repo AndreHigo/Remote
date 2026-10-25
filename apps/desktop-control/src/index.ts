@@ -42,5 +42,5 @@ async function consumeApprovedSession(accessToken: string): Promise<DesktopSessi
   });
   const payload = await response.json().catch(() => ({})) as { message?: string } & DesktopSessionDescriptor;
   if (!response.ok) throw new Error(payload.message ?? `Nao foi possivel consumir a sessao (${response.status})`);
-  return payload;
+  return { ...payload, accessToken };
 }

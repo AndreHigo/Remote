@@ -4,12 +4,14 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
+import { connectRemoteSession, type RealtimeConnection } from "@remoto/desktop-control/realtime";
 
 const execFileAsync = promisify(execFile);
 const packagedProcess = process as NodeJS.Process & { pkg?: unknown };
 const runtimeRoot = packagedProcess.pkg ? path.dirname(process.execPath) : process.cwd();
 const CONFIG_FILE = process.env.REMOTO_AGENT_CONFIG ?? path.join(runtimeRoot, ".remoto-agent.config.json");
 const DEMO_AGENT_KEY = "REMOTO-DEMO-AGENT-KEY";
+const activeRemoteSessions = new Map<string, RealtimeConnection>();
 
 interface AgentConfigFile {
   apiUrl?: string;
@@ -24,6 +26,7 @@ interface AgentConfig {
   heartbeatIntervalSeconds: number;
   commandIntervalSeconds: number;
   inventoryIntervalSeconds: number;
+  remoteSessionIntervalSeconds: number;
 }
 
 let config: AgentConfig;
@@ -54,6 +57,15 @@ interface CommandResponse {
   commandType: "ping" | "system-info" | "refresh-inventory";
   status: "pending" | "running" | "succeeded" | "failed";
   payload: Record<string, unknown>;
+}
+
+interface RemoteSessionResponse {
+  sessionId: string;
+  deviceId: string;
+  mode: "support" | "game";
+  role: "host";
+  accessToken: string;
+  expiresAt: string;
 }
 
 const command = process.argv[2] ?? "register";
@@ -179,6 +191,10 @@ async function claimCommands(deviceId: string) {
   return get<CommandResponse[]>(`/agent/devices/${deviceId}/commands`);
 }
 
+async function getRemoteSessions(deviceId: string) {
+  return get<RemoteSessionResponse[]>(`/agent/devices/${deviceId}/remote-sessions`);
+}
+
 async function completeCommand(
   commandId: string,
   result: { status: "succeeded" | "failed"; output?: Record<string, unknown>; error?: string | null }
@@ -204,7 +220,7 @@ async function get<T>(route: string) {
 async function runLoop(state: AgentState) {
   console.log(
     `Agente simulado ativo para ${state.displayName}. ` +
-      `heartbeat=${config.heartbeatIntervalSeconds}s comandos=${config.commandIntervalSeconds}s inventario=${config.inventoryIntervalSeconds}s.`
+    `heartbeat=${config.heartbeatIntervalSeconds}s comandos=${config.commandIntervalSeconds}s inventario=${config.inventoryIntervalSeconds}s sessoes=${config.remoteSessionIntervalSeconds}s.`
   );
 
   await runSafely("heartbeat", async () => {
@@ -217,6 +233,9 @@ async function runLoop(state: AgentState) {
   });
   await runSafely("inventory", async () => {
     await collectAndSendInventory(state);
+  });
+  await runSafely("sessoes-remotas", async () => {
+    await reportRemoteSessions(state);
   });
 
   const timers = [
@@ -236,7 +255,12 @@ async function runLoop(state: AgentState) {
       void runSafely("inventory", async () => {
         await collectAndSendInventory(state);
       });
-    }, config.inventoryIntervalSeconds * 1000)
+    }, config.inventoryIntervalSeconds * 1000),
+    setInterval(() => {
+      void runSafely("sessoes-remotas", async () => {
+        await reportRemoteSessions(state);
+      });
+    }, config.remoteSessionIntervalSeconds * 1000)
   ];
 
   process.on("SIGINT", () => {
@@ -244,6 +268,35 @@ async function runLoop(state: AgentState) {
     console.log("Agente simulado encerrado.");
     process.exit(0);
   });
+}
+
+async function reportRemoteSessions(state: AgentState) {
+  const sessions = await getRemoteSessions(state.deviceId);
+  const approvedIds = new Set(sessions.map((session) => session.sessionId));
+
+  for (const [sessionId, connection] of activeRemoteSessions) {
+    if (!approvedIds.has(sessionId)) {
+      connection.close();
+      activeRemoteSessions.delete(sessionId);
+    }
+  }
+
+  for (const session of sessions) {
+    if (session.mode !== "game" || activeRemoteSessions.has(session.sessionId)) continue;
+    try {
+      const connection = await connectRemoteSession(session, {
+        capture: { quality: "auto", encoder: "cpu" },
+        onClosed: (reason) => {
+          activeRemoteSessions.delete(session.sessionId);
+          console.log(`sessao remota encerrada: ${session.sessionId} (${reason})`);
+        }
+      });
+      activeRemoteSessions.set(session.sessionId, connection);
+      console.log(`sessao remota host conectada: ${session.sessionId}`);
+    } catch (error) {
+      console.error(`sessao remota ${session.sessionId} indisponivel: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
 }
 
 async function runSafely(label: string, action: () => Promise<void>) {
@@ -609,7 +662,8 @@ async function loadConfig(): Promise<AgentConfig> {
     stateFile: path.isAbsolute(stateFile) ? stateFile : path.resolve(path.dirname(CONFIG_FILE), stateFile),
     heartbeatIntervalSeconds: readInterval("REMOTO_AGENT_HEARTBEAT_SECONDS", 30),
     commandIntervalSeconds: readInterval("REMOTO_AGENT_COMMAND_SECONDS", 10),
-    inventoryIntervalSeconds: readInterval("REMOTO_AGENT_INVENTORY_SECONDS", 300)
+    inventoryIntervalSeconds: readInterval("REMOTO_AGENT_INVENTORY_SECONDS", 300),
+    remoteSessionIntervalSeconds: readInterval("REMOTO_AGENT_SESSION_SECONDS", 5)
   };
 }
 

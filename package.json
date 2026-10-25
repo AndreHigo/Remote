@@ -9,9 +9,9 @@
   ],
   "scripts": {
     "dev": "concurrently -n api,web -c blue,green \"npm run dev -w services/api\" \"npm run dev -w apps/web\"",
-    "build": "npm run build -w services/api && npm run build -w apps/web && npm run build -w apps/agent && npm run build -w apps/desktop-control",
+    "build": "npm run build -w services/api && npm run build -w apps/web && npm run build -w apps/desktop-control && npm run build -w apps/agent && npm run build -w services/realtime",
     "test:security": "npm run test:security -w services/api",
-    "typecheck": "npm run typecheck -w services/api && npm run typecheck -w apps/web && npm run typecheck -w apps/agent && npm run typecheck -w apps/desktop-control",
+    "typecheck": "npm run typecheck -w services/api && npm run typecheck -w apps/web && npm run typecheck -w apps/desktop-control && npm run typecheck -w apps/agent && npm run typecheck -w services/realtime",
     "db:up": "docker compose -f infra/docker/docker-compose.yml up -d postgres",
     "db:push": "npm run db:push -w services/api",
     "db:seed": "npm run db:seed -w services/api",

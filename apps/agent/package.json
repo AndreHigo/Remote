@@ -16,6 +16,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "package:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-windows-package.ps1"
   },
+  "dependencies": {
+    "@remoto/desktop-control": "0.1.0"
+  },
   "devDependencies": {
     "@types/node": "^24.1.0",
     "tsx": "^4.20.3",

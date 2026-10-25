@@ -910,6 +910,73 @@ export const repository = {
     };
   },
 
+  async authorizeDesktopSessionChannel(token: string) {
+    const payload = verifyDesktopSessionToken(token);
+    if (!payload) return { kind: "invalid" as const };
+
+    const current = await prisma.remoteSession.findUnique({
+      where: { id: payload.sessionId },
+      include: { device: true }
+    });
+    if (!current) return { kind: "invalid" as const };
+    if (payload.role === "client" && current.connectionTokenHash !== hashToken(token)) return { kind: "invalid" as const };
+    if (payload.role === "host" && payload.deviceId !== current.deviceId) return { kind: "invalid" as const };
+    if (
+      current.status !== "APPROVED" ||
+      !current.connectionTokenUsedAt ||
+      current.mode.toLowerCase() !== payload.mode ||
+      !current.connectionTokenExpiresAt ||
+      current.connectionTokenExpiresAt <= new Date()
+    ) {
+      return { kind: "expired" as const };
+    }
+
+    return {
+      kind: "authorized" as const,
+      session: {
+        sessionId: current.id,
+        deviceId: current.deviceId,
+        mode: current.mode.toLowerCase(),
+        role: payload.role,
+        remoteId: current.device.remoteId,
+        expiresAt: current.connectionTokenExpiresAt.toISOString()
+      }
+    };
+  },
+
+  async listAgentRemoteSessions(input: { deviceId: string; customerId: string }) {
+    const device = await prisma.device.findFirst({ where: { id: input.deviceId, customerId: input.customerId, archivedAt: null } });
+    if (!device) return null;
+
+    const sessions = await prisma.remoteSession.findMany({
+      where: {
+        deviceId: device.id,
+        status: "APPROVED",
+        connectionTokenUsedAt: { not: null },
+        connectionTokenExpiresAt: { gt: new Date() }
+      },
+      orderBy: { requestedAt: "asc" }
+    });
+
+    return sessions.map((session) => {
+      const hostToken = createDesktopSessionToken({
+        sessionId: session.id,
+        deviceId: session.deviceId,
+        mode: session.mode.toLowerCase() as RemoteSessionMode,
+        role: "host",
+        remoteId: device.remoteId
+      });
+      return {
+        sessionId: session.id,
+        deviceId: session.deviceId,
+        mode: session.mode.toLowerCase(),
+        role: "host" as const,
+        accessToken: hostToken.token,
+        expiresAt: hostToken.expiresAt.toISOString()
+      };
+    });
+  },
+
   async denyRemoteSession(input: { id: string; user: AuthUser }) {
     const current = await prisma.remoteSession.findUnique({ where: { id: input.id } });
     if (!current) return null;
