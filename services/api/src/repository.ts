@@ -893,10 +893,23 @@ export const repository = {
       return { kind: "expired" as const };
     }
 
-    const consumed = await prisma.remoteSession.update({
-      where: { id: current.id },
-      data: { connectionTokenUsedAt: now() }
+    const consumedAt = now();
+    const claimed = await prisma.remoteSession.updateMany({
+      where: {
+        id: current.id,
+        connectionTokenHash: hashToken(token),
+        status: "APPROVED",
+        connectionTokenUsedAt: null,
+        connectionTokenExpiresAt: { gt: consumedAt }
+      },
+      data: { connectionTokenUsedAt: consumedAt }
     });
+    if (claimed.count !== 1) return { kind: "expired" as const };
+
+    const consumed = await prisma.remoteSession.findUnique({
+      where: { id: current.id }
+    });
+    if (!consumed) return { kind: "invalid" as const };
     await addAudit(
       "remote-session.token.consumed",
       "desktop-control",
