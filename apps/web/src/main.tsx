@@ -1966,7 +1966,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
             onKeyUp={(event) => sendKey(event, "up")}
           />
         )}
-        <footer className="gameSessionFooter"><span>{started ? <>Video H.264 / relay autenticado{latencyMs === null ? "" : ` / RTT ${latencyMs} ms`}{fps === null ? "" : ` / FPS ${fps}`}</> : "Sessao aprovada e aguardando sua escolha"}</span><div className="gameSessionFooterActions"><button className="danger" type="button" onClick={onClose}>Encerrar sessao</button></div></footer>
+        <footer className="gameSessionFooter"><span>{started ? <>Video H.264 / relay autenticado / Entrada: teclado + mouse / Gamepad indisponivel{latencyMs === null ? "" : ` / RTT ${latencyMs} ms`}{fps === null ? "" : ` / FPS ${fps}`}</> : "Sessao aprovada e aguardando sua escolha"}</span><div className="gameSessionFooterActions"><button className="danger" type="button" onClick={onClose}>Encerrar sessao</button></div></footer>
       </section>
     </div>
   );
