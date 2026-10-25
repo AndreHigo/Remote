@@ -100,6 +100,8 @@ O inventario do agente consulta a capacidade real da build do FFmpeg: encoder H.
 
 Para um pacote de homologacao sem depender de `PATH`, gere o instalador com `-FfmpegPath` apontando para um `ffmpeg.exe` validado. O procedimento e os limites de distribuicao estao em [`docs/entregas/068-pacote-homologacao-com-ffmpeg.md`](docs/entregas/068-pacote-homologacao-com-ffmpeg.md).
 
+O agente tambem possui limite por credencial e retencao dos 50 inventarios mais recentes por dispositivo; os limites conhecidos antes da VPS estao em [`docs/entregas/069-limites-de-agente-e-inventario.md`](docs/entregas/069-limites-de-agente-e-inventario.md).
+
 No instalador Windows, o caminho opcional do `ffmpeg.exe` pode apontar para uma instalacao no perfil do usuario; durante a instalacao elevada ele e copiado para a pasta protegida do Remoto, para que o servico nao execute um binario mutavel do perfil.
 
 Servidor RustDesk OSS de laboratorio:

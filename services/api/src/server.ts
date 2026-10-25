@@ -221,7 +221,13 @@ app.use(
   createRateLimiter({
     name: "Agent",
     windowMs: 60 * 1000,
-    max: 180
+    max: 180,
+    maxEntries: 20_000,
+    key: (request) => {
+      const agentKey = request.header("x-agent-key")?.trim();
+      if (agentKey) return `agent:${crypto.createHash("sha256").update(agentKey).digest("hex")}`;
+      return `ip:${request.ip ?? request.socket.remoteAddress ?? "unknown"}`;
+    }
   })
 );
 

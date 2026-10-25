@@ -690,19 +690,28 @@ export const repository = {
     });
     if (!current) return null;
 
-    const [snapshot] = await prisma.$transaction([
-      prisma.inventorySnapshot.create({
+    const snapshot = await prisma.$transaction(async (transaction) => {
+      const created = await transaction.inventorySnapshot.create({
         data: {
           deviceId: input.deviceId,
           hardware: input.hardware,
           software: input.software
         }
-      }),
-      prisma.device.update({
+      });
+      const retained = await transaction.inventorySnapshot.findMany({
+        where: { deviceId: input.deviceId },
+        orderBy: [{ collectedAt: "desc" }, { id: "desc" }],
+        skip: 50,
+        select: { id: true }
+      });
+      if (retained.length > 0) {
+        await transaction.inventorySnapshot.deleteMany({ where: { id: { in: retained.map((item) => item.id) } } });
+      }
+      await transaction.device.update({
         where: { id: input.deviceId },
         data: { lastSeenAt: now() }
-      }),
-      prisma.auditEvent.create({
+      });
+      await transaction.auditEvent.create({
         data: {
           action: "device.inventory.collected",
           actor: input.actor,
@@ -710,8 +719,9 @@ export const repository = {
           deviceId: input.deviceId,
           metadata: {}
         }
-      })
-    ]);
+      });
+      return created;
+    });
 
     return {
       ...snapshot,
