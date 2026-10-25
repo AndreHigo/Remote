@@ -25,6 +25,8 @@ O workspace oferece o agente local em Node/TypeScript e um instalador Windows qu
 
 O instalador pede a URL da API, a URL publica do relay (`wss://dominio/realtime`) e a chave de cadastro. O caminho do `ffmpeg.exe` e opcional: informe-o quando o FFmpeg estiver instalado fora do PATH ou deixe em branco para a descoberta automatica. Em uma instalacao local, use `http://localhost:4100` e `ws://localhost:4200`; fora de loopback, o agente exige `https://` na API e `wss://` no relay e rejeita credenciais embutidas. Em producao, nunca deixe o relay apontando para `localhost`.
 
+Quando executado como servico Windows, o agente falha imediatamente se `apiUrl` ou `realtimeUrl` nao estiverem configurados. Isso evita um servico instalado tentar registrar ou abrir o canal de jogo no proprio computador por causa de um valor padrao de desenvolvimento.
+
 ```bash
 npm run agent:register
 npm run agent:heartbeat

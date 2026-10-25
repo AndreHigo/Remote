@@ -6,7 +6,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { connectRemoteSession, type RealtimeConnection } from "@remoto/desktop-control/realtime";
 import { inspectFfmpegCapabilities, resolveFfmpegExecutable } from "@remoto/desktop-control/capture";
-import { validateEndpointUrl } from "./url-policy.js";
+import { resolveAgentEndpoints } from "./config.js";
 import { buildCaptureReadiness, readCaptureProfile } from "./capture-config.js";
 
 const execFileAsync = promisify(execFile);
@@ -712,8 +712,7 @@ async function loadConfig(): Promise<AgentConfig> {
   }
 
   const stateFile = process.env.REMOTO_AGENT_STATE ?? fileConfig.stateFile ?? ".remoto-agent.json";
-  const apiUrl = validateEndpointUrl(process.env.REMOTO_API_URL ?? fileConfig.apiUrl ?? "http://localhost:4100", "api");
-  const realtimeUrl = validateEndpointUrl(process.env.REMOTO_REALTIME_URL ?? fileConfig.realtimeUrl ?? "ws://localhost:4200", "realtime");
+  const { apiUrl, realtimeUrl } = resolveAgentEndpoints(fileConfig);
 
   const agentKey = process.env.REMOTO_AGENT_KEY ?? fileConfig.agentKey;
   if (!agentKey) throw new Error(`agentKey ausente em ${CONFIG_FILE}. Gere uma chave no painel antes de iniciar o agente.`);
