@@ -2,8 +2,8 @@
 
 ## Estado atual
 
-- commit de referencia: `d1c6fe6`;
-- CI remoto verde no GitHub Actions: [Remoto CI 40217579127](https://github.com/AndreHigo/Remote/actions/runs/40217579127);
+- commit de referencia: `ea202b8`;
+- CI remoto verde no GitHub Actions: [Remoto CI 40218670514](https://github.com/AndreHigo/Remote/actions/runs/40218670514);
 - o CI passou nos testes de seguranca, agente, desktop-control e realtime;
 - typecheck, build, preflight dos Compose e empacotamento Windows do Agent e do Operator passaram;
 - o pacote Windows inclui o diagnostico automatico do host e a criacao da tarefa interativa de logon;
@@ -11,7 +11,8 @@
 - a mesma chave continua funcionando no mesmo computador, mas e recusada em outro;
 - mover um dispositivo acompanha o escopo da chave; excluir o dispositivo revoga e limpa as chaves vinculadas;
 - o autostart interativo do modo jogo usa a tarefa `RemotoAgentDesktop` com logon interativo e remove o fallback legado quando o Agendador de Tarefas esta disponivel;
-- os endpoints de sessao e comandos limitam motivo, chaves e payloads operacionais antes de persistir ou encaminhar dados.
+- os endpoints de sessao e comandos limitam motivo, chaves e payloads operacionais antes de persistir ou encaminhar dados;
+- o smoke test local pode ser repetido com `npm run smoke:local`, validando Postgres, API, relay, cadastro do agente e conexao do host.
 
 ## Validacao local
 
@@ -25,7 +26,7 @@ npx prisma validate --schema services/api/prisma/schema.prisma
 npx prisma migrate diff --from-migrations services/api/prisma/migrations --to-schema services/api/prisma/schema.prisma --script
 ```
 
-O CI do commit `d1c6fe6` tambem passou na auditoria de dependencias, nos testes de seguranca, no typecheck, no build, no preflight dos Compose e no empacotamento Windows do Agent e do Operator.
+O CI do commit `ea202b8` tambem passou na auditoria de dependencias, nos testes de seguranca, no typecheck, no build, no preflight dos Compose e no empacotamento Windows do Agent e do Operator.
 
 A auditoria estrutural de seguranca do commit `8053b42` terminou sem achados validados nas superficies criticas revisadas. A cobertura foi source-backed e parcial: ainda nao substitui homologacao em duas maquinas, teste pela internet ou revisao independente em ambiente de producao. O limite de payload adicionado em `d1c6fe6` foi validado separadamente por testes e typecheck.
 
