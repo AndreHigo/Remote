@@ -171,6 +171,8 @@ interface RemoteSessionResponse {
       mode: "support" | "game";
       role: "host" | "client";
       remoteId?: string;
+      accessToken?: string;
+      expiresAt?: string;
     };
   };
 }

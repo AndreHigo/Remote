@@ -95,6 +95,10 @@ const remoteSessionSchema = z.object({
   mode: z.enum(["support", "game"]).default("support")
 });
 
+const desktopSessionConsumeSchema = z.object({
+  accessToken: z.string().min(32).max(2048)
+});
+
 const inventorySchema = z.object({
   hardware: z.record(z.string(), z.unknown()),
   software: z.record(z.string(), z.unknown()).default({})
@@ -328,6 +332,30 @@ app.post("/agent/commands/:id/result", authenticateAgent, async (request, respon
 
   response.json(command);
 });
+
+app.post(
+  "/desktop-sessions/consume",
+  createRateLimiter({ name: "DesktopSession", windowMs: 60 * 1000, max: 30 }),
+  async (request, response) => {
+    const parsed = desktopSessionConsumeSchema.safeParse(request.body);
+    if (!parsed.success) {
+      response.status(400).json({ message: "Token de sessao invalido" });
+      return;
+    }
+
+    const result = await repository.consumeDesktopSessionToken(parsed.data.accessToken);
+    if (result.kind === "invalid") {
+      response.status(401).json({ message: "Token de sessao invalido" });
+      return;
+    }
+    if (result.kind === "expired") {
+      response.status(410).json({ message: "Token de sessao expirado ou ja utilizado" });
+      return;
+    }
+
+    response.json(result.session);
+  }
+);
 
 app.use(authenticate);
 

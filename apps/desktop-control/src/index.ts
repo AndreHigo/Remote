@@ -14,7 +14,9 @@ if (command === "status" && ["support", "game"].includes(mode)) {
     process.exitCode = 2;
   } else {
     try {
-      const session = JSON.parse(raw) as DesktopSessionDescriptor;
+      const requestedSession = JSON.parse(raw) as DesktopSessionDescriptor;
+      if (!requestedSession.accessToken) throw new Error("Abertura remota exige um token de sessao aprovado.");
+      const session = await consumeApprovedSession(requestedSession.accessToken);
       if (!["support", "game"].includes(session.mode) || !["host", "client"].includes(session.role)) {
         throw new Error("Descritor de sessao invalido");
       }
@@ -29,4 +31,16 @@ if (command === "status" && ["support", "game"].includes(mode)) {
 } else {
   console.error("Uso: npm run status -- status support|game | npm run open -w apps/desktop-control -- open <json>");
   process.exitCode = 2;
+}
+
+async function consumeApprovedSession(accessToken: string): Promise<DesktopSessionDescriptor> {
+  const apiUrl = process.env.REMOTO_API_URL ?? "http://localhost:4100";
+  const response = await fetch(`${apiUrl}/desktop-sessions/consume`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ accessToken })
+  });
+  const payload = await response.json().catch(() => ({})) as { message?: string } & DesktopSessionDescriptor;
+  if (!response.ok) throw new Error(payload.message ?? `Nao foi possivel consumir a sessao (${response.status})`);
+  return payload;
 }

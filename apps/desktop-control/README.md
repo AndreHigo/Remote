@@ -30,7 +30,9 @@ Diagnostico local:
 npm run status -w apps/desktop-control -- status support
 npm run status -w apps/desktop-control -- status game
 
-$env:REMOTO_SESSION_DESCRIPTOR = '{"sessionId":"sessao-1","deviceId":"pc-1","mode":"support","role":"client","remoteId":"123 456 789"}'
+$env:REMOTO_SESSION_DESCRIPTOR = '{"sessionId":"sessao-1","deviceId":"pc-1","mode":"support","role":"client","accessToken":"token-entregue-pela-api"}'
 npm run open -w apps/desktop-control
+
+# Em uma sessao aprovada, o descritor deve conter accessToken; o cliente o consome uma unica vez.
 ```
 

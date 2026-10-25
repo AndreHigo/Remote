@@ -12,11 +12,11 @@
 
 ## Limite atual
 
-Os modulos ainda nao estao ligados a uma porta publica, relay ou sessao autenticada. Essa separacao e intencional: expor entrada remota antes de fechar autenticacao, expiracao, encerramento e auditoria criaria risco operacional.
+O cliente desktop agora consome um token de sessao assinado, com hash no banco, expiracao de cinco minutos e uso unico. Os modulos ainda nao estao ligados a uma porta publica, relay ou transporte de frames. Essa separacao e intencional: expor entrada remota antes de fechar relay, encerramento e auditoria criaria risco operacional.
 
 ## Proxima integracao
 
-1. Criar canal autenticado de sessao com token curto e uso unico.
-2. Transportar frames e eventos pelo mesmo contexto de sessao.
-3. Associar encerramento do painel ao processo de captura e a ponte de entrada.
+1. Transportar frames e eventos pelo mesmo contexto de sessao.
+2. Associar encerramento do painel ao processo de captura e a ponte de entrada.
+3. Criar relay e travessia de NAT com limites de banda.
 4. Medir latencia, perda, FPS e comportamento em jogos reais.

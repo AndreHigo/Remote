@@ -3,6 +3,7 @@ import type { AuthUser, CommandType, DeviceView, RemoteSessionMode } from "./dom
 import type { Prisma } from "./generated/prisma/client.js";
 import { prisma } from "./db.js";
 import { hashPassword } from "./password.js";
+import { createDesktopSessionToken, hashToken, verifyDesktopSessionToken } from "./desktop-session-token.js";
 
 const ONLINE_WINDOW_MS = 90_000;
 
@@ -819,9 +820,22 @@ export const repository = {
       };
     }
 
+    const desktopToken = createDesktopSessionToken({
+      sessionId: current.id,
+      deviceId: current.deviceId,
+      mode: "support",
+      role: "client",
+      remoteId: current.device.remoteId
+    });
+
     const session = await prisma.remoteSession.update({
       where: { id: current.id },
-      data: { status: "APPROVED" },
+      data: {
+        status: "APPROVED",
+        connectionTokenHash: desktopToken.hash,
+        connectionTokenExpiresAt: desktopToken.expiresAt,
+        connectionTokenUsedAt: null
+      },
       include: { device: true }
     });
     await addAudit("remote-session.approved", input.user.name, session.deviceId, { sessionId: session.id }, session.deviceId, input.user.id);
@@ -844,7 +858,9 @@ export const repository = {
                 deviceId: session.deviceId,
                 mode: "support",
                 role: "client",
-                remoteId: session.device.remoteId
+                remoteId: session.device.remoteId,
+                accessToken: desktopToken.token,
+                expiresAt: desktopToken.expiresAt.toISOString()
               }
             }
           : {
@@ -852,6 +868,44 @@ export const repository = {
               status: "not-ready",
               message: "O cliente nativo do modo jogo ainda nao esta instalado neste ambiente."
             }
+      }
+    };
+  },
+
+  async consumeDesktopSessionToken(token: string) {
+    const payload = verifyDesktopSessionToken(token);
+    if (!payload) return { kind: "invalid" as const };
+
+    const current = await prisma.remoteSession.findUnique({
+      where: { id: payload.sessionId },
+      include: { device: true }
+    });
+    if (!current || current.connectionTokenHash !== hashToken(token)) return { kind: "invalid" as const };
+    if (current.status !== "APPROVED" || current.connectionTokenUsedAt || !current.connectionTokenExpiresAt || current.connectionTokenExpiresAt <= new Date()) {
+      return { kind: "expired" as const };
+    }
+
+    const consumed = await prisma.remoteSession.update({
+      where: { id: current.id },
+      data: { connectionTokenUsedAt: now() }
+    });
+    await addAudit(
+      "remote-session.token.consumed",
+      "desktop-control",
+      consumed.deviceId,
+      { sessionId: consumed.id, mode: consumed.mode.toLowerCase() },
+      consumed.deviceId
+    );
+
+    return {
+      kind: "consumed" as const,
+      session: {
+        sessionId: consumed.id,
+        deviceId: consumed.deviceId,
+        mode: consumed.mode.toLowerCase(),
+        role: "client" as const,
+        remoteId: current.device.remoteId,
+        expiresAt: current.connectionTokenExpiresAt.toISOString()
       }
     };
   },
@@ -905,7 +959,7 @@ export const repository = {
 
     const session = await prisma.remoteSession.update({
       where: { id: input.id },
-      data: { status: "ENDED", endedAt: now() }
+      data: { status: "ENDED", endedAt: now(), connectionTokenUsedAt: now() }
     });
     await addAudit(
       "remote-session.ended",

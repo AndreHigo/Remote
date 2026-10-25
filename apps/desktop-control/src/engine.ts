@@ -12,6 +12,8 @@ export interface DesktopSessionDescriptor {
   mode: DesktopMode;
   role: DesktopRole;
   remoteId?: string;
+  accessToken?: string;
+  expiresAt?: string;
 }
 
 export interface EngineReadiness {

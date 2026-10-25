@@ -125,6 +125,9 @@ model RemoteSession {
   reason         String
   mode           RemoteSessionMode   @default(SUPPORT)
   status         RemoteSessionStatus @default(REQUESTED)
+  connectionTokenHash      String?
+  connectionTokenExpiresAt DateTime?
+  connectionTokenUsedAt    DateTime?
   requestedAt    DateTime            @default(now())
   endedAt        DateTime?
 
@@ -134,6 +137,7 @@ model RemoteSession {
   @@index([deviceId])
   @@index([userId])
   @@index([requestedAt])
+  @@index([connectionTokenExpiresAt])
 }
 
 model AuditEvent {
