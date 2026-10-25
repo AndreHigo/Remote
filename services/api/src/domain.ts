@@ -7,6 +7,7 @@ export type CommandType = "ping" | "system-info" | "refresh-inventory";
 
 export interface AuthUser {
   id: string;
+  workspaceId: string;
   name: string;
   email: string;
   role: UserRole;

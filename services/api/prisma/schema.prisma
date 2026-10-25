@@ -33,8 +33,19 @@ enum CommandExecutionStatus {
   FAILED
 }
 
+model Workspace {
+  id        String   @id
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users     User[]
+  customers Customer[]
+}
+
 model User {
   id           String   @id @default(cuid())
+  workspaceId  String   @default("ws_default")
   name         String
   email        String   @unique
   passwordHash String
@@ -46,16 +57,20 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+
   remoteSessions    RemoteSession[]
   auditEvents        AuditEvent[]
   commandExecutions CommandExecution[]
 
   @@index([email])
   @@index([role])
+  @@index([workspaceId])
 }
 
 model Customer {
   id           String   @id @default(cuid())
+  workspaceId  String   @default("ws_default")
   name         String
   document     String
   contactName  String
@@ -63,10 +78,13 @@ model Customer {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+
   devices             Device[]
   agentEnrollmentKeys AgentEnrollmentKey[]
 
   @@index([name])
+  @@index([workspaceId])
 }
 
 model AgentEnrollmentKey {

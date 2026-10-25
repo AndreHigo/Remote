@@ -2,10 +2,10 @@
 
 ## Estado validado
 
-- commit publicado: `a0b3717`;
+- commit de referência publicado: `a0b3717`;
 - `npm test`: 27 testes passando;
 - `npm run typecheck`: API, web, desktop-control, agent e realtime sem erros;
-- `npm run build`: build completo validado antes do ultimo ajuste do relay;
+- `npm run build`: build completo validado antes do escopo de workspace;
 - `npm audit --audit-level=high`: 0 vulnerabilidades;
 - `docker compose config`: configuracao local valida;
 - relay revalida salas a cada 10 segundos e fecha sessoes revogadas;
@@ -17,11 +17,11 @@
 
 ## Pendencias que bloqueiam producao
 
-1. Definir o modelo de acesso entre usuarios, workspace e clientes. Hoje o MVP e workspace-wide: os papeis autorizados podem consultar os clientes da mesma instalacao. Antes de oferecer isolamento multi-tenant, criar memberships e aplicar o escopo em todas as rotas de clientes, dispositivos, comandos, inventario, sessoes e chaves.
+1. O limite de instalacao agora esta explicito no schema e na migracao `0006_workspace_scope`: usuarios, clientes e todas as operacoes administrativas sao filtrados pelo workspace autenticado. O MVP continua workspace-wide dentro de cada workspace; memberships por cliente e papeis por cliente ficam para uma etapa posterior, caso o produto precise desse nivel de delegacao.
 2. Assinar o instalador e os binarios Windows com Authenticode, publicar checksums assinados, trocar imagens `latest` por digests fixos e eliminar downloads de ferramentas via `npx` durante release.
 3. Executar o teste de duas maquinas Windows, primeiro na rede local e depois pela internet com HTTPS/WSS, medindo FPS, RTT, perda, CPU/GPU, UAC, troca de sessao, bloqueio de tela, gamepad e compatibilidade por jogo.
 4. Configurar na VPS os segredos reais, dominio, TLS, banco, backup, firewall e observabilidade. O preflight de producao deve falhar se algum segredo obrigatorio estiver ausente.
 
 ## Decisao
 
-O sistema esta pronto para homologacao controlada e para preparar a VPS, mas nao deve ser anunciado como release publica antes das quatro pendencias acima.
+O sistema esta pronto para homologacao controlada e para preparar a VPS, mas nao deve ser anunciado como release publica antes das tres pendencias operacionais acima e da confirmacao da migracao `0006_workspace_scope` no banco de homologacao.

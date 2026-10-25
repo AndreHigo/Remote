@@ -15,6 +15,11 @@ if (password.length < 12) {
 }
 
 try {
+  await prisma.workspace.upsert({
+    where: { id: "ws_default" },
+    update: {},
+    create: { id: "ws_default", name: "Workspace Remoto" }
+  });
   const current = await prisma.user.findUnique({ where: { email } });
   if (current) {
     if (current.role !== "OWNER" || !current.active) {

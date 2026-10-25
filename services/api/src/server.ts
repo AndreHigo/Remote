@@ -513,12 +513,12 @@ app.post("/auth/2fa/disable", requireRole(["owner", "admin"]), async (request, r
   response.json({ enabled: false });
 });
 
-app.get("/summary", async (_request, response) => {
-  response.json(await repository.summary());
+app.get("/summary", async (request, response) => {
+  response.json(await repository.summary((request as AuthenticatedRequest).user));
 });
 
-app.get("/customers", requireRole(["owner", "admin"]), async (_request, response) => {
-  response.json(await repository.listCustomers());
+app.get("/customers", requireRole(["owner", "admin"]), async (request, response) => {
+  response.json(await repository.listCustomers((request as AuthenticatedRequest).user));
 });
 
 app.post("/customers", requireRole(["owner", "admin"]), async (request, response) => {
@@ -554,8 +554,8 @@ app.patch("/customers/:id", requireRole(["owner", "admin"]), async (request, res
   response.json(customer);
 });
 
-app.get("/users", requireRole(["owner", "admin"]), async (_request, response) => {
-  response.json(await repository.listUsers());
+app.get("/users", requireRole(["owner", "admin"]), async (request, response) => {
+  response.json(await repository.listUsers((request as AuthenticatedRequest).user));
 });
 
 app.post("/users", requireRole(["owner", "admin"]), async (request, response) => {
@@ -624,8 +624,8 @@ app.delete("/customers/:id", requireRole(["owner", "admin"]), async (request, re
   response.json(result.customer);
 });
 
-app.get("/agent-keys", requireRole(["owner", "admin"]), async (_request, response) => {
-  response.json(await repository.listAgentKeys());
+app.get("/agent-keys", requireRole(["owner", "admin"]), async (request, response) => {
+  response.json(await repository.listAgentKeys((request as AuthenticatedRequest).user));
 });
 
 app.post("/agent-keys", requireRole(["owner", "admin"]), async (request, response) => {
@@ -661,17 +661,17 @@ app.post("/agent-keys/:id/revoke", requireRole(["owner", "admin"]), async (reque
   response.json(revoked);
 });
 
-app.get("/devices", async (_request, response) => {
-  response.json(await repository.listDevices());
+app.get("/devices", async (request, response) => {
+  response.json(await repository.listDevices((request as AuthenticatedRequest).user));
 });
 
-app.get("/devices/archived", requireRole(["owner", "admin"]), async (_request, response) => {
-  response.json(await repository.listArchivedDevices());
+app.get("/devices/archived", requireRole(["owner", "admin"]), async (request, response) => {
+  response.json(await repository.listArchivedDevices((request as AuthenticatedRequest).user));
 });
 
 app.get("/devices/:id", async (request, response) => {
   const deviceId = z.string().parse(request.params.id);
-  const device = await repository.getDevice(deviceId);
+  const device = await repository.getDevice(deviceId, (request as unknown as AuthenticatedRequest).user);
   if (!device) {
     response.status(404).json({ message: "Dispositivo nao encontrado" });
     return;
@@ -682,7 +682,7 @@ app.get("/devices/:id", async (request, response) => {
 
 app.get("/devices/:id/inventory", async (request, response) => {
   const deviceId = z.string().parse(request.params.id);
-  response.json(await repository.listInventory(deviceId));
+  response.json(await repository.listInventory(deviceId, (request as unknown as AuthenticatedRequest).user));
 });
 
 app.patch("/devices/:id/customer", requireRole(["owner", "admin"]), async (request, response) => {
@@ -734,7 +734,7 @@ app.post("/devices/:id/restore", requireRole(["owner", "admin"]), async (request
 
 app.get("/devices/:id/commands", async (request, response) => {
   const deviceId = z.string().parse(request.params.id);
-  response.json(await repository.listCommands(deviceId));
+  response.json(await repository.listCommands(deviceId, (request as unknown as AuthenticatedRequest).user));
 });
 
 app.post("/devices/register", requireRole(["owner", "admin"]), async (request, response) => {
@@ -744,7 +744,7 @@ app.post("/devices/register", requireRole(["owner", "admin"]), async (request, r
     return;
   }
 
-  const device = await repository.registerDevice(parsed.data);
+  const device = await repository.registerDevice({ ...parsed.data, workspaceId: (request as AuthenticatedRequest).user.workspaceId });
   if (!device) {
     response.status(404).json({ message: "Cliente nao encontrado" });
     return;
@@ -755,7 +755,7 @@ app.post("/devices/register", requireRole(["owner", "admin"]), async (request, r
 
 app.post("/devices/:id/heartbeat", requireRole(["owner", "admin", "technician"]), async (request, response) => {
   const deviceId = z.string().parse(request.params.id);
-  const device = await repository.heartbeat({ deviceId });
+  const device = await repository.heartbeat({ deviceId, workspaceId: (request as AuthenticatedRequest).user.workspaceId });
   if (!device) {
     response.status(404).json({ message: "Dispositivo nao encontrado" });
     return;
@@ -837,12 +837,12 @@ app.post("/remote-sessions/:id/deny", requireRole(["owner", "admin"]), async (re
   response.json(result);
 });
 
-app.get("/remote-sessions", requireRole(["owner", "admin", "technician"]), async (_request, response) => {
-  response.json(await repository.listSessions());
+app.get("/remote-sessions", requireRole(["owner", "admin", "technician"]), async (request, response) => {
+  response.json(await repository.listSessions((request as AuthenticatedRequest).user));
 });
 
-app.get("/audit-events", requireRole(["owner", "admin"]), async (_request, response) => {
-  response.json(await repository.listAuditEvents());
+app.get("/audit-events", requireRole(["owner", "admin"]), async (request, response) => {
+  response.json(await repository.listAuditEvents((request as AuthenticatedRequest).user));
 });
 
 app.use((error: unknown, _request: express.Request, response: express.Response, _next: express.NextFunction) => {

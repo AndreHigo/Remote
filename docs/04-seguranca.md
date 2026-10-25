@@ -181,13 +181,13 @@ Regras:
 - assinar o instalador e definir atualizacao assinada;
 - trocar rate limit em memoria por Redis e validar rotacao/armazenamento de segredos;
 - pinar imagens Docker por digest e proteger backups com criptografia operacional;
-- concluir isolamento multi-tenant: o MVP atual ainda representa um workspace unico;
+- validar a migracao `0006_workspace_scope` no banco de homologacao e, se necessario, evoluir de escopo por workspace para memberships por cliente;
 - confirmar os encoders, FPS, RTT e perda em computadores com GPU dedicada, integrada e somente CPU.
 - validar o cliente nativo com duas maquinas, jogos reais, UAC, bloqueio de tela e troca de sessao.
 
 ## Limite atual do MVP
 
-O schema atual representa um workspace unico. As regras de segregacao por organizacao descritas acima sao objetivo de produto, mas ainda nao devem ser tratadas como isolamento multi-tenant implementado.
+O schema agora representa explicitamente o limite de um workspace e as consultas administrativas aplicam esse escopo. O modelo ainda e workspace-wide dentro de cada workspace; segregacao por cliente via memberships continua sendo uma evolucao de produto, nao uma promessa do MVP.
 
 ## Decisao sobre codigo aberto
 

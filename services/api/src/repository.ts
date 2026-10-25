@@ -141,8 +141,9 @@ async function findDeviceByIdentity(input: {
 }
 
 export const repository = {
-  async listAgentKeys() {
+  async listAgentKeys(user: AuthUser) {
     const keys = await prisma.agentEnrollmentKey.findMany({
+      where: { customer: { workspaceId: user.workspaceId } },
       include: { customer: { select: { name: true } } },
       orderBy: { createdAt: "desc" }
     });
@@ -159,7 +160,7 @@ export const repository = {
   },
 
   async createAgentKey(input: { customerId: string; name: string; user: AuthUser }) {
-    const customer = await prisma.customer.findUnique({ where: { id: input.customerId } });
+    const customer = await prisma.customer.findFirst({ where: { id: input.customerId, workspaceId: input.user.workspaceId } });
     if (!customer) return null;
 
     const plainKey = `rm_${crypto.randomBytes(24).toString("base64url")}`;
@@ -194,9 +195,9 @@ export const repository = {
   async revokeAgentKey(input: { id: string; user: AuthUser }) {
     const current = await prisma.agentEnrollmentKey.findUnique({
       where: { id: input.id },
-      include: { customer: { select: { name: true } } }
+      include: { customer: { select: { name: true, workspaceId: true } } }
     });
-    if (!current) return null;
+    if (!current || current.customer.workspaceId !== input.user.workspaceId) return null;
 
     const key = await prisma.agentEnrollmentKey.update({
       where: { id: input.id },
@@ -223,8 +224,9 @@ export const repository = {
     };
   },
 
-  async listCustomers() {
+  async listCustomers(user: AuthUser) {
     const customers = await prisma.customer.findMany({
+      where: { workspaceId: user.workspaceId },
       orderBy: { name: "asc" },
       include: { _count: { select: { devices: { where: { archivedAt: null } }, agentEnrollmentKeys: true } } }
     });
@@ -245,6 +247,7 @@ export const repository = {
   }) {
     const customer = await prisma.customer.create({
       data: {
+        workspaceId: input.user.workspaceId,
         name: input.name,
         document: input.document,
         contactName: input.contactName,
@@ -272,7 +275,7 @@ export const repository = {
     contactEmail: string;
     user: AuthUser;
   }) {
-    const current = await prisma.customer.findUnique({ where: { id: input.id } });
+    const current = await prisma.customer.findFirst({ where: { id: input.id, workspaceId: input.user.workspaceId } });
     if (!current) return null;
 
     const customer = await prisma.customer.update({
@@ -299,8 +302,8 @@ export const repository = {
     return { ...value, deviceCount: _count.devices, agentKeyCount: _count.agentEnrollmentKeys };
   },
 
-  async listUsers() {
-    const users = await prisma.user.findMany({ orderBy: { name: "asc" } });
+  async listUsers(user: AuthUser) {
+    const users = await prisma.user.findMany({ where: { workspaceId: user.workspaceId }, orderBy: { name: "asc" } });
     return users.map((user) => ({
       id: user.id,
       name: user.name,
@@ -325,6 +328,7 @@ export const repository = {
 
     const created = await prisma.user.create({
       data: {
+        workspaceId: input.user.workspaceId,
         name: input.name,
         email: input.email.toLowerCase(),
         passwordHash: await hashPassword(input.password),
@@ -360,13 +364,13 @@ export const repository = {
     active: boolean;
     user: AuthUser;
   }) {
-    const current = await prisma.user.findUnique({ where: { id: input.id } });
+    const current = await prisma.user.findFirst({ where: { id: input.id, workspaceId: input.user.workspaceId } });
     if (!current) return { kind: "not_found" as const };
     if (current.role === "OWNER" && input.user.role !== "owner") return { kind: "forbidden" as const };
     if (input.id === input.user.id && !input.active) return { kind: "self_deactivate" as const };
     if (input.role === "owner" && input.user.role !== "owner") return { kind: "forbidden" as const };
     if (current.role === "OWNER" && (input.role !== "owner" || !input.active)) {
-      const activeOwners = await prisma.user.count({ where: { role: "OWNER", active: true } });
+      const activeOwners = await prisma.user.count({ where: { workspaceId: input.user.workspaceId, role: "OWNER", active: true } });
       if (activeOwners <= 1) return { kind: "last_owner" as const };
     }
 
@@ -411,7 +415,7 @@ export const repository = {
   },
 
   async resetUserPassword(input: { id: string; password: string; user: AuthUser }) {
-    const current = await prisma.user.findUnique({ where: { id: input.id } });
+    const current = await prisma.user.findFirst({ where: { id: input.id, workspaceId: input.user.workspaceId } });
     if (!current) return { kind: "not_found" as const };
     if (current.role === "OWNER" && input.user.role !== "owner") return { kind: "forbidden" as const };
     await prisma.user.update({ where: { id: input.id }, data: { passwordHash: await hashPassword(input.password), sessionVersion: { increment: 1 } } });
@@ -421,8 +425,8 @@ export const repository = {
   },
 
   async deleteCustomer(input: { id: string; user: AuthUser }) {
-    const customer = await prisma.customer.findUnique({
-      where: { id: input.id },
+    const customer = await prisma.customer.findFirst({
+      where: { id: input.id, workspaceId: input.user.workspaceId },
       include: { _count: { select: { devices: { where: { archivedAt: null } }, agentEnrollmentKeys: true } } }
     });
     if (!customer) return null;
@@ -447,9 +451,9 @@ export const repository = {
     return { conflict: false as const, customer };
   },
 
-  async listDevices() {
+  async listDevices(user: AuthUser) {
     const devices = await prisma.device.findMany({
-      where: { archivedAt: null },
+      where: { archivedAt: null, customer: { workspaceId: user.workspaceId } },
       include: { customer: { select: { name: true } } },
       orderBy: { displayName: "asc" }
     });
@@ -457,9 +461,9 @@ export const repository = {
     return devices.map(toDeviceView);
   },
 
-  async getDevice(deviceId: string) {
-    const device = await prisma.device.findUnique({
-      where: { id: deviceId, archivedAt: null },
+  async getDevice(deviceId: string, user: AuthUser) {
+    const device = await prisma.device.findFirst({
+      where: { id: deviceId, archivedAt: null, customer: { workspaceId: user.workspaceId } },
       include: { customer: { select: { name: true } } }
     });
 
@@ -475,9 +479,9 @@ export const repository = {
     return device ? toDeviceView(device) : null;
   },
 
-  async listArchivedDevices() {
+  async listArchivedDevices(user: AuthUser) {
     const devices = await prisma.device.findMany({
-      where: { archivedAt: { not: null } },
+      where: { archivedAt: { not: null }, customer: { workspaceId: user.workspaceId } },
       include: { customer: { select: { name: true } } },
       orderBy: { archivedAt: "desc" }
     });
@@ -485,7 +489,7 @@ export const repository = {
   },
 
   async archiveDevice(input: { id: string; user: AuthUser }) {
-    const current = await prisma.device.findUnique({ where: { id: input.id } });
+    const current = await prisma.device.findFirst({ where: { id: input.id, customer: { workspaceId: input.user.workspaceId } } });
     if (!current) return null;
     if (current.archivedAt) return { id: current.id, displayName: current.displayName, archived: true as const };
 
@@ -503,7 +507,7 @@ export const repository = {
   },
 
   async restoreDevice(input: { id: string; user: AuthUser }) {
-    const current = await prisma.device.findUnique({ where: { id: input.id } });
+    const current = await prisma.device.findFirst({ where: { id: input.id, customer: { workspaceId: input.user.workspaceId } } });
     if (!current) return null;
     const device = await prisma.device.update({
       where: { id: current.id },
@@ -516,8 +520,8 @@ export const repository = {
 
   async moveDevice(input: { id: string; customerId: string; user: AuthUser }) {
     const [device, customer] = await Promise.all([
-      prisma.device.findUnique({ where: { id: input.id } }),
-      prisma.customer.findUnique({ where: { id: input.customerId } })
+      prisma.device.findFirst({ where: { id: input.id, customer: { workspaceId: input.user.workspaceId } } }),
+      prisma.customer.findFirst({ where: { id: input.customerId, workspaceId: input.user.workspaceId } })
     ]);
     if (!device) return { kind: "device_not_found" as const };
     if (!customer) return { kind: "customer_not_found" as const };
@@ -548,7 +552,7 @@ export const repository = {
   },
 
   async deleteDevice(input: { id: string; user: AuthUser }) {
-    const device = await prisma.device.findUnique({ where: { id: input.id } });
+    const device = await prisma.device.findFirst({ where: { id: input.id, customer: { workspaceId: input.user.workspaceId } } });
     if (!device) return null;
 
     await prisma.$transaction(async (transaction) => {
@@ -579,8 +583,11 @@ export const repository = {
     primaryMac?: string | null;
     identityHash?: string | null;
     tags?: string[];
+    workspaceId?: string;
   }) {
-    const customer = await prisma.customer.findUnique({ where: { id: input.customerId } });
+    const customer = await prisma.customer.findFirst({
+      where: { id: input.customerId, ...(input.workspaceId ? { workspaceId: input.workspaceId } : {}) }
+    });
     if (!customer) return null;
 
     const existingDevice = await findDeviceByIdentity(input);
@@ -623,9 +630,14 @@ export const repository = {
     return toDeviceView(device);
   },
 
-  async heartbeat(input: { deviceId: string; customerId?: string }) {
+  async heartbeat(input: { deviceId: string; customerId?: string; workspaceId?: string }) {
     const current = await prisma.device.findFirst({
-      where: { id: input.deviceId, archivedAt: null, ...(input.customerId ? { customerId: input.customerId } : {}) }
+      where: {
+        id: input.deviceId,
+        archivedAt: null,
+        ...(input.customerId ? { customerId: input.customerId } : {}),
+        ...(input.workspaceId ? { customer: { workspaceId: input.workspaceId } } : {})
+      }
     });
     if (!current) return null;
 
@@ -645,9 +657,15 @@ export const repository = {
     hardware: Prisma.InputJsonValue;
     software: Prisma.InputJsonValue;
     actor: string;
+    workspaceId?: string;
   }) {
     const current = await prisma.device.findFirst({
-      where: { id: input.deviceId, archivedAt: null, ...(input.customerId ? { customerId: input.customerId } : {}) }
+      where: {
+        id: input.deviceId,
+        archivedAt: null,
+        ...(input.customerId ? { customerId: input.customerId } : {}),
+        ...(input.workspaceId ? { customer: { workspaceId: input.workspaceId } } : {})
+      }
     });
     if (!current) return null;
 
@@ -680,7 +698,11 @@ export const repository = {
     };
   },
 
-  async listInventory(deviceId: string) {
+  async listInventory(deviceId: string, user?: AuthUser) {
+    if (user) {
+      const device = await prisma.device.findFirst({ where: { id: deviceId, customer: { workspaceId: user.workspaceId } }, select: { id: true } });
+      if (!device) return [];
+    }
     const snapshots = await prisma.inventorySnapshot.findMany({
       where: { deviceId },
       orderBy: { collectedAt: "desc" },
@@ -699,7 +721,7 @@ export const repository = {
     payload?: Prisma.InputJsonValue;
     user: AuthUser;
   }) {
-    const device = await prisma.device.findUnique({ where: { id: input.deviceId, archivedAt: null } });
+    const device = await prisma.device.findFirst({ where: { id: input.deviceId, archivedAt: null, customer: { workspaceId: input.user.workspaceId } } });
     if (!device) return null;
 
     const [command] = await prisma.$transaction([
@@ -727,8 +749,11 @@ export const repository = {
     return toCommandView(command);
   },
 
-  async listCommands(deviceId: string) {
-    const device = await prisma.device.findUnique({ where: { id: deviceId, archivedAt: null }, select: { id: true } });
+  async listCommands(deviceId: string, user?: AuthUser) {
+    const device = await prisma.device.findFirst({
+      where: { id: deviceId, archivedAt: null, ...(user ? { customer: { workspaceId: user.workspaceId } } : {}) },
+      select: { id: true }
+    });
     if (!device) return [];
     const commands = await prisma.commandExecution.findMany({
       where: { deviceId },
@@ -800,7 +825,9 @@ export const repository = {
   },
 
   async requestRemoteSession(input: { deviceId: string; reason: string; mode: RemoteSessionMode; user: AuthUser }) {
-    const device = await prisma.device.findUnique({ where: { id: input.deviceId, archivedAt: null } });
+    const device = await prisma.device.findFirst({
+      where: { id: input.deviceId, archivedAt: null, customer: { workspaceId: input.user.workspaceId } }
+    });
     if (!device) return null;
 
     const [session] = await prisma.$transaction([
@@ -831,9 +858,10 @@ export const repository = {
   async approveRemoteSession(input: { id: string; user: AuthUser }) {
     const current = await prisma.remoteSession.findUnique({
       where: { id: input.id },
-      include: { device: true }
+      include: { device: { include: { customer: true } } }
     });
     if (!current) return null;
+    if (current.device.customer.workspaceId !== input.user.workspaceId) return null;
     if (current.status !== "REQUESTED") return { kind: "unchanged" as const, status: current.status.toLowerCase() };
     if (current.mode === "GAME" && (process.env.ENABLE_GAME_MODE !== "true" || !process.env.REALTIME_INTERNAL_SECRET)) {
       await addAudit(
@@ -1060,7 +1088,9 @@ export const repository = {
   },
 
   async denyRemoteSession(input: { id: string; user: AuthUser }) {
-    const current = await prisma.remoteSession.findUnique({ where: { id: input.id } });
+    const current = await prisma.remoteSession.findFirst({
+      where: { id: input.id, device: { customer: { workspaceId: input.user.workspaceId } } }
+    });
     if (!current) return null;
     if (current.status !== "REQUESTED") return { kind: "unchanged" as const, status: current.status.toLowerCase() };
 
@@ -1078,11 +1108,12 @@ export const repository = {
     return { kind: "denied" as const, status: session.status.toLowerCase() };
   },
 
-  async listSessions() {
+  async listSessions(user: AuthUser) {
     const sessions = await prisma.remoteSession.findMany({
+      where: { device: { customer: { workspaceId: user.workspaceId } } },
       orderBy: { requestedAt: "desc" },
       take: 50,
-      include: { device: { select: { displayName: true, remoteId: true, customer: { select: { name: true } } } } }
+      include: { device: { select: { displayName: true, remoteId: true, customer: { select: { name: true, workspaceId: true } } } } }
     });
     return sessions.map((session) => ({
       ...toRemoteSessionView(session),
@@ -1096,6 +1127,7 @@ export const repository = {
     const current = await prisma.remoteSession.findFirst({
       where: {
         id: input.id,
+        device: { customer: { workspaceId: input.user.workspaceId } },
         ...(input.user.role === "technician" ? { userId: input.user.id } : {})
       }
     });
@@ -1159,8 +1191,14 @@ export const repository = {
     return activeSessions.length;
   },
 
-  async listAuditEvents() {
+  async listAuditEvents(user: AuthUser) {
     const events = await prisma.auditEvent.findMany({
+      where: {
+        OR: [
+          { userId: user.id },
+          { device: { customer: { workspaceId: user.workspaceId } } }
+        ]
+      },
       orderBy: { createdAt: "desc" },
       take: 50
     });
@@ -1171,11 +1209,11 @@ export const repository = {
     }));
   },
 
-  async summary() {
+  async summary(user: AuthUser) {
     const [customers, devices, sessions] = await Promise.all([
-      prisma.customer.count(),
-      prisma.device.findMany({ where: { archivedAt: null }, select: { lastSeenAt: true } }),
-      prisma.remoteSession.count()
+      prisma.customer.count({ where: { workspaceId: user.workspaceId } }),
+      prisma.device.findMany({ where: { archivedAt: null, customer: { workspaceId: user.workspaceId } }, select: { lastSeenAt: true } }),
+      prisma.remoteSession.count({ where: { device: { customer: { workspaceId: user.workspaceId } } } })
     ]);
 
     const onlineDevices = devices.filter((device) => getStatus(device.lastSeenAt).status === "online").length;

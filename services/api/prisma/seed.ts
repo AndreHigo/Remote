@@ -13,6 +13,11 @@ const prisma = new PrismaClient({
 });
 
 async function main() {
+  await prisma.workspace.upsert({
+    where: { id: "ws_default" },
+    update: { name: "Workspace Remoto" },
+    create: { id: "ws_default", name: "Workspace Remoto" }
+  });
   await prisma.auditEvent.deleteMany();
   await prisma.remoteSession.deleteMany();
   await prisma.commandExecution.deleteMany();

@@ -191,9 +191,10 @@ export function requireRole(roles: UserRole[]) {
   };
 }
 
-function toAuthUser(user: { id: string; name: string; email: string; role: string }): AuthUser {
+function toAuthUser(user: { id: string; workspaceId: string; name: string; email: string; role: string }): AuthUser {
   return {
     id: user.id,
+    workspaceId: user.workspaceId,
     name: user.name,
     email: user.email,
     role: user.role.toLowerCase() as UserRole
