@@ -10,6 +10,7 @@ let reconnectTimer;
 let reconnectAttempt = 0;
 let closingSession = false;
 let sessionModule;
+let firstFrameTimer;
 
 function parseArgs(argv) {
   const index = argv.indexOf("--descriptor-file");
@@ -90,6 +91,19 @@ function sendMetrics(metrics) {
   mainWindow.webContents.send("metrics", metrics);
 }
 
+function clearFirstFrameTimer() {
+  if (firstFrameTimer) clearTimeout(firstFrameTimer);
+  firstFrameTimer = undefined;
+}
+
+function armFirstFrameTimer(descriptor) {
+  clearFirstFrameTimer();
+  firstFrameTimer = setTimeout(() => {
+    if (closingSession || activeDescriptor?.sessionId !== descriptor.sessionId) return;
+    sendStatus("error", "O computador remoto conectou, mas nao enviou video em 20s. Verifique o FFmpeg e atualize o inventario.");
+  }, 20_000);
+}
+
 function isFiniteNumber(value) {
   return typeof value === "number" && Number.isFinite(value);
 }
@@ -132,15 +146,23 @@ async function startSession() {
 
 async function connectNativeSession(descriptor, realtimeUrl) {
   if (closingSession || activeDescriptor?.sessionId !== descriptor.sessionId) return;
+  let firstFrameReceived = false;
   try {
     nativeSession = await sessionModule.openNativeOperatorSession(descriptor, {
       url: realtimeUrl,
       onFrame(frame) {
+        if (!firstFrameReceived) {
+          firstFrameReceived = true;
+          clearFirstFrameTimer();
+          sendStatus("connected", "Video recebido.");
+        }
         if (!mainWindow || mainWindow.isDestroyed()) return;
         mainWindow.webContents.send("video-frame", Uint8Array.from(frame));
       },
       onReady(peerConnected) {
         reconnectAttempt = 0;
+        if (peerConnected) armFirstFrameTimer(descriptor);
+        else clearFirstFrameTimer();
         sendStatus(peerConnected ? "connected" : "waiting", peerConnected ? "Computador remoto conectado." : "Aguardando o agente remoto...");
       },
       onLatencyMs(latencyMs) {
@@ -150,6 +172,7 @@ async function connectNativeSession(descriptor, realtimeUrl) {
         sendMetrics(metrics);
       },
       onClosed(reason) {
+        clearFirstFrameTimer();
         if (closingSession || activeDescriptor?.sessionId !== descriptor.sessionId) return;
         nativeSession = undefined;
         if (isTerminalSessionReason(reason)) {
@@ -160,6 +183,7 @@ async function connectNativeSession(descriptor, realtimeUrl) {
       }
     });
   } catch (error) {
+    clearFirstFrameTimer();
     const message = error instanceof Error ? error.message : String(error);
     if (closingSession || activeDescriptor?.sessionId !== descriptor.sessionId) return;
     scheduleReconnect(descriptor, realtimeUrl, message);
@@ -187,6 +211,7 @@ function scheduleReconnect(descriptor, realtimeUrl, reason) {
 
 async function closeSession() {
   closingSession = true;
+  clearFirstFrameTimer();
   if (reconnectTimer) clearTimeout(reconnectTimer);
   reconnectTimer = undefined;
   reconnectAttempt = 0;

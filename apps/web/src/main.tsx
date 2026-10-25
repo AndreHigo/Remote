@@ -1660,6 +1660,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
       : realtimeUrl;
     let disposed = false;
     let reconnectTimer: number | null = null;
+    let firstFrameTimer: number | null = null;
     let reconnectAttempt = 0;
     let reconnectAllowed = true;
     const socketUrl = `${realtimeBase.replace(/\/$/, "")}/sessions/${encodeURIComponent(session.sessionId)}`;
@@ -1706,6 +1707,21 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
       pingTimerRef.current = null;
     };
 
+    const clearFirstFrameTimer = () => {
+      if (firstFrameTimer !== null) window.clearTimeout(firstFrameTimer);
+      firstFrameTimer = null;
+    };
+
+    const armFirstFrameTimer = () => {
+      clearFirstFrameTimer();
+      firstFrameTimer = window.setTimeout(() => {
+        if (!disposed) {
+          setStatus("Video nao recebido em 20s.");
+          setError("O computador remoto conectou, mas nao enviou video. Verifique o FFmpeg e atualize o inventario do dispositivo.");
+        }
+      }, 20_000);
+    };
+
     const scheduleReconnect = () => {
       if (disposed || !reconnectAllowed || reconnectTimer !== null) return;
       if (reconnectAttempt >= 8) {
@@ -1745,7 +1761,11 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
             setError("O relay enviou um controle invalido.");
             return;
           }
-          if (message.type === "ready") setStatus(message.peerConnected ? "Conectado. Clique no video para capturar o mouse." : "Conectado. Aguardando o agente do computador...");
+          if (message.type === "ready") {
+            if (message.peerConnected) armFirstFrameTimer();
+            else clearFirstFrameTimer();
+            setStatus(message.peerConnected ? "Conectado. Clique no video para capturar o mouse." : "Conectado. Aguardando o agente do computador...");
+          }
           if (message.type === "closed") {
             if (message.reason === "session-expired" || message.reason === "session-ended") reconnectAllowed = false;
             setStatus(message.reason === "peer-disconnected" ? "O computador remoto desconectou. Reconectando..." : message.reason ?? "Sessao encerrada.");
@@ -1754,6 +1774,8 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
           return;
         }
         const frame = new Uint8Array(event.data as ArrayBuffer);
+        clearFirstFrameTimer();
+        setError(null);
         if (frame.byteLength > 8 * 1024 * 1024) {
           setError("O frame recebido excede o limite permitido.");
           return;
@@ -1770,6 +1792,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
       socket.addEventListener("error", () => setError("Nao foi possivel conectar ao relay realtime."));
       socket.addEventListener("close", (event) => {
         clearPing();
+        clearFirstFrameTimer();
         if (socketRef.current === socket) socketRef.current = null;
         if (event.code === 1008) reconnectAllowed = false;
         if (!disposed && reconnectAllowed) scheduleReconnect();
@@ -1785,6 +1808,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
       if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
       reconnectTimer = null;
       clearPing();
+      clearFirstFrameTimer();
       socketRef.current?.close();
       socketRef.current = null;
       sourceBufferRef.current = null;
