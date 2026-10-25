@@ -51,6 +51,23 @@ function Find-ProtectedFfmpeg {
   return @($candidates | Where-Object { Test-UnderTrustedRoot $_ } | Select-Object -First 1)
 }
 
+function Get-SafeEndpointSummary {
+  param([object]$Value)
+
+  if ([string]::IsNullOrWhiteSpace([string]$Value)) { return $null }
+  try {
+    $uri = [Uri]$Value
+    return [ordered]@{
+      scheme = $uri.Scheme
+      host = $uri.Host
+      port = if ($uri.IsDefaultPort) { $null } else { $uri.Port }
+      path = $uri.AbsolutePath
+    }
+  } catch {
+    return [ordered]@{ invalid = $true }
+  }
+}
+
 $os = Get-OptionalCimInstance -ClassName "Win32_OperatingSystem"
 $computer = Get-OptionalCimInstance -ClassName "Win32_ComputerSystem"
 $controllers = @(Get-OptionalCimInstance -ClassName "Win32_VideoController")
@@ -144,6 +161,8 @@ $report = [ordered]@{
   agent = [ordered]@{
     configurationPath = $agentConfigPath
     configurationStatus = $configurationStatus
+    apiEndpoint = Get-SafeEndpointSummary $agentConfig.apiUrl
+    realtimeEndpoint = Get-SafeEndpointSummary $agentConfig.realtimeUrl
     apiUrlConfigured = [bool]($agentConfig -and -not [string]::IsNullOrWhiteSpace([string]$agentConfig.apiUrl))
     realtimeUrlConfigured = [bool]($agentConfig -and -not [string]::IsNullOrWhiteSpace([string]$agentConfig.realtimeUrl))
     agentKeyConfigured = [bool]($agentConfig -and -not [string]::IsNullOrWhiteSpace([string]$agentConfig.agentKey))
