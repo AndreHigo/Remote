@@ -48,6 +48,8 @@ O arquivo `.remoto-agent.config.json` fica local ao agente e nunca deve ser vers
 
 No instalador Windows, a configuracao e somente leitura para o usuario que instalou o agente e o estado operacional fica em `C:\ProgramData\Remoto\state`. O processo desktop e registrado no autostart do Windows; somente o usuario com ACL de leitura consegue iniciar o fluxo, e a credencial do agente deve ser revogada no painel quando o computador for desativado.
 
+Durante uma atualizacao, o instalador para o servico e encerra os hosts do agente antes de substituir os executaveis. Se uma instancia antiga estiver presa por software de seguranca, o instalador registra a falha em seu log e deve ser executado novamente depois que o processo for liberado.
+
 Variaveis opcionais:
 
 ```text

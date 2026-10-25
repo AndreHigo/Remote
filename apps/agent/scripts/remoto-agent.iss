@@ -25,6 +25,9 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 WizardStyle=modern
 DisableProgramGroupPage=yes
+CloseApplications=force
+CloseApplicationsFilter=RemotoAgent.exe,RemotoAgentService.exe
+RestartApplications=no
 OutputDir={#OutputDir}
 OutputBaseFilename=RemotoAgent-Setup
 Compression=lzma2
@@ -181,6 +184,7 @@ end;
 procedure StopExistingService;
 var
   ScPath: string;
+  TaskKillPath: string;
   PowerShellPath: string;
   Parameters: string;
   ResultCode: Integer;
@@ -199,6 +203,18 @@ begin
     'while ((Get-Process -Name ''RemotoAgent'' -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) ' +
     '{ Start-Sleep -Milliseconds 250 }"';
   Exec(PowerShellPath, Parameters, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
+  { A stopped service can still have a short-lived host process. Force-close both
+    known executables before Inno attempts to replace their files. }
+  TaskKillPath := ExpandConstant('{sys}\taskkill.exe');
+  Exec(TaskKillPath, '/F /T /IM RemotoAgentService.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Exec(TaskKillPath, '/F /T /IM RemotoAgent.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  StopExistingService;
+  Result := '';
 end;
 
 procedure InitializeWizard;
@@ -219,9 +235,6 @@ end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
-  if CurStep = ssInstall then begin
-    StopExistingService;
-  end;
   if CurStep = ssPostInstall then begin
     InstallAgentService;
   end;
