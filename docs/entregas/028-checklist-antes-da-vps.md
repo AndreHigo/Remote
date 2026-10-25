@@ -21,6 +21,9 @@
 - o operador nativo agora exibe RTT e tenta reconectar após queda transitória, conforme `docs/entregas/030-reconexao-e-rtt-operador-nativo.md`.
 - o transporte do host preserva segmentos fMP4 completos antes de enviá-los ao relay, conforme `docs/entregas/032-segmentacao-fmp4-baixa-latencia.md`.
 - o CI também executa os testes do agente e valida a sintaxe dos scripts do operador nativo, conforme `docs/entregas/033-ci-agente-e-operador.md`.
+- o CI validou o empacotamento Windows do Agent e do Operator no run `40209686463`, conforme `docs/entregas/038-ci-empacotamento-windows.md`.
+- a revisão de segurança do diff de descoberta/inicialização do RustDesk terminou com cobertura completa e zero achados reportáveis.
+- `npm run validate:release`: testes, typecheck, build, auditoria, sintaxe, hashes e gate de áudio executados no workspace local.
 
 ## Fechamento antes da producao
 
