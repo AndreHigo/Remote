@@ -19,6 +19,7 @@ New-Item -ItemType Directory -Path $OutputRoot | Out-Null
 
 Push-Location $RepoRoot
 try {
+  npm run build -w apps/desktop-control
   npm run build -w apps/agent
   npx --yes esbuild@0.25.9 apps/agent/src/index.ts --bundle --platform=node --format=cjs --target=node20 --outfile=apps/agent/dist/standalone.cjs
   npx --yes @yao-pkg/pkg@6.5.0 apps/agent/dist/standalone.cjs --targets node20-win-x64 --output $OutputRoot\RemotoAgent.exe

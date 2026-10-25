@@ -28,13 +28,13 @@ public sealed class RemotoAgentService : ServiceBase
     protected override void OnStop()
     {
         stopping = true;
-        StopAgent(false);
+        StopAgent(true);
     }
 
     protected override void OnShutdown()
     {
         stopping = true;
-        StopAgent(false);
+        StopAgent(true);
         base.OnShutdown();
     }
 
