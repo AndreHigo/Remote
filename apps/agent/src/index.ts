@@ -698,6 +698,7 @@ async function initializeConfig() {
 
 async function printStatus() {
   const health = await checkApiHealth();
+  const realtimeHealth = await checkRealtimeHealth();
   const hasKey = Boolean(config.agentKey.trim());
   const state = await loadState();
 
@@ -707,6 +708,7 @@ async function printStatus() {
   console.log(`api.url=${config.apiUrl}`);
   console.log(`realtime.url=${config.realtimeUrl}`);
   console.log(`api.reachable=${health.reachable} status=${health.status ?? "-"}`);
+  console.log(`realtime.reachable=${realtimeHealth.reachable} status=${realtimeHealth.status ?? "-"}`);
   console.log(`agent.key.configured=${hasKey}`);
   console.log(`capture.ffmpeg=${resolveFfmpegExecutable(config.ffmpegPath) ?? "nao-encontrado"}`);
 
@@ -735,6 +737,16 @@ async function printStatus() {
 async function checkApiHealth() {
   try {
     const response = await fetch(`${config.apiUrl}/health`, { signal: AbortSignal.timeout(3000) });
+    return { reachable: response.ok, status: response.status };
+  } catch {
+    return { reachable: false, status: null };
+  }
+}
+
+async function checkRealtimeHealth() {
+  try {
+    const healthUrl = config.realtimeUrl.replace(/^ws/i, "http").replace(/\/$/, "") + "/health";
+    const response = await fetch(healthUrl, { signal: AbortSignal.timeout(3000) });
     return { reachable: response.ok, status: response.status };
   } catch {
     return { reachable: false, status: null };
