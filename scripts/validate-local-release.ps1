@@ -37,6 +37,16 @@ Invoke-Checked "Tipagem do cliente smoke realtime" {
   npx --no-install tsc --noEmit --target ES2022 --module NodeNext --moduleResolution NodeNext --strict --skipLibCheck --esModuleInterop scripts/smoke-realtime-client.ts
 }
 
+Write-Host "`n== Hardening do instalador do agente ==" -ForegroundColor Cyan
+$serviceInstaller = Get-Content -LiteralPath "apps/agent/scripts/install-windows-service.ps1" -Raw
+if ($serviceInstaller -match '(?i)LOCALAPPDATA.*Programs') {
+  throw "O instalador standalone nao pode aceitar Node de LocalAppData para um servico LocalSystem."
+}
+if ($serviceInstaller -notmatch '(?i)icacls\.exe\s+\$configPath') {
+  throw "O instalador standalone precisa proteger a ACL da configuracao do agente."
+}
+Write-Host "Runtime privilegiado e ACL da configuracao verificados." -ForegroundColor Green
+
 Write-Host "`n== Instaladores ==" -ForegroundColor Cyan
 $artifacts = @(
   "apps/operator/release/Remoto-Operator-Setup-0.1.0.exe",
