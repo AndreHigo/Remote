@@ -222,7 +222,7 @@ async function get<T>(route: string) {
 
 async function runLoop(state: AgentState) {
   console.log(
-    `Agente simulado ativo para ${state.displayName}. ` +
+    `Agente Remoto ativo para ${state.displayName}. ` +
     `heartbeat=${config.heartbeatIntervalSeconds}s comandos=${config.commandIntervalSeconds}s inventario=${config.inventoryIntervalSeconds}s sessoes=${config.remoteSessionIntervalSeconds}s.`
   );
 
@@ -268,7 +268,7 @@ async function runLoop(state: AgentState) {
 
   process.on("SIGINT", () => {
     timers.forEach((timer) => clearInterval(timer));
-    console.log("Agente simulado encerrado.");
+    console.log("Agente Remoto encerrado.");
     process.exit(0);
   });
 }
@@ -615,7 +615,7 @@ function getLocalIp() {
 }
 
 function getTags() {
-  return (process.env.REMOTO_AGENT_TAGS ?? "simulado")
+  return (process.env.REMOTO_AGENT_TAGS ?? "windows,agent")
     .split(",")
     .map((tag) => tag.trim())
     .filter(Boolean);

@@ -19,9 +19,9 @@ Stack candidata:
 - atualizacao assinada;
 - logs locais limitados e rotativos.
 
-## CLI simulado
+## Agente local e instalador Windows
 
-Enquanto o agente nativo nao existe, este workspace oferece um simulador em Node/TypeScript.
+O workspace oferece o agente local em Node/TypeScript e um instalador Windows que o registra como servico. O agente realiza registro, heartbeat, inventario, comandos permitidos e consulta sessoes remotas aprovadas. O transporte de captura do host usa o modulo realtime do desktop-control.
 
 ```bash
 npm run agent:register
@@ -53,7 +53,7 @@ REMOTO_AGENT_CONFIG=.remoto-agent.config.json
 REMOTO_AGENT_STATE=.remoto-agent.json
 ```
 
-Identidade coletada no simulador:
+Identidade coletada pelo agente:
 
 - serial BIOS, quando disponivel;
 - UUID do sistema, quando disponivel;

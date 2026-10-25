@@ -20,9 +20,9 @@ Stack candidata:
 - React;
 - Rust para integracoes locais.
 
-Estado atual: contrato e selecao de engine compilaveis; o transporte de video e entrada ainda precisa ser implementado.
+Estado atual: contrato, captura, entrada e transporte realtime autenticado estao implementados para o host Windows. O painel web ja possui o cliente experimental do modo jogo; o cliente nativo de operador continua como proxima etapa.
 
-O modulo `capture.ts` ja monta uma captura Windows de baixa latencia via FFmpeg, com CPU como caminho acessivel e encoders de GPU como aceleracao opcional. O modulo `input.ts` valida eventos tipados e usa uma ponte Windows isolada para SendInput. Nenhum dos dois e exposto em uma sessao remota ate existir transporte autenticado.
+O modulo `capture.ts` monta uma captura Windows de baixa latencia via FFmpeg, com CPU como caminho acessivel e encoders de GPU como aceleracao opcional. O modulo `input.ts` valida eventos tipados e usa uma ponte Windows isolada para SendInput. O modulo `realtime.ts` conecta o host ao relay autenticado e envia video e entrada somente dentro da sessao aprovada.
 
 Diagnostico local:
 
