@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isCompletedLogin } from "./auth.js";
+import { isCompletedLogin, shouldRequireOperationalMfa } from "./auth.js";
+
+test("MFA operacional bloqueia tecnico sem 2FA fora da configuracao", () => {
+  assert.equal(shouldRequireOperationalMfa({ role: "technician", twoFactorEnabled: false, path: "/devices", enforced: true }), true);
+  assert.equal(shouldRequireOperationalMfa({ role: "technician", twoFactorEnabled: false, path: "/auth/2fa/status", enforced: true }), false);
+  assert.equal(shouldRequireOperationalMfa({ role: "viewer", twoFactorEnabled: false, path: "/devices", enforced: true }), false);
+  assert.equal(shouldRequireOperationalMfa({ role: "technician", twoFactorEnabled: true, path: "/devices", enforced: true }), false);
+});
 
 test("nao considera o desafio TOTP uma sessao concluida", () => {
   assert.equal(isCompletedLogin({ requiresTwoFactor: true, user: {

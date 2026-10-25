@@ -492,40 +492,47 @@ function App() {
   }, [refresh]);
 
   const canManageKeys = user?.role === "owner" || user?.role === "admin";
+  const canManageOwnSecurity = user?.role === "owner" || user?.role === "admin" || user?.role === "technician";
 
   React.useEffect(() => {
-    if (!user || !canManageKeys) {
+    if (!user || !canManageOwnSecurity) {
       setCustomers([]);
       setAgentKeys([]);
       return;
     }
 
     let active = true;
-    Promise.all([
-      getJson<Customer[]>("/customers", token),
-      getJson<AgentKey[]>("/agent-keys", token),
-      getJson<ManagedUser[]>("/users", token),
-      getJson<Device[]>("/devices/archived", token),
-      getJson<TwoFactorStatus>("/auth/2fa/status", token)
-    ])
-      .then(([nextCustomers, nextKeys, nextUsers, nextArchivedDevices, nextTwoFactorStatus]) => {
+    const twoFactorRequest = getJson<TwoFactorStatus>("/auth/2fa/status", token);
+    const adminRequest = canManageKeys
+      ? Promise.all([
+          getJson<Customer[]>("/customers", token),
+          getJson<AgentKey[]>("/agent-keys", token),
+          getJson<ManagedUser[]>("/users", token),
+          getJson<Device[]>("/devices/archived", token)
+        ])
+      : Promise.resolve(null);
+    Promise.all([twoFactorRequest, adminRequest])
+      .then(([nextTwoFactorStatus, adminData]) => {
         if (!active) return;
-        setCustomers(nextCustomers);
-        setAgentKeys(nextKeys);
-        setManagedUsers(nextUsers);
-        setArchivedDevices(nextArchivedDevices);
         setTwoFactorStatus(nextTwoFactorStatus);
-        setNewKeyCustomerId((current) => current || nextCustomers[0]?.id || "");
-        setOnboardingCustomerId((current) => current || nextCustomers[0]?.id || "");
+        if (adminData) {
+          const [nextCustomers, nextKeys, nextUsers, nextArchivedDevices] = adminData;
+          setCustomers(nextCustomers);
+          setAgentKeys(nextKeys);
+          setManagedUsers(nextUsers);
+          setArchivedDevices(nextArchivedDevices);
+          setNewKeyCustomerId((current) => current || nextCustomers[0]?.id || "");
+          setOnboardingCustomerId((current) => current || nextCustomers[0]?.id || "");
+        }
       })
       .catch(() => {
-        if (active) setStatusMessage("Nao foi possivel carregar a administracao");
+        if (active) setStatusMessage("Nao foi possivel carregar a protecao da conta");
       });
 
     return () => {
       active = false;
     };
-  }, [canManageKeys, user?.id]);
+  }, [canManageKeys, canManageOwnSecurity, user?.id]);
 
   React.useEffect(() => {
     if (!user || !selectedDevice?.id) {
@@ -986,6 +993,7 @@ function App() {
     twoFactorCode={twoFactorCode}
     twoFactorMessage={twoFactorMessage}
     canManageKeys={canManageKeys}
+    canManageOwnSecurity={canManageOwnSecurity}
     connectDevice={connectDevice}
     connectReason={connectReason}
     gameModeEnabled={gameModeEnabled}
@@ -1091,6 +1099,7 @@ interface OperationsConsoleProps {
   twoFactorCode: string;
   twoFactorMessage: string;
   canManageKeys: boolean;
+  canManageOwnSecurity: boolean;
   connectDevice: Device | null;
   connectReason: string;
   connectMode: "support" | "game";
@@ -1196,6 +1205,7 @@ function OperationsConsole(props: OperationsConsoleProps) {
     twoFactorCode,
     twoFactorMessage,
     canManageKeys,
+    canManageOwnSecurity,
     loading,
     statusMessage,
     onSectionChange,
@@ -1311,7 +1321,7 @@ function OperationsConsole(props: OperationsConsoleProps) {
             <Monitor size={18} />
             Dispositivos
           </button>
-          {canManageKeys ? (
+          {canManageOwnSecurity ? (
             <button className={activeSection === "security" ? "active" : ""} type="button" onClick={() => onSectionChange("security")}>
               <ShieldCheck size={18} />
               Seguranca
@@ -1490,8 +1500,9 @@ function OperationsConsole(props: OperationsConsoleProps) {
           </>
         ) : null}
 
-        {activeSection === "security" && canManageKeys ? (
+        {activeSection === "security" && canManageOwnSecurity ? (
           <section className="securityView">
+            {canManageKeys ? <>
             <section className="panel customerPanel">
               <div className="panelHeader"><div><p className="eyebrow">Cadastro operacional</p><h2>Clientes</h2><p>Organize dispositivos e chaves por cliente.</p></div><UserRound size={20} /></div>
               <div className="customerForm">
@@ -1539,6 +1550,7 @@ function OperationsConsole(props: OperationsConsoleProps) {
               {revealedAgentKey ? <div className="keyReveal" role="status"><div><strong>Copie esta chave agora</strong><span>O segredo nao sera exibido novamente.</span></div><code>{revealedAgentKey}</code><button className="iconButton compact" type="button" onClick={onCopyKey} aria-label="Copiar chave" title="Copiar chave"><Copy size={15} /></button></div> : null}
               <ul className="keyList">{agentKeys.map((key) => <li key={key.id}><span><strong>{key.name}</strong><small>{key.customerName} / {key.boundRemoteId ? "computador vinculado" : "aguardando primeiro cadastro"} / criada em {new Date(key.createdAt).toLocaleDateString("pt-BR")}</small></span><span className={`commandStatus ${key.active ? "succeeded" : "failed"}`}>{key.active ? "Ativa" : "Revogada"}</span>{key.active ? <button className="iconButton compact" type="button" onClick={() => onRevokeKey(key)} aria-label={`Revogar ${key.name}`} title="Revogar chave"><Ban size={15} /></button> : null}</li>)}</ul>
             </section>
+            </> : null}
             <section className="panel twoFactorPanel">
               <div className="panelHeader"><div><p className="eyebrow">Protecao de conta</p><h2>Autenticacao em dois fatores</h2><p>{twoFactorStatus.enabled ? "Ativa para este usuario." : "Proteja a conta administrativa com TOTP."}</p></div><ShieldCheck size={20} /></div>
               {twoFactorSetup ? <div className="keyReveal twoFactorReveal" role="status"><strong>Segredo temporario</strong><code>{twoFactorSetup.secret}</code><small>{twoFactorSetup.otpauthUri}</small></div> : null}

@@ -500,7 +500,7 @@ app.get("/auth/me", (request, response) => {
   response.json((request as AuthenticatedRequest).user);
 });
 
-app.get("/auth/2fa/status", requireRole(["owner", "admin"]), async (request, response) => {
+app.get("/auth/2fa/status", requireRole(["owner", "admin", "technician"]), async (request, response) => {
   const user = (request as AuthenticatedRequest).user;
   const status = await getTwoFactorStatus(user.id);
   if (!status) {
@@ -511,7 +511,7 @@ app.get("/auth/2fa/status", requireRole(["owner", "admin"]), async (request, res
   response.json(status);
 });
 
-app.post("/auth/2fa/setup", requireRole(["owner", "admin"]), async (request, response) => {
+app.post("/auth/2fa/setup", requireRole(["owner", "admin", "technician"]), async (request, response) => {
   const user = (request as AuthenticatedRequest).user;
   const setup = await prepareTwoFactor(user.id);
   if (!setup) {
@@ -531,7 +531,7 @@ app.post("/auth/2fa/setup", requireRole(["owner", "admin"]), async (request, res
   response.json(setup);
 });
 
-app.post("/auth/2fa/enable", requireRole(["owner", "admin"]), async (request, response) => {
+app.post("/auth/2fa/enable", requireRole(["owner", "admin", "technician"]), async (request, response) => {
   const parsed = twoFactorCodeSchema.safeParse(request.body);
   if (!parsed.success) {
     response.status(400).json({ message: "Informe um codigo de 6 digitos", issues: parsed.error.issues });
@@ -556,7 +556,7 @@ app.post("/auth/2fa/enable", requireRole(["owner", "admin"]), async (request, re
   response.json({ enabled: true });
 });
 
-app.post("/auth/2fa/disable", requireRole(["owner", "admin"]), async (request, response) => {
+app.post("/auth/2fa/disable", requireRole(["owner", "admin", "technician"]), async (request, response) => {
   const parsed = twoFactorCodeSchema.safeParse(request.body);
   if (!parsed.success) {
     response.status(400).json({ message: "Informe um codigo de 6 digitos", issues: parsed.error.issues });
@@ -564,6 +564,10 @@ app.post("/auth/2fa/disable", requireRole(["owner", "admin"]), async (request, r
   }
 
   const user = (request as AuthenticatedRequest).user;
+  if (user.role === "technician") {
+    response.status(403).json({ message: "Tecnicos nao podem desativar o 2FA." });
+    return;
+  }
   if (!(await disableTwoFactor(user.id, parsed.data.code))) {
     response.status(400).json({ message: "Codigo TOTP invalido" });
     return;

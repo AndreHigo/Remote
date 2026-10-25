@@ -17,6 +17,7 @@ const SESSION_COOKIE = "remoto_session";
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_MAX_FAILURES = 5;
 const LOGIN_MAX_TRACKED_KEYS = 10_000;
+const OPERATIONAL_MFA_ENFORCED = process.env.NODE_ENV === "production" || process.env.REQUIRE_OPERATIONAL_MFA === "true";
 
 interface LoginAttempt {
   count: number;
@@ -92,6 +93,17 @@ export async function login(email: string, password: string, totpCode?: string) 
 
 export function isCompletedLogin(result: Awaited<ReturnType<typeof login>>): result is { user: AuthUser; token: string } {
   return Boolean(result && "token" in result && result.token);
+}
+
+export function shouldRequireOperationalMfa(input: {
+  role: string;
+  twoFactorEnabled: boolean;
+  path: string;
+  enforced?: boolean;
+}) {
+  if (!(input.enforced ?? OPERATIONAL_MFA_ENFORCED) || input.twoFactorEnabled) return false;
+  if (!new Set(["owner", "admin", "technician"]).has(input.role.toLowerCase())) return false;
+  return !input.path.startsWith("/auth/2fa/");
 }
 
 export function isLoginRateLimited(keyOrKeys: string | string[]) {
@@ -195,6 +207,11 @@ export async function authenticate(request: Request, response: Response, next: N
   const user = await prisma.user.findUnique({ where: { id: payload.id } });
   if (!user || !user.active || user.sessionVersion !== payload.sessionVersion) {
     response.status(401).json({ message: "Usuario inativo ou inexistente" });
+    return;
+  }
+
+  if (shouldRequireOperationalMfa({ role: user.role, twoFactorEnabled: user.twoFactorEnabled, path: request.path })) {
+    response.status(403).json({ code: "two_factor_required", message: "Ative o 2FA antes de usar as operacoes remotas." });
     return;
   }
 
