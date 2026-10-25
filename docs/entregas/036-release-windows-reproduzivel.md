@@ -7,7 +7,7 @@
 - empacotamento do agente e do operador nativo;
 - manifest SHA256 gerado junto com os artefatos;
 - artefatos disponibilizados no GitHub Actions;
-- tags `v*` podem publicar uma release do GitHub com os instaladores.
+- tags `v*` podem publicar uma release do GitHub com os instaladores; a versao sem o prefixo `v` e propagada para o instalador do agente e para o artefato do operador.
 
 ## Uso
 
@@ -17,4 +17,4 @@
 
 ## Limites
 
-Execuções manuais geram artefatos de homologação sem assinatura. Publicações por tag `v*` exigem `WINDOWS_CODESIGN_PFX_B64` e `WINDOWS_CODESIGN_PFX_PASSWORD`, assinam os executáveis com Authenticode e só então publicam a release. Isso ainda não substitui homologação entre duas máquinas Windows nem transforma o modo jogo em compatível com todos os jogos.
+Execuções manuais geram artefatos de homologação sem assinatura. Publicações por tag `v*` exigem `WINDOWS_CODESIGN_PFX_B64` e `WINDOWS_CODESIGN_PFX_PASSWORD`, executam testes, typecheck, build e auditoria, propagam a versão da tag, assinam os executáveis com Authenticode e só então publicam a release. Isso ainda não substitui homologação entre duas máquinas Windows nem transforma o modo jogo em compatível com todos os jogos.

@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
   [string]$OutputRoot = "",
-  [string]$FfmpegPath = ""
+  [string]$FfmpegPath = "",
+  [string]$Version = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -11,6 +12,10 @@ if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
   $OutputRoot = Join-Path $AgentRoot "release\RemotoAgent-Windows"
 }
 $FfmpegPath = if ([string]::IsNullOrWhiteSpace($FfmpegPath)) { $env:REMOTO_BUNDLE_FFMPEG_PATH } else { $FfmpegPath }
+$Version = if ([string]::IsNullOrWhiteSpace($Version)) { if ($env:REMOTO_RELEASE_VERSION) { $env:REMOTO_RELEASE_VERSION } else { "0.1.0" } } else { $Version }
+if ($Version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$') {
+  throw "Version precisa seguir SemVer, por exemplo 0.1.0 ou 1.2.3-rc.1."
+}
 $OutputRoot = [System.IO.Path]::GetFullPath($OutputRoot)
 $ReleaseRoot = Split-Path $OutputRoot -Parent
 
@@ -97,11 +102,11 @@ if (-not $isccCandidates) {
 
 $issPath = Join-Path $AgentRoot "scripts\remoto-agent.iss"
 $isccPath = @($isccCandidates)[0]
-& $isccPath "/DAppVersion=0.1.0" "/DStagingDir=$OutputRoot" "/DOutputDir=$ReleaseRoot" $issPath
+& $isccPath "/DAppVersion=$Version" "/DStagingDir=$OutputRoot" "/DOutputDir=$ReleaseRoot" $issPath
 if ($LASTEXITCODE -ne 0) {
   throw "Inno Setup falhou com codigo $LASTEXITCODE."
 }
-Write-Output "Instalador criado: $(Join-Path $ReleaseRoot 'RemotoAgent-Setup.exe')"
+Write-Output "Instalador criado: $(Join-Path $ReleaseRoot 'RemotoAgent-Setup.exe') (versao $Version)"
 
 $zip = Join-Path $ReleaseRoot "RemotoAgent-Windows.zip"
 if (Test-Path $zip) {

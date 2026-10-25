@@ -29,6 +29,32 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Prepare release version
+        shell: powershell
+        run: |
+          if ($env:GITHUB_REF -like "refs/tags/v*") {
+            $version = $env:GITHUB_REF_NAME.Substring(1)
+          } else {
+            $version = (Get-Content -LiteralPath "apps/operator/package.json" -Raw | ConvertFrom-Json).version
+          }
+          if ($version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$') {
+            throw "A versao da release precisa seguir SemVer: $version"
+          }
+          "REMOTO_RELEASE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "Versao da release: $version"
+
+      - name: Test
+        run: npm test
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Dependency audit
+        run: npm audit --audit-level=high
+
       - name: Ensure Inno Setup
         shell: powershell
         run: |
@@ -41,10 +67,10 @@ jobs:
           }
 
       - name: Package agent
-        run: npm run agent:package:windows
+        run: npm run agent:package:windows -- -Version $env:REMOTO_RELEASE_VERSION
 
       - name: Package native operator
-        run: npm run operator:package:windows
+        run: npm run operator:package:windows -- --config.extraMetadata.version=$env:REMOTO_RELEASE_VERSION
 
       - name: Sign Windows installers
         if: startsWith(github.ref, 'refs/tags/')
@@ -59,10 +85,9 @@ jobs:
           $certPath = Join-Path $env:RUNNER_TEMP "remoto-signing.pfx"
           [IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String($env:SIGNING_CERT_B64))
           $signtool = Get-Command signtool.exe -ErrorAction Stop
-          $files = @(
-            "apps/agent/release/RemotoAgent-Setup.exe",
-            "apps/operator/release/Remoto-Operator-Setup-0.1.0.exe"
-          )
+          $operatorInstaller = @(Get-ChildItem -LiteralPath "apps/operator/release" -Filter "Remoto-Operator-Setup-*.exe" -File)
+          if ($operatorInstaller.Count -ne 1) { throw "Esperado um instalador do operador, encontrados $($operatorInstaller.Count)." }
+          $files = @("apps/agent/release/RemotoAgent-Setup.exe", $operatorInstaller[0].FullName)
           $files += Get-ChildItem -LiteralPath "apps/agent/release/RemotoAgent-Windows" -Filter "*.exe" -Recurse | Select-Object -ExpandProperty FullName
           foreach ($file in $files) {
             & $signtool.Source sign /fd SHA256 /f $certPath /p $env:SIGNING_CERT_PASSWORD /tr http://timestamp.digicert.com /td SHA256 $file
@@ -79,9 +104,11 @@ jobs:
         run: |
           $files = @(
             "apps/agent/release/RemotoAgent-Setup.exe",
-            "apps/agent/release/RemotoAgent-Windows.zip",
-            "apps/operator/release/Remoto-Operator-Setup-0.1.0.exe"
+            "apps/agent/release/RemotoAgent-Windows.zip"
           )
+          $operatorInstaller = @(Get-ChildItem -LiteralPath "apps/operator/release" -Filter "Remoto-Operator-Setup-*.exe" -File)
+          if ($operatorInstaller.Count -ne 1) { throw "Esperado um instalador do operador, encontrados $($operatorInstaller.Count)." }
+          $files += $operatorInstaller[0].FullName
           $lines = foreach ($file in $files) {
             if (-not (Test-Path -LiteralPath $file)) { throw "Artefato ausente: $file" }
             $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $file).Hash
@@ -97,7 +124,7 @@ jobs:
           path: |
             apps/agent/release/RemotoAgent-Setup.exe
             apps/agent/release/RemotoAgent-Windows.zip
-            apps/operator/release/Remoto-Operator-Setup-0.1.0.exe
+            apps/operator/release/Remoto-Operator-Setup-*.exe
             release-manifest.txt
           if-no-files-found: error
 
@@ -121,7 +148,7 @@ jobs:
           gh release create "$GITHUB_REF_NAME" \
             release/apps/agent/release/RemotoAgent-Setup.exe \
             release/apps/agent/release/RemotoAgent-Windows.zip \
-            release/apps/operator/release/Remoto-Operator-Setup-0.1.0.exe \
+            release/apps/operator/release/Remoto-Operator-Setup-*.exe \
             release/release-manifest.txt \
             --title "Remoto $GITHUB_REF_NAME" \
             --generate-notes
