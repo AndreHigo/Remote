@@ -7,9 +7,16 @@ import type { DesktopSessionDescriptor } from "./engine.js";
 export interface RealtimeClientOptions {
   url?: string;
   capture?: CaptureProfile;
+  captureFactory?: (profile?: CaptureProfile) => CaptureProcess;
+  inputFactory?: () => RealtimeInputBridge;
   onFrame?: (frame: Buffer) => void;
   onReady?: (peerConnected: boolean) => void;
   onClosed?: (reason: string) => void;
+}
+
+export interface RealtimeInputBridge {
+  send(value: RemoteInputEvent): void;
+  close(): void;
 }
 
 export interface RealtimeConnection {
@@ -26,7 +33,7 @@ export async function connectRemoteSession(
   const url = buildRealtimeSessionUrl(options.url ?? (process.env.REMOTO_REALTIME_URL ?? "ws://localhost:4200"), session.sessionId);
   const socket = new WebSocket(url);
   let capture: CaptureProcess | undefined;
-  let input: WindowsInputBridge | undefined;
+  let input: RealtimeInputBridge | undefined;
   let detachCapture: (() => void) | undefined;
   let closedNotified = false;
 
@@ -69,8 +76,8 @@ export async function connectRemoteSession(
         options.onReady?.(message.peerConnected === true);
         if (session.role === "host") {
           try {
-            input = new WindowsInputBridge();
-            capture = startWindowsCapture(options.capture);
+            input = options.inputFactory?.() ?? new WindowsInputBridge();
+            capture = options.captureFactory?.(options.capture) ?? startWindowsCapture(options.capture);
             let captureError = "";
             capture.process.stderr.setEncoding("utf8");
             capture.process.stderr.on("data", (chunk: string) => {

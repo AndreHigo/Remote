@@ -3,8 +3,9 @@ import http from "node:http";
 import test from "node:test";
 import { PassThrough } from "node:stream";
 import WebSocket, { WebSocketServer } from "ws";
+import type { CaptureProcess } from "./capture.js";
 import { validateInputEvent } from "./input.js";
-import { buildRealtimeSessionUrl, connectRemoteSession, forwardCaptureFrames } from "./realtime.js";
+import { buildRealtimeSessionUrl, connectRemoteSession, forwardCaptureFrames, type RealtimeInputBridge } from "./realtime.js";
 
 test("monta o caminho da sessao quando o agente recebe apenas a base do relay", () => {
   assert.equal(buildRealtimeSessionUrl("wss://remoto.example/realtime", "session-1"), "wss://remoto.example/realtime/sessions/session-1");
@@ -43,6 +44,90 @@ test("captura realtime encaminha bytes que chegam no stdout do FFmpeg", () => {
   assert.deepEqual(frames, [Buffer.from("fragment-1")]);
 });
 
+test("transporte realtime integra host e cliente com captura e entrada tipadas", async (t) => {
+  const server = http.createServer();
+  const wss = new WebSocketServer({ server });
+  const sockets = new Map<string, WebSocket>();
+  const receivedInputs: unknown[] = [];
+  const frames: Buffer[] = [];
+  const inputBridge: RealtimeInputBridge = {
+    send(value) {
+      receivedInputs.push(value);
+    },
+    close() {}
+  };
+
+  wss.on("connection", (socket) => {
+    socket.on("message", (data, isBinary) => {
+      if (isBinary) {
+        sockets.get("client")?.send(data, { binary: true });
+        return;
+      }
+
+      const message = JSON.parse(data.toString("utf8")) as { type?: string; accessToken?: string; event?: unknown };
+      if (message.type === "hello" && message.accessToken) {
+        const role = message.accessToken === "host-token" ? "host" : "client";
+        sockets.set(role, socket);
+        socket.send(JSON.stringify({ type: "ready", peerConnected: sockets.has(role === "host" ? "client" : "host") }));
+        return;
+      }
+      if (message.type === "input") sockets.get("host")?.send(JSON.stringify({ type: "input", event: message.event }));
+    });
+  });
+
+  t.after(async () => {
+    for (const socket of sockets.values()) socket.terminate();
+    wss.close();
+    if (server.listening) await new Promise<void>((resolve) => server.close(() => resolve()));
+  });
+
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+
+  const stdout = new PassThrough();
+  const stderr = new PassThrough();
+  const fakeCapture = {
+    process: {
+      stdout,
+      stderr,
+      once() { return this; },
+      on() { return this; },
+      killed: false,
+      kill() { this.killed = true; }
+    },
+    stop() { stdout.end(); }
+  } as unknown as CaptureProcess;
+
+  const host = await connectRemoteSession(
+    { sessionId: "session-test", deviceId: "device-test", mode: "game", role: "host", accessToken: "host-token" },
+    {
+      url: `ws://127.0.0.1:${address.port}/sessions/session-test`,
+      captureFactory: () => fakeCapture,
+      inputFactory: () => inputBridge
+    }
+  );
+  const client = await connectRemoteSession(
+    { sessionId: "session-test", deviceId: "device-test", mode: "game", role: "client", accessToken: "client-token" },
+    {
+      url: `ws://127.0.0.1:${address.port}/sessions/session-test`,
+      onFrame: (frame) => frames.push(frame)
+    }
+  );
+
+  const frame = Buffer.from("encoded-frame");
+  stdout.write(frame);
+  await waitFor(() => frames.length === 1);
+  assert.deepEqual(frames, [frame]);
+
+  client.sendInput({ type: "key", scanCode: 30, action: "down" });
+  await waitFor(() => receivedInputs.length === 1);
+  assert.deepEqual(receivedInputs, [{ type: "key", scanCode: 30, action: "down" }]);
+
+  client.close();
+  host.close();
+});
+
 test("cliente realtime notifica uma desconexao de socket e libera o agente para reconectar", async (t) => {
   const server = http.createServer();
   const wss = new WebSocketServer({ server });
@@ -68,3 +153,9 @@ test("cliente realtime notifica uma desconexao de socket e libera o agente para 
 
   assert.deepEqual(reasons, ["network-down"]);
 });
+
+async function waitFor(predicate: () => boolean) {
+  const deadline = Date.now() + 3000;
+  while (!predicate() && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.equal(predicate(), true);
+}
