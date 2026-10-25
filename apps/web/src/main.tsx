@@ -360,6 +360,7 @@ function App() {
   const [twoFactorSetup, setTwoFactorSetup] = React.useState<TwoFactorSetup | null>(null);
   const [twoFactorCode, setTwoFactorCode] = React.useState("");
   const [twoFactorMessage, setTwoFactorMessage] = React.useState("");
+  const [loginNotice, setLoginNotice] = React.useState("");
   const [inventorySnapshots, setInventorySnapshots] = React.useState<InventorySnapshot[]>([]);
   const [commands, setCommands] = React.useState<CommandExecution[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = React.useState<string | null>(null);
@@ -441,12 +442,12 @@ function App() {
     localStorage.removeItem(USER_KEY);
     setToken(next.token ?? "");
     setUser(next.user);
+    setLoginNotice("");
     setAuthReady(true);
     setStatusMessage("Login realizado");
   }
 
-  function logout() {
-    void postJson<{ ok: boolean }>("/auth/logout", token).catch(() => undefined);
+  function resetLocalSession() {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     setToken("");
@@ -471,6 +472,11 @@ function App() {
     setConnectReason("");
     setOnboardingOpen(false);
     setOnboardingKey(null);
+  }
+
+  function logout() {
+    void postJson<{ ok: boolean }>("/auth/logout", token).catch(() => undefined);
+    resetLocalSession();
   }
 
   const refresh = React.useCallback(async () => {
@@ -955,11 +961,9 @@ function App() {
       return;
     }
 
-    await postJson("/auth/2fa/enable", token, { code: twoFactorCode });
-    setTwoFactorStatus({ enabled: true });
-    setTwoFactorSetup(null);
-    setTwoFactorCode("");
-    setTwoFactorMessage("2FA ativado para este usuario.");
+    await postJson<{ enabled: boolean; sessionRevoked: boolean }>("/auth/2fa/enable", token, { code: twoFactorCode });
+    setLoginNotice("2FA ativado. Entre novamente para continuar.");
+    resetLocalSession();
   }
 
   async function disableTwoFactor() {
@@ -968,10 +972,9 @@ function App() {
       return;
     }
 
-    await postJson("/auth/2fa/disable", token, { code: twoFactorCode });
-    setTwoFactorStatus({ enabled: false });
-    setTwoFactorCode("");
-    setTwoFactorMessage("2FA desativado.");
+    await postJson<{ enabled: boolean; sessionRevoked: boolean }>("/auth/2fa/disable", token, { code: twoFactorCode });
+    setLoginNotice("2FA desativado. Entre novamente para continuar.");
+    resetLocalSession();
   }
 
   if (!authReady) {
@@ -979,7 +982,7 @@ function App() {
   }
 
   if (!user) {
-    return <LoginScreen onLogin={saveSession} />;
+    return <LoginScreen onLogin={saveSession} notice={loginNotice} />;
   }
 
   return <OperationsConsole
@@ -1966,10 +1969,10 @@ const extendedScanCodes = new Set([
   "NumpadEnter", "NumpadDivide", "ContextMenu", "PrintScreen"
 ]);
 
-function LoginScreen({ onLogin }: { onLogin: (response: LoginResponse) => void }) {
+function LoginScreen({ onLogin, notice }: { onLogin: (response: LoginResponse) => void; notice?: string }) {
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
-  const [message, setMessage] = React.useState("Use suas credenciais para acessar o workspace.");
+  const [message, setMessage] = React.useState(notice || "Use suas credenciais para acessar o workspace.");
   const [loading, setLoading] = React.useState(false);
   const [twoFactorRequired, setTwoFactorRequired] = React.useState(false);
   const [twoFactorCode, setTwoFactorCode] = React.useState("");

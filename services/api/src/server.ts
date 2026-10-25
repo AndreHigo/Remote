@@ -558,7 +558,7 @@ app.post("/auth/2fa/enable", requireRole(["owner", "admin", "technician"]), asyn
       metadata: { email: user.email }
     }
   });
-  response.json({ enabled: true });
+  response.json({ enabled: true, sessionRevoked: true });
 });
 
 app.post("/auth/2fa/disable", requireRole(["owner", "admin", "technician"]), async (request, response) => {
@@ -587,7 +587,7 @@ app.post("/auth/2fa/disable", requireRole(["owner", "admin", "technician"]), asy
       metadata: { email: user.email }
     }
   });
-  response.json({ enabled: false });
+  response.json({ enabled: false, sessionRevoked: true });
 });
 
 app.get("/summary", async (request, response) => {

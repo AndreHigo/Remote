@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isCompletedLogin, shouldRequireOperationalMfa } from "./auth.js";
+import { getTwoFactorMutationData, isCompletedLogin, shouldRequireOperationalMfa } from "./auth.js";
 
 test("MFA operacional bloqueia tecnico sem 2FA fora da configuracao", () => {
   assert.equal(shouldRequireOperationalMfa({ role: "technician", twoFactorEnabled: false, path: "/devices", enforced: true }), true);
@@ -29,4 +29,16 @@ test("considera concluido somente o login que recebeu token", () => {
     email: "owner@example.com",
     role: "owner"
   }, token: "signed-token" }), true);
+});
+
+test("alterar o 2FA revoga as sessoes existentes", () => {
+  assert.deepEqual(getTwoFactorMutationData(true), {
+    twoFactorEnabled: true,
+    sessionVersion: { increment: 1 }
+  });
+  assert.deepEqual(getTwoFactorMutationData(false), {
+    twoFactorEnabled: false,
+    twoFactorSecret: null,
+    sessionVersion: { increment: 1 }
+  });
 });

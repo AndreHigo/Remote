@@ -106,6 +106,12 @@ export function shouldRequireOperationalMfa(input: {
   return !input.path.startsWith("/auth/2fa/") && input.path !== "/auth/me" && input.path !== "/auth/logout";
 }
 
+export function getTwoFactorMutationData(enabled: boolean) {
+  return enabled
+    ? { twoFactorEnabled: true, sessionVersion: { increment: 1 } }
+    : { twoFactorEnabled: false, twoFactorSecret: null, sessionVersion: { increment: 1 } };
+}
+
 export function isLoginRateLimited(keyOrKeys: string | string[]) {
   return normalizeLoginKeys(keyOrKeys).some((key) => {
     const attempt = getLoginAttempt(key);
@@ -164,7 +170,7 @@ export async function enableTwoFactor(userId: string, code: string) {
     return false;
   }
 
-  await prisma.user.update({ where: { id: userId }, data: { twoFactorEnabled: true } });
+  await prisma.user.update({ where: { id: userId }, data: getTwoFactorMutationData(true) });
   return true;
 }
 
@@ -182,7 +188,7 @@ export async function disableTwoFactor(userId: string, code: string) {
 
   await prisma.user.update({
     where: { id: userId },
-    data: { twoFactorEnabled: false, twoFactorSecret: null }
+    data: getTwoFactorMutationData(false)
   });
   return true;
 }
