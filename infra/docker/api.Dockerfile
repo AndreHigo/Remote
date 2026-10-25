@@ -1,4 +1,4 @@
-FROM node:22-alpine AS build
+FROM node@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 AS build
 
 WORKDIR /app
 COPY package.json package-lock.json ./
@@ -15,7 +15,7 @@ RUN npm run build -w services/api
 FROM build AS production-deps
 RUN npm prune --omit=dev
 
-FROM node:22-alpine AS runtime
+FROM node@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 AS runtime
 
 WORKDIR /app
 ENV NODE_ENV=production

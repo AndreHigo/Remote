@@ -16,7 +16,7 @@
 - SHA256 do instalador: `3B541BCACC485EFAE73815AC18BE18CF9E8246C0A09CFCA166E01F5C6D661E52`.
 - instalador do agente Windows gerado localmente:
   `apps/agent/release/RemotoAgent-Setup.exe`;
-- SHA256 atual do instalador do agente: `50D0A0A18CF5D6A2278FC5DCCFA0ED41690290941F83CB197714B8DF852B45D7`;
+- SHA256 atual do instalador do agente: `955C72F2A4F7C8A8A9D0C7FC974D8C73A04997EF8E89A0671387B58D4E3EFCB6`;
 - o instalador do agente encerra o serviço e o processo interativo antes da atualização para evitar arquivo bloqueado.
 
 ## Fechamento antes da producao
