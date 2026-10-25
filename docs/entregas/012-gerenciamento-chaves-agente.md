@@ -7,6 +7,8 @@
 - segredo exibido somente na resposta de criação;
 - botão para copiar o segredo uma única vez;
 - revogação de chave pelo painel;
+- vinculação automática da chave ao primeiro computador cadastrado;
+- bloqueio de reutilização da mesma chave em outra máquina;
 - registro de criação e revogação na auditoria;
 - chaves revogadas deixam de autenticar imediatamente;
 - viewer e technician nao recebem permissao para administrar chaves.
@@ -28,7 +30,7 @@
 ## Ainda falta
 
 - 2FA para contas administrativas;
-- expiracao opcional de chaves;
-- rotacao assistida sem interromper agentes ativos;
+- expiração opcional de chaves;
+- rotação assistida sem interromper agentes ativos;
 - tela de usuarios, grupos e permissoes finas;
 - testes automatizados de API para cada papel.

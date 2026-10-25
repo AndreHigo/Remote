@@ -227,6 +227,7 @@ interface AgentKey {
   customerId: string;
   customerName: string;
   active: boolean;
+  boundRemoteId: string | null;
   createdAt: string;
   lastUsedAt: string | null;
 }
@@ -1519,7 +1520,7 @@ function OperationsConsole(props: OperationsConsoleProps) {
                 <button className="primary compact" type="button" onClick={onCreateKey}><KeyRound size={15} />Criar chave</button>
               </div>
               {revealedAgentKey ? <div className="keyReveal" role="status"><div><strong>Copie esta chave agora</strong><span>O segredo nao sera exibido novamente.</span></div><code>{revealedAgentKey}</code><button className="iconButton compact" type="button" onClick={onCopyKey} aria-label="Copiar chave" title="Copiar chave"><Copy size={15} /></button></div> : null}
-              <ul className="keyList">{agentKeys.map((key) => <li key={key.id}><span><strong>{key.name}</strong><small>{key.customerName} / criada em {new Date(key.createdAt).toLocaleDateString("pt-BR")}</small></span><span className={`commandStatus ${key.active ? "succeeded" : "failed"}`}>{key.active ? "Ativa" : "Revogada"}</span>{key.active ? <button className="iconButton compact" type="button" onClick={() => onRevokeKey(key)} aria-label={`Revogar ${key.name}`} title="Revogar chave"><Ban size={15} /></button> : null}</li>)}</ul>
+              <ul className="keyList">{agentKeys.map((key) => <li key={key.id}><span><strong>{key.name}</strong><small>{key.customerName} / {key.boundRemoteId ? "computador vinculado" : "aguardando primeiro cadastro"} / criada em {new Date(key.createdAt).toLocaleDateString("pt-BR")}</small></span><span className={`commandStatus ${key.active ? "succeeded" : "failed"}`}>{key.active ? "Ativa" : "Revogada"}</span>{key.active ? <button className="iconButton compact" type="button" onClick={() => onRevokeKey(key)} aria-label={`Revogar ${key.name}`} title="Revogar chave"><Ban size={15} /></button> : null}</li>)}</ul>
             </section>
             <section className="panel twoFactorPanel">
               <div className="panelHeader"><div><p className="eyebrow">Protecao de conta</p><h2>Autenticacao em dois fatores</h2><p>{twoFactorStatus.enabled ? "Ativa para este usuario." : "Proteja a conta administrativa com TOTP."}</p></div><ShieldCheck size={20} /></div>

@@ -154,6 +154,7 @@ export const repository = {
       customerId: key.customerId,
       customerName: key.customer.name,
       active: key.active,
+      boundRemoteId: key.boundRemoteId,
       createdAt: key.createdAt.toISOString(),
       lastUsedAt: toIso(key.lastUsedAt)
     }));
@@ -187,6 +188,7 @@ export const repository = {
       customerId: key.customerId,
       customerName: customer.name,
       active: key.active,
+      boundRemoteId: key.boundRemoteId,
       createdAt: key.createdAt.toISOString(),
       key: plainKey
     };
@@ -219,6 +221,7 @@ export const repository = {
       customerId: key.customerId,
       customerName: current.customer.name,
       active: key.active,
+      boundRemoteId: key.boundRemoteId,
       createdAt: key.createdAt.toISOString(),
       lastUsedAt: toIso(key.lastUsedAt)
     };
@@ -542,6 +545,10 @@ export const repository = {
       data: { customerId: customer.id },
       include: { customer: { select: { name: true } } }
     });
+    await prisma.agentEnrollmentKey.updateMany({
+      where: { boundRemoteId: device.remoteId },
+      data: { customerId: customer.id }
+    });
     const endedAt = now();
     await prisma.remoteSession.updateMany({
       where: { deviceId: updated.id, status: { not: "ENDED" } },
@@ -565,6 +572,10 @@ export const repository = {
     if (!device) return null;
 
     await prisma.$transaction(async (transaction) => {
+      await transaction.agentEnrollmentKey.updateMany({
+        where: { boundRemoteId: device.remoteId },
+        data: { active: false, boundRemoteId: null }
+      });
       await transaction.device.delete({ where: { id: device.id } });
       await transaction.auditEvent.create({
         data: {

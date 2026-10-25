@@ -3,6 +3,7 @@ import express from "express";
 import crypto from "node:crypto";
 import { z } from "zod";
 import { authenticateAgent, type AuthenticatedAgentRequest } from "./agent-auth.js";
+import { isAgentRemoteIdAllowed } from "./agent-binding.js";
 import {
   authenticate,
   clearLoginFailures,
@@ -231,7 +232,7 @@ app.post("/agent/devices/register", authenticateAgent, async (request, response)
   const agent = (request as AuthenticatedAgentRequest).agent;
   const existingRemoteId = await prisma.device.findUnique({
     where: { remoteId: parsed.data.remoteId },
-    select: { customerId: true, archivedAt: true }
+    select: { id: true, customerId: true, archivedAt: true }
   });
   if (existingRemoteId?.archivedAt) {
     response.status(410).json({ message: "Este computador esta arquivado. Restaure-o no painel antes de usar o agente novamente." });
@@ -244,13 +245,56 @@ app.post("/agent/devices/register", authenticateAgent, async (request, response)
     return;
   }
 
-  const device = await repository.registerDevice({
-    customerId: agent.customerId,
-    ...parsed.data,
-    tags: [...(parsed.data.tags ?? []), "agent-cli"]
-  });
+  if (!isAgentRemoteIdAllowed(agent.boundRemoteId, parsed.data.remoteId)) {
+    response.status(409).json({
+      message: "Esta chave ja esta vinculada a outro computador. Gere uma nova chave para cadastrar outra maquina."
+    });
+    return;
+  }
+
+  let claimedKey = false;
+  if (!agent.boundRemoteId) {
+    const claimed = await prisma.agentEnrollmentKey.updateMany({
+      where: { id: agent.id, active: true, boundRemoteId: null },
+      data: { boundRemoteId: parsed.data.remoteId }
+    });
+    if (claimed.count === 1) {
+      claimedKey = true;
+    } else {
+      const latestKey = await prisma.agentEnrollmentKey.findUnique({ where: { id: agent.id }, select: { active: true, boundRemoteId: true } });
+      if (!latestKey?.active || latestKey.boundRemoteId !== parsed.data.remoteId) {
+        response.status(409).json({
+          message: "Esta chave foi vinculada a outro computador durante o cadastro. Gere uma nova chave para outra maquina."
+        });
+        return;
+      }
+    }
+  }
+
+  let device;
+  try {
+    device = await repository.registerDevice({
+      customerId: agent.customerId,
+      ...parsed.data,
+      tags: [...(parsed.data.tags ?? []), "agent-cli"]
+    });
+  } catch (error) {
+    if (claimedKey) {
+      await prisma.agentEnrollmentKey.updateMany({
+        where: { id: agent.id, boundRemoteId: parsed.data.remoteId },
+        data: { boundRemoteId: null }
+      });
+    }
+    throw error;
+  }
 
   if (!device) {
+    if (claimedKey) {
+      await prisma.agentEnrollmentKey.updateMany({
+        where: { id: agent.id, boundRemoteId: parsed.data.remoteId },
+        data: { boundRemoteId: null }
+      });
+    }
     response.status(404).json({ message: "Cliente do agente nao encontrado" });
     return;
   }

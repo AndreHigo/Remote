@@ -7,6 +7,7 @@ export interface AuthenticatedAgentRequest extends Request {
     id: string;
     name: string;
     customerId: string;
+    boundRemoteId: string | null;
   };
 }
 
@@ -23,7 +24,7 @@ export async function authenticateAgent(request: Request, response: Response, ne
 
   const enrollmentKey = await prisma.agentEnrollmentKey.findUnique({
     where: { keyHash: hashAgentKey(key) },
-    select: { id: true, name: true, customerId: true, active: true }
+    select: { id: true, name: true, customerId: true, boundRemoteId: true, active: true }
   });
 
   if (!enrollmentKey?.active) {
@@ -39,7 +40,8 @@ export async function authenticateAgent(request: Request, response: Response, ne
   (request as AuthenticatedAgentRequest).agent = {
     id: enrollmentKey.id,
     name: enrollmentKey.name,
-    customerId: enrollmentKey.customerId
+    customerId: enrollmentKey.customerId,
+    boundRemoteId: enrollmentKey.boundRemoteId
   };
 
   next();

@@ -92,6 +92,7 @@ model AgentEnrollmentKey {
   customerId String
   name       String
   keyHash    String    @unique
+  boundRemoteId String?
   active     Boolean   @default(true)
   createdAt  DateTime  @default(now())
   lastUsedAt DateTime?
@@ -100,6 +101,7 @@ model AgentEnrollmentKey {
 
   @@index([customerId])
   @@index([active])
+  @@index([boundRemoteId])
 }
 
 model Device {
