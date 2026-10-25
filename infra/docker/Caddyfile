@@ -18,6 +18,10 @@
     reverse_proxy api:4100
   }
 
+  handle_path /realtime/* {
+    reverse_proxy realtime:4200
+  }
+
   handle {
     reverse_proxy web:80
   }
