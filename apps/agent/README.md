@@ -46,7 +46,7 @@ npm run agent:status
 
 O arquivo `.remoto-agent.config.json` fica local ao agente e nunca deve ser versionado. A chave tambem pode continuar sendo fornecida por `REMOTO_AGENT_KEY`, que tem prioridade sobre o arquivo.
 
-O pacote Windows inclui `homologate-host.ps1`. Execute-o na maquina instalada para gerar um relatorio de hardware, FFmpeg, encoder, captura, servico e sessao interativa antes de abrir uma homologacao.
+O pacote Windows inclui `homologate-host.ps1`. Execute-o na maquina instalada para gerar um relatorio de hardware, FFmpeg, encoder, captura, servico e sessao interativa antes de abrir uma homologacao. O relatorio separa o FFmpeg encontrado no perfil do usuario do FFmpeg em caminho protegido, que e o unico aceito pelo servico.
 
 No instalador Windows, a configuracao e somente leitura para o usuario que instalou o agente e o estado operacional fica em `C:\ProgramData\Remoto\state`. O processo desktop e registrado em uma tarefa agendada no logon do usuario, com execucao interativa e nivel limitado; somente o usuario com ACL de leitura consegue iniciar o fluxo, e a credencial do agente deve ser revogada no painel quando o computador for desativado.
 

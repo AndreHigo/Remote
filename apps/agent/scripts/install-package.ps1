@@ -63,22 +63,37 @@ function Resolve-ConfiguredFfmpeg {
     if ([System.IO.Path]::GetFileName($candidate) -ine "ffmpeg.exe" -or -not (Test-Path -LiteralPath $candidate -PathType Leaf)) {
       throw "O caminho informado precisa apontar para um arquivo ffmpeg.exe existente."
     }
+    if (-not (Test-ProtectedFfmpegPath -Path $candidate)) {
+      throw "O FFmpeg do servico precisa estar em uma pasta protegida, como Program Files ou ProgramData. O caminho informado esta em uma pasta de usuario mutavel."
+    }
     return $candidate
   }
 
   if ($env:REMOTO_FFMPEG_PATH) {
     try {
       $candidate = [System.IO.Path]::GetFullPath($env:REMOTO_FFMPEG_PATH)
-      if (Test-Path -LiteralPath $candidate -PathType Leaf) { return $candidate }
+      if ((Test-Path -LiteralPath $candidate -PathType Leaf) -and (Test-ProtectedFfmpegPath -Path $candidate)) { return $candidate }
     } catch { }
   }
 
   $command = Get-Command ffmpeg.exe -ErrorAction SilentlyContinue
-  if ($command -and (Test-Path -LiteralPath $command.Source -PathType Leaf)) {
+  if ($command -and (Test-Path -LiteralPath $command.Source -PathType Leaf) -and (Test-ProtectedFfmpegPath -Path $command.Source)) {
     return $command.Source
   }
 
   return $null
+}
+
+function Test-ProtectedFfmpegPath {
+  param([string]$Path)
+
+  try { $resolved = [System.IO.Path]::GetFullPath($Path).TrimEnd('\') } catch { return $false }
+  $trustedRoots = @($env:ProgramFiles, ${env:ProgramFiles(x86)}, $env:ProgramData) |
+    Where-Object { $_ } |
+    ForEach-Object { [System.IO.Path]::GetFullPath($_).TrimEnd('\') }
+  return [bool]($trustedRoots | Where-Object {
+    $resolved.StartsWith($_ + '\', [System.StringComparison]::OrdinalIgnoreCase)
+  })
 }
 
 Assert-Administrator
@@ -174,5 +189,5 @@ Write-Output "Processo interativo: tarefa $InteractiveTaskName para $CurrentUser
 if ($resolvedFfmpegPath) {
   Write-Output "FFmpeg: $resolvedFfmpegPath"
 } else {
-  Write-Warning "FFmpeg nao encontrado. O gerenciamento continua disponivel, mas o modo jogo exige FFmpeg instalado ou informado no instalador."
+  Write-Warning "FFmpeg protegido nao encontrado. O gerenciamento continua disponivel, mas o modo jogo exige ffmpeg.exe instalado em Program Files/ProgramData ou informado por um caminho protegido."
 }

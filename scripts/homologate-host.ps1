@@ -28,11 +28,35 @@ function Get-OptionalCimInstance {
   }
 }
 
+function Test-UnderTrustedRoot {
+  param([string]$Path)
+
+  if (-not $Path) { return $false }
+  try { $resolved = [System.IO.Path]::GetFullPath($Path).TrimEnd('\') } catch { return $false }
+  $trustedRoots = @($env:ProgramFiles, ${env:ProgramFiles(x86)}, $env:ProgramData) |
+    Where-Object { $_ } |
+    ForEach-Object { [System.IO.Path]::GetFullPath($_).TrimEnd('\') }
+  return [bool]($trustedRoots | Where-Object {
+    $resolved.StartsWith($_ + '\', [System.StringComparison]::OrdinalIgnoreCase)
+  })
+}
+
+function Find-ProtectedFfmpeg {
+  $candidates = @(
+    (Join-Path $env:ProgramFiles "ffmpeg\bin\ffmpeg.exe"),
+    (Join-Path $env:ProgramFiles "FFmpeg\bin\ffmpeg.exe"),
+    (Join-Path $env:ProgramData "chocolatey\bin\ffmpeg.exe")
+  ) | Where-Object { $_ -and (Test-Path -LiteralPath $_ -PathType Leaf) }
+  return @($candidates | Where-Object { Test-UnderTrustedRoot $_ } | Select-Object -First 1)
+}
+
 $os = Get-OptionalCimInstance -ClassName "Win32_OperatingSystem"
 $computer = Get-OptionalCimInstance -ClassName "Win32_ComputerSystem"
 $controllers = @(Get-OptionalCimInstance -ClassName "Win32_VideoController")
 $ffmpegCommand = Get-Command ffmpeg.exe -ErrorAction SilentlyContinue
 $ffmpegPath = if ($ffmpegCommand) { $ffmpegCommand.Source } else { $null }
+$protectedFfmpegPath = Find-ProtectedFfmpeg
+$serviceFfmpegPath = if ($ffmpegPath -and (Test-UnderTrustedRoot $ffmpegPath)) { $ffmpegPath } elseif ($protectedFfmpegPath) { $protectedFfmpegPath } else { $null }
 $encoderOutput = if ($ffmpegPath) { Get-SafeCommandOutput $ffmpegPath @("-hide_banner", "-encoders") } else { "" }
 $filterOutput = if ($ffmpegPath) { Get-SafeCommandOutput $ffmpegPath @("-hide_banner", "-filters") } else { "" }
 $deviceOutput = if ($ffmpegPath) { Get-SafeCommandOutput $ffmpegPath @("-hide_banner", "-devices") } else { "" }
@@ -76,6 +100,9 @@ if ($configurationStatus -ne "configured") {
 if (-not $interactiveTask) {
   $nextChecks.Add("Instalar a tarefa RemotoAgentDesktop em uma sessao elevada e confirmar o processo interativo.")
 }
+if ($ffmpegPath -and -not $serviceFfmpegPath) {
+  $nextChecks.Add("Instalar o FFmpeg em uma pasta protegida (Program Files/ProgramData); o servico nao executa binarios do perfil do usuario.")
+}
 $nextChecks.Add("Confirmar o dispositivo no painel depois do primeiro heartbeat.")
 $nextChecks.Add("Executar uma sessao em duas maquinas e registrar RTT, FPS, perda e tempo ate o primeiro frame.")
 $nextChecks.Add("Validar audio de sistema separadamente; o FFmpeg comum nao garante loopback WASAPI.")
@@ -102,6 +129,9 @@ $report = [ordered]@{
   capture = [ordered]@{
     ffmpegPath = $ffmpegPath
     ffmpegAvailable = [bool]$ffmpegPath
+    serviceFfmpegPath = $serviceFfmpegPath
+    serviceFfmpegAvailable = [bool]$serviceFfmpegPath
+    userProfileFfmpegOnly = [bool]($ffmpegPath -and -not (Test-UnderTrustedRoot $ffmpegPath) -and -not $serviceFfmpegPath)
     videoEncoder = if ($gpuEncoderNames.Count -gt 0) { @($gpuEncoderNames) } else { @("libx264") }
     recommendedEncoder = "auto"
     desktopDuplication = [bool]$hasDesktopDuplication

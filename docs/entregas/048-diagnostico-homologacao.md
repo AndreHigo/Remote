@@ -6,6 +6,7 @@ O script `scripts/homologate-host.ps1` coleta um retrato tecnico da maquina Wind
 
 - sistema operacional, CPU, memoria e adaptadores de video;
 - caminho e disponibilidade do FFmpeg;
+- diferenca entre o FFmpeg encontrado no perfil do usuario e o executavel em caminho protegido que o servico pode usar;
 - encoders H.264 de GPU publicados pela build;
 - disponibilidade de `ddagrab` e `gdigrab`;
 - indicacao de DirectShow e do estado de audio que ainda exige homologacao;
