@@ -20,11 +20,11 @@ Stack candidata:
 - React;
 - Rust para integracoes locais.
 
-Estado atual: contrato, captura, entrada e transporte realtime autenticado estao implementados para o host Windows. O painel web ja possui o cliente experimental do modo jogo; o cliente nativo de operador continua como proxima etapa.
+Estado atual: contrato, captura, entrada e transporte realtime autenticado estao implementados para o host Windows. O painel web possui o cliente experimental do modo jogo e `apps/operator` fornece uma janela nativa inicial para o operador.
 
 O modulo `capture.ts` monta uma captura Windows de baixa latencia via FFmpeg, com CPU como caminho acessivel e encoders de GPU como aceleracao opcional. O modulo `input.ts` valida eventos tipados e usa uma ponte Windows isolada para SendInput. O modulo `realtime.ts` conecta o host ao relay autenticado e envia video e entrada somente dentro da sessao aprovada.
 
-O modulo `operator.ts` e a fronteira do cliente nativo operador: aceita somente `role: client` no modo `game`, entrega frames ao renderer escolhido pela aplicacao, informa quando o peer host entrou e mantem entrada/encerramento no mesmo contrato realtime. A janela nativa ainda precisa ser adicionada, mas nao devera duplicar autenticacao ou protocolo.
+O modulo `operator.ts` e a fronteira do cliente nativo operador: aceita somente `role: client` no modo `game`, entrega frames ao renderer escolhido pela aplicacao, informa quando o peer host entrou e mantem entrada/encerramento no mesmo contrato realtime. A primeira janela Electron fica em `apps/operator`; ela nao duplica autenticacao ou protocolo e recebe o descritor por arquivo de uso unico.
 
 Diagnostico local:
 

@@ -1,0 +1,150 @@
+const { app, BrowserWindow, ipcMain } = require("electron");
+const fs = require("node:fs/promises");
+const path = require("node:path");
+
+let mainWindow;
+let nativeSession;
+
+function parseArgs(argv) {
+  const index = argv.indexOf("--descriptor-file");
+  if (index >= 0 && argv[index + 1]) return argv[index + 1];
+  return process.env.REMOTO_OPERATOR_DESCRIPTOR || "";
+}
+
+async function readDescriptor(filePath) {
+  if (!filePath) throw new Error("Informe --descriptor-file com o descritor da sessao aprovada.");
+  const raw = await fs.readFile(path.resolve(filePath), "utf8");
+  await fs.rm(path.resolve(filePath), { force: true });
+  const descriptor = JSON.parse(raw);
+  if (!descriptor || typeof descriptor !== "object") throw new Error("Descritor de sessao invalido.");
+  if (descriptor.role !== "client" || descriptor.mode !== "game") {
+    throw new Error("O cliente nativo exige uma sessao aprovada no modo jogo.");
+  }
+  for (const field of ["sessionId", "deviceId", "accessToken"]) {
+    if (typeof descriptor[field] !== "string" || descriptor[field].length < 1) {
+      throw new Error(`Descritor sem ${field}.`);
+    }
+  }
+  if (descriptor.expiresAt && (!Number.isFinite(Date.parse(descriptor.expiresAt)) || Date.parse(descriptor.expiresAt) <= Date.now())) {
+    throw new Error("O descritor da sessao expirou.");
+  }
+  return descriptor;
+}
+
+async function consumeSession(descriptor) {
+  const apiUrl = String(descriptor.apiUrl || process.env.REMOTO_API_URL || "http://localhost:4100").replace(/\/+$/, "");
+  let response;
+  try {
+    response = await fetch(`${apiUrl}/desktop-sessions/consume`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accessToken: descriptor.accessToken }),
+      signal: AbortSignal.timeout(10_000)
+    });
+  } catch (error) {
+    throw new Error(`Nao foi possivel consumir a sessao pela API: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.message || `A API recusou a sessao (${response.status}).`);
+  }
+  return descriptor;
+}
+
+function sendStatus(status, detail = "") {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send("status", { status, detail });
+}
+
+function isFiniteNumber(value) {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function validInput(value) {
+  if (!value || typeof value !== "object") return false;
+  if (value.type === "mouse.relative") return isFiniteNumber(value.dx) && isFiniteNumber(value.dy);
+  if (value.type === "mouse.wheel") return isFiniteNumber(value.delta);
+  if (value.type === "mouse.button") {
+    return ["left", "middle", "right"].includes(value.button) && ["down", "up"].includes(value.action);
+  }
+  if (value.type === "key") {
+    return Number.isInteger(value.scanCode) && value.scanCode >= 1 && value.scanCode <= 255 &&
+      ["down", "up"].includes(value.action) && (value.extended === undefined || typeof value.extended === "boolean");
+  }
+  return false;
+}
+
+async function startSession() {
+  const descriptorPath = parseArgs(process.argv.slice(1));
+  try {
+    const descriptor = await readDescriptor(descriptorPath);
+    await consumeSession(descriptor);
+    const { openNativeOperatorSession } = await import("@remoto/desktop-control/operator");
+    sendStatus("connecting", "Autenticando a sessao...");
+    nativeSession = await openNativeOperatorSession(descriptor, {
+      onFrame(frame) {
+        if (!mainWindow || mainWindow.isDestroyed()) return;
+        mainWindow.webContents.send("video-frame", Uint8Array.from(frame));
+      },
+      onReady(peerConnected) {
+        sendStatus(peerConnected ? "connected" : "waiting", peerConnected ? "Computador remoto conectado." : "Aguardando o agente remoto...");
+      },
+      onClosed(reason) {
+        sendStatus("closed", reason);
+      }
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    sendStatus("error", message);
+  }
+}
+
+async function closeSession() {
+  if (!nativeSession) return;
+  nativeSession.close();
+  nativeSession = undefined;
+}
+
+async function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1280,
+    height: 820,
+    minWidth: 900,
+    minHeight: 560,
+    backgroundColor: "#071217",
+    title: "Remoto | Sessao de jogo",
+    webPreferences: {
+      preload: path.join(__dirname, "preload.cjs"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true
+    }
+  });
+
+  ipcMain.on("input", (_event, value) => {
+    if (!nativeSession || !validInput(value)) return;
+    try {
+      nativeSession.sendInput(value);
+    } catch (error) {
+      sendStatus("error", error instanceof Error ? error.message : String(error));
+    }
+  });
+  ipcMain.on("close-session", () => void closeSession());
+
+  await mainWindow.loadFile(path.join(__dirname, "renderer.html"));
+  void startSession();
+  mainWindow.on("closed", () => {
+    void closeSession();
+    mainWindow = undefined;
+  });
+}
+
+app.whenReady().then(() => createWindow()).catch((error) => {
+  console.error(error);
+  app.quit();
+});
+
+app.on("window-all-closed", () => {
+  void closeSession().finally(() => app.quit());
+});
+

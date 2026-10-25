@@ -16,7 +16,7 @@ export interface NativeOperatorSession {
 }
 
 /**
- * Stable boundary for a future native operator window. Rendering and window
+ * Stable boundary for the native operator window. Rendering and window
  * management stay outside this module; the session transport remains shared.
  */
 export async function openNativeOperatorSession(

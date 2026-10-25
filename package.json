@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "dev": "concurrently -n api,web -c blue,green \"npm run dev -w services/api\" \"npm run dev -w apps/web\"",
-    "build": "npm run build -w services/api && npm run build -w apps/web && npm run build -w apps/desktop-control && npm run build -w apps/agent && npm run build -w services/realtime",
+    "build": "npm run build -w services/api && npm run build -w apps/web && npm run build -w apps/desktop-control && npm run build -w apps/agent && npm run build -w services/realtime && npm run build -w apps/operator",
     "test": "npm run test:security && npm run test -w apps/agent && npm run test -w apps/desktop-control && npm run test -w services/realtime",
     "test:security": "npm run test:security -w services/api",
     "typecheck": "npm run typecheck -w services/api && npm run typecheck -w apps/web && npm run typecheck -w apps/desktop-control && npm run typecheck -w apps/agent && npm run typecheck -w services/realtime",
@@ -27,7 +27,9 @@
     "agent:status": "npm run status -w apps/agent",
     "agent:service:install": "powershell -NoProfile -ExecutionPolicy Bypass -File apps/agent/scripts/install-windows-service.ps1",
     "agent:service:uninstall": "powershell -NoProfile -ExecutionPolicy Bypass -File apps/agent/scripts/install-windows-service.ps1 -Uninstall",
-    "agent:package:windows": "npm run package:windows -w apps/agent"
+    "agent:package:windows": "npm run package:windows -w apps/agent",
+    "operator:dev": "npm run dev -w apps/operator",
+    "operator:build": "npm run build -w apps/operator"
   },
   "devDependencies": {
     "concurrently": "^9.2.0"

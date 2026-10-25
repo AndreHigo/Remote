@@ -1,0 +1,33 @@
+:root {
+  color-scheme: dark;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  background: #071217;
+  color: #edf6f4;
+}
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 900px; min-height: 560px; background: #071217; }
+button { font: inherit; }
+.shell { min-height: 100vh; display: grid; grid-template-rows: 68px 1fr 34px; background: #071217; }
+.topbar { display: flex; align-items: center; gap: 24px; padding: 0 24px; border-bottom: 1px solid #20343a; background: #0d1b20; }
+.brand { display: flex; align-items: center; gap: 10px; min-width: 220px; }
+.brand-mark { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; background: #8be0c6; color: #08222a; font-weight: 800; }
+.brand strong, .brand small { display: block; }
+.brand strong { font-size: 15px; }
+.brand small { margin-top: 2px; color: #8ea9ae; font-size: 12px; }
+.connection { display: flex; align-items: center; gap: 8px; color: #acc4c6; font-size: 13px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: #d6a94e; }
+.dot.connected { background: #3dd39c; box-shadow: 0 0 0 4px #164e3f; }
+.dot.error, .dot.closed { background: #ef7c78; }
+.close-button { margin-left: auto; border: 1px solid #315057; border-radius: 6px; padding: 9px 14px; background: transparent; color: #d8e7e7; cursor: pointer; }
+.close-button:hover { background: #163038; }
+.stage-wrap { min-height: 0; padding: 18px 24px 12px; }
+.stage { position: relative; display: grid; place-items: center; height: 100%; overflow: hidden; border: 1px solid #203b42; background: #02080a; }
+video { width: 100%; height: 100%; display: block; object-fit: contain; outline: none; cursor: crosshair; }
+.empty-state { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 10px; background: rgba(2, 8, 10, .92); text-align: center; }
+.empty-state.hidden { display: none; }
+.empty-state h1 { margin: 4px 0 0; font-size: 20px; font-weight: 650; }
+.empty-state p { max-width: 520px; margin: 0; color: #91aaae; font-size: 14px; }
+.spinner { width: 28px; height: 28px; border: 3px solid #27434a; border-top-color: #8be0c6; border-radius: 50%; animation: spin .8s linear infinite; }
+.error-state { position: absolute; left: 24px; right: 24px; bottom: 24px; padding: 12px 14px; border: 1px solid #6b3b3d; background: #321b1f; color: #ffc5c2; font-size: 13px; }
+.footer { display: flex; justify-content: space-between; gap: 20px; padding: 0 24px; color: #789397; font-size: 11px; }
+@keyframes spin { to { transform: rotate(360deg); } }

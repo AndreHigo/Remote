@@ -36,7 +36,7 @@ API Remoto ---- autoriza canal ---- Relay WebSocket
 
 ### Cliente operador
 
-- abre o descritor aprovado uma unica vez;
+- abre o descritor aprovado uma unica vez e consome o token em `POST /desktop-sessions/consume`;
 - conecta no endpoint `/sessions/:sessionId`;
 - envia `hello` com o token;
 - recebe frames H.264 fragmented MP4 do host;
@@ -55,7 +55,7 @@ API Remoto ---- autoriza canal ---- Relay WebSocket
 
 ## Decisao de produto
 
-O primeiro cliente operador continua sendo web para reduzir barreira de instalacao. O cliente nativo sera uma casca Windows com o mesmo contrato e o mesmo modulo `@remoto/desktop-control`, permitindo trocar apenas a camada de apresentacao e decodificacao.
+O cliente web continua sendo o caminho sem instalacao. O cliente nativo inicial e uma casca Windows com o mesmo contrato e o mesmo modulo `@remoto/desktop-control`, permitindo trocar apenas a camada de apresentacao e decodificacao. Ele fica em `apps/operator` e recebe o descritor por arquivo de uso unico para o primeiro teste controlado.
 
 Isso nao exige Sunshine nem placa de video dedicada. A captura CPU e o fallback acessivel; hardware H.264 e uma otimização quando existir.
 
@@ -66,14 +66,14 @@ Isso nao exige Sunshine nem placa de video dedicada. A captura CPU e o fallback 
 - captura CPU validada localmente;
 - encaminhamento de frames pelo `stdout` coberto por teste automatizado;
 - cliente web experimental com MSE, teclado, mouse e RTT;
-- cliente nativo operador ainda nao possui janela/decodificador final;
+- cliente nativo operador possui uma primeira janela Electron com MSE H.264, teclado, mouse relativo, pointer lock e encerramento;
 - gamepad, audio, clipboard e teste entre duas maquinas ainda nao estao concluidos.
 
 O instalador Windows agora separa o processo de gestao do processo desktop: o servico permanece em modo management-only e o mesmo agente inicia `sessions` no login do usuario. Isso evita depender da Session 0 para captura e `SendInput`; a validacao final ainda precisa ser feita em Windows com usuario logado, bloqueio/desbloqueio e troca de sessao.
 
 ## Proxima implementacao do cliente nativo
 
-1. criar a janela Windows/Tauri e carregar o descritor de sessao sem expor token na URL;
+1. empacotar a janela Windows e integrar a abertura do descritor ao painel autenticado, sem expor token na URL;
 2. reutilizar `connectRemoteSession` para o canal autenticado;
 3. adicionar decodificador H.264 nativo ou WebView controlada para MSE;
 4. mapear entrada com foco, pointer lock e gamepad;

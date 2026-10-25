@@ -19,7 +19,8 @@ Criar uma alternativa brasileira, moderna e simples para operacoes de suporte re
 ```text
 apps/
   web/              Painel online para tecnicos, clientes e administradores
-  desktop-control/  Contrato e cliente desktop nativo em evolucao
+  desktop-control/  Contrato, captura, entrada e transporte realtime
+  operator/         Janela nativa do operador para o modo jogo
   agent/            Agente instalado no dispositivo remoto
 services/
   api/              API principal da plataforma
@@ -107,9 +108,9 @@ O painel, a experiencia comercial, as permissoes, a auditoria e as automacoes fi
 2. Publicar API, painel e relay em VPS com DNS, firewall, TLS e segredos reais.
 3. Evoluir permissoes mais finas e trocar o rate limit em memoria por Redis.
 4. Assinar o instalador Windows e definir atualizacao automatica.
-5. Decidir e implementar o cliente nativo visual, caso o painel web nao seja suficiente para o produto final.
+5. Validar o cliente nativo visual em duas maquinas, assinar o instalador e medir a matriz de jogos suportados.
 
-O botao `Conectar` registra uma solicitacao de sessao; um owner ou admin precisa aprovar antes de abrir o adaptador correspondente. Sessoes de suporte usam RustDesk quando instalado; sessoes de jogo usam o relay H.264 experimental do proprio Remoto quando `ENABLE_GAME_MODE=true` e os segredos do canal estao configurados. O cliente nativo visual continua separado e ainda nao esta liberado. Contas administrativas ja podem ativar 2FA TOTP no painel; em producao, configure `TOTP_ENCRYPTION_KEY` e `DESKTOP_SESSION_SECRET` separados do `JWT_SECRET`.
+O botao `Conectar` registra uma solicitacao de sessao; um owner ou admin precisa aprovar antes de abrir o adaptador correspondente. Sessoes de suporte usam RustDesk quando instalado; sessoes de jogo usam o relay H.264 experimental do proprio Remoto quando `ENABLE_GAME_MODE=true` e os segredos do canal estao configurados. O cliente nativo inicial fica em `apps/operator` e abre descritores de sessao de uso unico; ele ainda nao e liberado como instalador assinado e nao promete compatibilidade com anti-cheat ou desktop seguro. Contas administrativas ja podem ativar 2FA TOTP no painel; em producao, configure `TOTP_ENCRYPTION_KEY` e `DESKTOP_SESSION_SECRET` separados do `JWT_SECRET`.
 
 A API possui `/health` para liveness e `/ready` para readiness com verificacao do PostgreSQL. O workflow em `.github/workflows/ci.yml` valida testes, tipos, build e os Compose antes de qualquer deploy.
 
