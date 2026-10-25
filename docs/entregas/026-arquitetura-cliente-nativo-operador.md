@@ -16,6 +16,8 @@ O painel cria uma solicitacao `support` ou `game`. Depois da aprovacao administr
 
 O cliente nao recebe senha RustDesk nem segredo do relay. O token e consumido pela API e, em seguida, o relay autoriza o canal por um segredo interno separado.
 
+O agente tambem recebe uma `realtimeUrl` explicita na instalacao. Em producao ela deve apontar para o endpoint publico `wss://.../realtime`; nunca deve depender de `localhost` no computador remoto.
+
 ## Componentes
 
 ```text

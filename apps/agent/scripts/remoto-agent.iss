@@ -67,17 +67,26 @@ end;
 function NextButtonClick(CurPageID: Integer): Boolean;
 var
   ApiUrl: string;
+  RealtimeUrl: string;
   AgentKey: string;
 begin
   Result := True;
   if CurPageID <> ConnectionPage.ID then Exit;
 
   ApiUrl := Trim(ConnectionPage.Values[0]);
-  AgentKey := Trim(ConnectionPage.Values[1]);
+  RealtimeUrl := Trim(ConnectionPage.Values[1]);
+  AgentKey := Trim(ConnectionPage.Values[2]);
 
   if ((CompareText(Copy(ApiUrl, 1, 7), 'http://') <> 0) and
       (CompareText(Copy(ApiUrl, 1, 8), 'https://') <> 0)) then begin
     MsgBox('Informe uma URL iniciando com http:// ou https://.', mbError, MB_OK);
+    Result := False;
+    Exit;
+  end;
+
+  if ((CompareText(Copy(RealtimeUrl, 1, 5), 'ws://') <> 0) and
+      (CompareText(Copy(RealtimeUrl, 1, 6), 'wss://') <> 0)) then begin
+    MsgBox('A URL do relay deve iniciar com ws:// ou wss://.', mbError, MB_OK);
     Result := False;
     Exit;
   end;
@@ -88,8 +97,8 @@ begin
     Exit;
   end;
 
-  if HasInvalidInput(ApiUrl) or HasInvalidInput(AgentKey) then begin
-    MsgBox('A URL e a chave nao podem conter aspas ou quebras de linha.', mbError, MB_OK);
+  if HasInvalidInput(ApiUrl) or HasInvalidInput(RealtimeUrl) or HasInvalidInput(AgentKey) then begin
+    MsgBox('As URLs e a chave nao podem conter aspas ou quebras de linha.', mbError, MB_OK);
     Result := False;
   end;
 end;
@@ -105,7 +114,8 @@ begin
   ScriptPath := ExpandConstant('{app}\install-package.ps1');
   Parameters := '-NoProfile -ExecutionPolicy Bypass -File ' + QuoteArgument(ScriptPath) +
     ' -ApiUrl ' + QuoteArgument(Trim(ConnectionPage.Values[0])) +
-    ' -AgentKey ' + QuoteArgument(Trim(ConnectionPage.Values[1]));
+    ' -RealtimeUrl ' + QuoteArgument(Trim(ConnectionPage.Values[1])) +
+    ' -AgentKey ' + QuoteArgument(Trim(ConnectionPage.Values[2]));
 
   ExecResult := Exec(PowerShellPath, Parameters, '', SW_HIDE, ewWaitUntilTerminated, ServiceInstallResult);
   if (not ExecResult) or (ServiceInstallResult <> 0) then begin
@@ -138,9 +148,11 @@ begin
     'Informe onde o agente deve se conectar',
     'Esses dados serao usados para registrar este computador no painel Remoto.');
   ConnectionPage.Add('URL da API:', False);
+  ConnectionPage.Add('URL do relay realtime:', False);
   ConnectionPage.Add('Chave do agente:', True);
   ConnectionPage.Values[0] := ExpandConstant('{param:APIURL|http://localhost:4100}');
-  ConnectionPage.Values[1] := ExpandConstant('{param:AGENTKEY|}');
+  ConnectionPage.Values[1] := ExpandConstant('{param:REALTIMEURL|ws://localhost:4200}');
+  ConnectionPage.Values[2] := ExpandConstant('{param:AGENTKEY|}');
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);

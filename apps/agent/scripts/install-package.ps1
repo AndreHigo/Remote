@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
   [string]$ApiUrl = "",
+  [string]$RealtimeUrl = "",
   [string]$AgentKey = "",
   [string]$ServiceName = "RemotoAgent"
 )
@@ -36,15 +37,22 @@ if (-not (Test-Path $AgentExe) -or -not (Test-Path $ServiceExe)) {
 if ([string]::IsNullOrWhiteSpace($ApiUrl)) {
   $ApiUrl = Read-Host "URL da API (ex.: https://api.seudominio.com)"
 }
+if ([string]::IsNullOrWhiteSpace($RealtimeUrl)) {
+  $RealtimeUrl = Read-Host "URL do relay realtime (ex.: wss://remoto.seudominio.com/realtime)"
+}
 if ([string]::IsNullOrWhiteSpace($AgentKey)) {
   $AgentKey = Read-Host "Chave gerada no painel"
 }
-if ([string]::IsNullOrWhiteSpace($ApiUrl) -or [string]::IsNullOrWhiteSpace($AgentKey)) {
-  throw "URL da API e chave sao obrigatorias."
+if ([string]::IsNullOrWhiteSpace($ApiUrl) -or [string]::IsNullOrWhiteSpace($RealtimeUrl) -or [string]::IsNullOrWhiteSpace($AgentKey)) {
+  throw "URL da API, URL do relay e chave sao obrigatorias."
+}
+if ($RealtimeUrl -notmatch '^wss?://') {
+  throw "A URL do relay deve iniciar com ws:// ou wss://."
 }
 
 $configJson = @{
   apiUrl = $ApiUrl.TrimEnd("/")
+  realtimeUrl = $RealtimeUrl.TrimEnd("/")
   agentKey = $AgentKey.Trim()
   stateFile = ".remoto-agent.state.json"
   ffmpegPath = $(

@@ -16,6 +16,7 @@ const activeRemoteSessions = new Map<string, RealtimeConnection>();
 
 interface AgentConfigFile {
   apiUrl?: string;
+  realtimeUrl?: string;
   agentKey?: string;
   stateFile?: string;
   ffmpegPath?: string;
@@ -23,6 +24,7 @@ interface AgentConfigFile {
 
 interface AgentConfig {
   apiUrl: string;
+  realtimeUrl: string;
   agentKey: string;
   stateFile: string;
   heartbeatIntervalSeconds: number;
@@ -288,6 +290,7 @@ async function reportRemoteSessions(state: AgentState) {
     if (session.mode !== "game" || activeRemoteSessions.has(session.sessionId)) continue;
     try {
       const connection = await connectRemoteSession(session, {
+        url: config.realtimeUrl,
         capture: { quality: "auto", encoder: "cpu", ffmpegPath: config.ffmpegPath },
         onClosed: (reason) => {
           activeRemoteSessions.delete(session.sessionId);
@@ -661,6 +664,7 @@ async function loadConfig(): Promise<AgentConfig> {
 
   return {
     apiUrl: process.env.REMOTO_API_URL ?? fileConfig.apiUrl ?? "http://localhost:4100",
+    realtimeUrl: process.env.REMOTO_REALTIME_URL ?? fileConfig.realtimeUrl ?? "ws://localhost:4200",
     agentKey: process.env.REMOTO_AGENT_KEY ?? fileConfig.agentKey ?? DEMO_AGENT_KEY,
     stateFile: path.isAbsolute(stateFile) ? stateFile : path.resolve(path.dirname(CONFIG_FILE), stateFile),
     heartbeatIntervalSeconds: readInterval("REMOTO_AGENT_HEARTBEAT_SECONDS", 30),
@@ -683,6 +687,7 @@ async function initializeConfig() {
   await fs.mkdir(path.dirname(CONFIG_FILE), { recursive: true });
   const initialConfig: AgentConfigFile = {
     apiUrl: process.env.REMOTO_API_URL ?? "http://localhost:4100",
+    realtimeUrl: process.env.REMOTO_REALTIME_URL ?? "ws://localhost:4200",
     agentKey: process.env.REMOTO_AGENT_KEY ?? "",
     stateFile: process.env.REMOTO_AGENT_STATE ?? ".remoto-agent.json"
   };
@@ -700,6 +705,7 @@ async function printStatus() {
   console.log(`config.file=${CONFIG_FILE}`);
   console.log(`state.file=${config.stateFile}`);
   console.log(`api.url=${config.apiUrl}`);
+  console.log(`realtime.url=${config.realtimeUrl}`);
   console.log(`api.reachable=${health.reachable} status=${health.status ?? "-"}`);
   console.log(`agent.key.configured=${hasKey}`);
   console.log(`capture.ffmpeg=${resolveFfmpegExecutable(config.ffmpegPath) ?? "nao-encontrado"}`);
