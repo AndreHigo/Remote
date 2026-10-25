@@ -94,7 +94,7 @@ test("transporte realtime integra host e cliente com captura e entrada tipadas",
   const receivedInputs: unknown[] = [];
   const frames: Buffer[] = [];
   const latencies: number[] = [];
-  const metrics: Array<{ framesReceived: number; bytesReceived: number; firstFrameMs?: number }> = [];
+  const metrics: Array<{ framesReceived: number; bytesReceived: number; firstFrameMs?: number; latencyP95Ms?: number }> = [];
   const inputBridge: RealtimeInputBridge = {
     send(value) {
       receivedInputs.push(value);
@@ -177,6 +177,7 @@ test("transporte realtime integra host e cliente com captura e entrada tipadas",
   assert.equal(latestMetrics.framesReceived, 2);
   assert.equal(latestMetrics.bytesReceived, initialization.byteLength + media.byteLength);
   assert.ok((latestMetrics.firstFrameMs ?? -1) >= 0);
+  assert.ok((latestMetrics.latencyP95Ms ?? -1) >= 0);
 
   client.sendInput({ type: "key", scanCode: 30, action: "down" });
   await waitFor(() => receivedInputs.length === 1);

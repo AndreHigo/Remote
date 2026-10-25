@@ -148,8 +148,11 @@ window.remotoOperator.onStatus(({ status, detail: message }) => {
   else if (status === "closed") showDetail("Sessao encerrada", message);
   else detail.textContent = message || detail.textContent;
 });
-window.remotoOperator.onMetrics(({ latencyMs, firstFrameMs, bytesReceived }) => {
-  if (Number.isFinite(latencyMs)) latencyText.textContent = `RTT ${Math.round(latencyMs)} ms`;
+window.remotoOperator.onMetrics(({ latencyMs, latencyP95Ms, firstFrameMs, bytesReceived }) => {
+  if (Number.isFinite(latencyMs)) {
+    const p95 = Number.isFinite(latencyP95Ms) ? ` / p95 ${Math.round(latencyP95Ms)} ms` : "";
+    latencyText.textContent = `RTT ${Math.round(latencyMs)} ms${p95}`;
+  }
   if (Number.isFinite(firstFrameMs)) firstFrameText.textContent = `1o frame ${Math.round(firstFrameMs)} ms`;
   if (Number.isFinite(bytesReceived)) receivedText.textContent = `${(bytesReceived / 1024 / 1024).toFixed(1)} MB`;
 });

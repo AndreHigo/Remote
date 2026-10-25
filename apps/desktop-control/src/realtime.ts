@@ -21,6 +21,7 @@ export interface RealtimeMetrics {
   bytesReceived: number;
   firstFrameMs?: number;
   latencyMs?: number;
+  latencyP95Ms?: number;
 }
 
 export interface RealtimeInputBridge {
@@ -52,13 +53,20 @@ export async function connectRemoteSession(
   let bytesReceived = 0;
   let firstFrameMs: number | undefined;
   let latencyMs: number | undefined;
+  const latencySamples: number[] = [];
   let lastMetricsAt = 0;
 
   function publishMetrics(force = false) {
     const now = Date.now();
     if (!force && now - lastMetricsAt < 1_000) return;
     lastMetricsAt = now;
-    options.onMetrics?.({ framesReceived, bytesReceived, firstFrameMs, latencyMs });
+    options.onMetrics?.({
+      framesReceived,
+      bytesReceived,
+      firstFrameMs,
+      latencyMs,
+      latencyP95Ms: percentile(latencySamples, 0.95)
+    });
   }
 
   function notifyClosed(reason: string) {
@@ -141,6 +149,8 @@ export async function connectRemoteSession(
 
       if (message.type === "pong" && typeof message.sentAt === "number") {
         latencyMs = Math.max(0, Date.now() - message.sentAt);
+        latencySamples.push(latencyMs);
+        if (latencySamples.length > 60) latencySamples.shift();
         options.onLatencyMs?.(latencyMs);
         publishMetrics();
         return;
@@ -286,4 +296,10 @@ function toBuffer(data: WebSocket.RawData) {
   if (Buffer.isBuffer(data)) return data;
   if (Array.isArray(data)) return Buffer.concat(data);
   return Buffer.from(data);
+}
+
+function percentile(values: number[], ratio: number) {
+  if (values.length === 0) return undefined;
+  const ordered = [...values].sort((left, right) => left - right);
+  return ordered[Math.min(ordered.length - 1, Math.ceil((ordered.length - 1) * ratio))];
 }

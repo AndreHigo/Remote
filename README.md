@@ -89,7 +89,7 @@ npm run operator:package:windows
 npm run smoke:local
 ```
 
-Durante uma sessao de jogo, o operador nativo exibe RTT, tempo ate o primeiro frame e volume de video recebido. Esses numeros ajudam a registrar a homologacao, mas nao substituem o teste entre duas maquinas descrito em `docs/entregas/029-runbook-homologacao-jogo.md`.
+Durante uma sessao de jogo, o operador nativo exibe RTT atual/p95, tempo ate o primeiro frame e volume de video recebido. Esses numeros ajudam a registrar a homologacao, mas nao substituem o teste entre duas maquinas descrito em `docs/entregas/029-runbook-homologacao-jogo.md`.
 
 Servidor RustDesk OSS de laboratorio:
 
