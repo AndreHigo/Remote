@@ -1,0 +1,25 @@
+# Entrega 021 - Acessibilidade de hardware
+
+## Decisao de produto
+
+O Remoto sera apresentado como um unico aplicativo. O usuario nao precisa conhecer RustDesk, Sunshine, Moonlight, codecs ou protocolos. A aplicacao tera modos Host e Cliente e selecionara automaticamente a melhor estrategia disponivel.
+
+## Perfis de capacidade
+
+- **GPU dedicada:** prioriza codificacao acelerada e maior qualidade.
+- **GPU integrada:** permitida; prioriza H.264 e qualidade adaptativa.
+- **Sem aceleracao utilizavel:** fallback de CPU, com FPS e resolucao reduzidos quando necessario.
+- **Cliente sem GPU dedicada:** permitido quando houver decodificacao integrada ou CPU suficiente.
+
+## Entregue nesta etapa
+
+- O agente coleta adaptadores de video, memoria aproximada, driver e modo de codificacao possivel no Windows.
+- O painel exibe o hardware de video e informa se existe fallback de CPU.
+- A documentacao do desktop-control fixa a regra de um unico aplicativo e instalador.
+
+## Ainda falta
+
+- Implementar a captura de tela e codificacao reais.
+- Medir FPS e latencia por perfil.
+- Criar o fallback adaptativo de resolucao, bitrate e FPS.
+- Testar com computador com GPU dedicada, video integrado e sem aceleracao utilizavel.

@@ -14,6 +14,11 @@ enum RemoteSessionStatus {
   ENDED
 }
 
+enum RemoteSessionMode {
+  SUPPORT
+  GAME
+}
+
 enum UserRole {
   OWNER
   ADMIN
@@ -118,6 +123,7 @@ model RemoteSession {
   userId         String?
   technicianName String
   reason         String
+  mode           RemoteSessionMode   @default(SUPPORT)
   status         RemoteSessionStatus @default(REQUESTED)
   requestedAt    DateTime            @default(now())
   endedAt        DateTime?

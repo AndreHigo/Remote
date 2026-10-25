@@ -130,6 +130,10 @@ interface InventorySnapshot {
       totalBytes?: number;
       freeBytes?: number;
     }>;
+    graphics?: {
+      adapters?: Array<{ name?: string; adapterRamBytes?: number; driverVersion?: string }>;
+      encoding?: string;
+    };
   };
   software: {
     runtime?: {
@@ -154,10 +158,20 @@ interface CommandExecution {
 interface RemoteSessionResponse {
   id: string;
   status: string;
+  mode?: "support" | "game";
   connection?: {
     protocol: string;
-    uri: string;
-    command: string;
+    status: "ready" | "not-ready";
+    uri?: string;
+    command?: string;
+    message?: string;
+    desktopSession?: {
+      sessionId: string;
+      deviceId: string;
+      mode: "support" | "game";
+      role: "host" | "client";
+      remoteId?: string;
+    };
   };
 }
 
@@ -169,6 +183,7 @@ interface RemoteSession {
   remoteId: string;
   technicianName: string;
   reason: string;
+  mode: "support" | "game";
   status: "requested" | "approved" | "denied" | "ended";
   requestedAt: string;
   endedAt: string | null;
@@ -302,6 +317,7 @@ function App() {
   const [deviceFilter, setDeviceFilter] = React.useState<DeviceFilter>("all");
   const [connectDevice, setConnectDevice] = React.useState<Device | null>(null);
   const [connectReason, setConnectReason] = React.useState("");
+  const [connectMode, setConnectMode] = React.useState<"support" | "game">("support");
   const [connectionLoading, setConnectionLoading] = React.useState(false);
   const [onboardingOpen, setOnboardingOpen] = React.useState(false);
   const [onboardingCustomerId, setOnboardingCustomerId] = React.useState("");
@@ -499,6 +515,7 @@ function App() {
   function requestSession(device: Device) {
     setConnectDevice(device);
     setConnectReason("Atendimento tecnico");
+    setConnectMode("support");
   }
 
   async function confirmConnection() {
@@ -512,7 +529,8 @@ function App() {
     try {
       const session = await postJson<RemoteSessionResponse>("/remote-sessions", token, {
         deviceId: connectDevice.id,
-        reason: connectReason.trim()
+        reason: connectReason.trim(),
+        mode: connectMode
       });
       setConnectDevice(null);
       setConnectReason("");
@@ -530,6 +548,7 @@ function App() {
       const approved = await postJson<RemoteSessionResponse>(`/remote-sessions/${session.id}/approve`, token);
       await refresh();
       if (approved.connection?.uri) window.location.assign(approved.connection.uri);
+      else if (approved.connection?.message) setStatusMessage(approved.connection.message);
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : "Nao foi possivel aprovar a sessao");
     }
@@ -930,7 +949,9 @@ function App() {
     onEnableTwoFactor={() => void enableTwoFactor()}
     onDisableTwoFactor={() => void disableTwoFactor()}
     onConnectReasonChange={setConnectReason}
-    onCloseConnection={() => { setConnectDevice(null); setConnectReason(""); }}
+    connectMode={connectMode}
+    onConnectModeChange={setConnectMode}
+    onCloseConnection={() => { setConnectDevice(null); setConnectReason(""); setConnectMode("support"); }}
     onConfirmConnection={() => void confirmConnection()}
     onOpenOnboarding={openOnboarding}
     onCloseOnboarding={() => { setOnboardingOpen(false); setOnboardingKey(null); }}
@@ -971,6 +992,7 @@ interface OperationsConsoleProps {
   canManageKeys: boolean;
   connectDevice: Device | null;
   connectReason: string;
+  connectMode: "support" | "game";
   connectionLoading: boolean;
   onboardingOpen: boolean;
   onboardingCustomerId: string;
@@ -1028,6 +1050,7 @@ interface OperationsConsoleProps {
   onEnableTwoFactor: () => void;
   onDisableTwoFactor: () => void;
   onConnectReasonChange: (value: string) => void;
+  onConnectModeChange: (value: "support" | "game") => void;
   onCloseConnection: () => void;
   onConfirmConnection: () => void;
   onOpenOnboarding: () => void;
@@ -1119,6 +1142,7 @@ function OperationsConsole(props: OperationsConsoleProps) {
     onDisableTwoFactor,
     connectDevice,
     connectReason,
+    connectMode,
     connectionLoading,
     onboardingOpen,
     onboardingCustomerId,
@@ -1126,6 +1150,7 @@ function OperationsConsole(props: OperationsConsoleProps) {
     onboardingKey,
     onboardingLoading,
     onConnectReasonChange,
+    onConnectModeChange,
     onCloseConnection,
     onConfirmConnection,
     onOpenOnboarding,
@@ -1321,6 +1346,8 @@ function OperationsConsole(props: OperationsConsoleProps) {
                         <div><dt>CPU</dt><dd>{latestInventory.hardware.cpu?.count ?? "n/a"}x {latestInventory.hardware.cpu?.model ?? "desconhecida"}</dd></div>
                         <div><dt>Memoria</dt><dd>{formatBytes(latestInventory.hardware.memory?.freeBytes)} livre de {formatBytes(latestInventory.hardware.memory?.totalBytes)}</dd></div>
                         <div><dt>Discos</dt><dd>{latestInventory.hardware.disks?.length ? latestInventory.hardware.disks.map((disk) => `${disk.name ?? disk.mountedAt ?? "disco"} ${formatBytes(disk.freeBytes)} livre`).join(", ") : "n/a"}</dd></div>
+                        <div><dt>Video</dt><dd>{latestInventory.hardware.graphics?.adapters?.map((adapter) => adapter.name).join(", ") || "nao detectado"}</dd></div>
+                        <div><dt>Codificacao</dt><dd>{latestInventory.hardware.graphics?.encoding === "cpu-fallback" ? "CPU permitido; qualidade pode variar" : latestInventory.hardware.graphics?.encoding === "hardware-preferred-with-cpu-fallback" ? "GPU preferencial com fallback de CPU" : "Nao avaliada"}</dd></div>
                         <div><dt>Runtime</dt><dd>{latestInventory.software.runtime?.node ?? "n/a"}</dd></div>
                       </dl> : null}
                     </section>
@@ -1400,7 +1427,7 @@ function OperationsConsole(props: OperationsConsoleProps) {
         ) : null}
 
         {activeSection === "activity" ? <section className="activityView">
-          <section className="panel sessionPanel"><div className="panelHeader"><div><p className="eyebrow">Controle de acesso</p><h2>Sessoes remotas</h2><p>Solicitacoes precisam de aprovacao antes de abrir o RustDesk.</p></div><Play size={20} /></div>{sessions.length === 0 ? <div className="emptyState"><Play size={24} /><strong>Sem sessoes registradas</strong><span>Os pedidos de acesso aparecerao aqui.</span></div> : <ul className="sessionList">{sessions.map((session) => <li key={session.id}><div><strong>{session.deviceName}</strong><span>{session.customerName} / {session.technicianName} / {session.reason}</span><small>{new Date(session.requestedAt).toLocaleString("pt-BR")}</small></div><span className={`commandStatus ${session.status === "approved" ? "succeeded" : session.status === "denied" ? "failed" : ""}`}>{session.status}</span><span className="sessionActions">{canManageKeys && session.status === "requested" ? <><button className="primary compact" type="button" onClick={() => onApproveRemoteSession(session)}><Play size={14} />Aprovar</button><button className="danger compact" type="button" onClick={() => onDenyRemoteSession(session)}><Ban size={14} />Negar</button></> : null}{session.status === "approved" ? <button className="secondary compact" type="button" onClick={() => onEndRemoteSession(session)}>Encerrar</button> : null}</span></li>)}</ul>}</section>
+          <section className="panel sessionPanel"><div className="panelHeader"><div><p className="eyebrow">Controle de acesso</p><h2>Sessoes remotas</h2><p>Suporte usa RustDesk; jogo fica registrado para o cliente nativo.</p></div><Play size={20} /></div>{sessions.length === 0 ? <div className="emptyState"><Play size={24} /><strong>Sem sessoes registradas</strong><span>Os pedidos de acesso aparecerao aqui.</span></div> : <ul className="sessionList">{sessions.map((session) => <li key={session.id}><div><strong>{session.deviceName}</strong><span>{session.mode === "game" ? "Jogo" : "Suporte"} / {session.customerName} / {session.technicianName} / {session.reason}</span><small>{new Date(session.requestedAt).toLocaleString("pt-BR")}</small></div><span className={`commandStatus ${session.status === "approved" ? "succeeded" : session.status === "denied" ? "failed" : ""}`}>{session.status}</span><span className="sessionActions">{canManageKeys && session.status === "requested" ? <><button className="primary compact" type="button" onClick={() => onApproveRemoteSession(session)}><Play size={14} />Aprovar</button><button className="danger compact" type="button" onClick={() => onDenyRemoteSession(session)}><Ban size={14} />Negar</button></> : null}{session.status === "approved" ? <button className="secondary compact" type="button" onClick={() => onEndRemoteSession(session)}>Encerrar</button> : null}</span></li>)}</ul>}</section>
           <section className="panel auditPanel"><div className="panelHeader"><div><p className="eyebrow">Historico do workspace</p><h2>Atividade recente</h2><p>Acoes registradas pela API e pelos operadores.</p></div><Activity size={20} /></div>{auditEvents.length === 0 ? <div className="emptyState"><Activity size={24} /><strong>Sem eventos ainda</strong><span>Heartbeats e sessoes aparecerao aqui.</span></div> : <ul className="auditList">{auditEvents.map((event) => <li key={event.id}><span className="activityIcon"><Activity size={16} /></span><div><strong>{event.action}</strong><span>{event.actor} / alvo {event.targetId}</span></div><time>{new Date(event.createdAt).toLocaleString("pt-BR")}</time></li>)}</ul>}</section>
         </section> : null}
 
@@ -1412,8 +1439,9 @@ function OperationsConsole(props: OperationsConsoleProps) {
                 <button className="iconButton" type="button" onClick={onCloseConnection} aria-label="Fechar" title="Fechar"><X size={17} /></button>
               </div>
               <div className="connectionTarget"><span className={`deviceIcon ${connectDevice.status}`}><Monitor size={19} /></span><div><strong>{connectDevice.displayName}</strong><span>{connectDevice.customerName} / ID {connectDevice.remoteId}</span></div><span className={`status ${connectDevice.status}`}>{connectDevice.status === "online" ? "Online" : "Offline"}</span></div>
+              <label className="reasonField"><span>Modo de acesso</span><select value={connectMode} onChange={(event) => onConnectModeChange(event.target.value as "support" | "game")}><option value="support">Suporte tecnico (RustDesk)</option><option value="game">Jogo (cliente nativo em preparacao)</option></select></label>
               <label className="reasonField"><span>Motivo do acesso</span><textarea value={connectReason} onChange={(event) => onConnectReasonChange(event.target.value)} rows={3} placeholder="Ex.: validar falha no caixa" autoFocus /></label>
-              <p className="modalNote">A solicitacao sera registrada na atividade e abrira o cliente RustDesk quando autorizada.</p>
+              <p className="modalNote">A solicitacao sera registrada na atividade. O suporte abre RustDesk; o modo jogo aguarda o cliente nativo.</p>
               <div className="modalActions"><button className="secondary" type="button" onClick={onCloseConnection}>Cancelar</button><button className="primary" type="button" onClick={onConfirmConnection} disabled={connectionLoading || connectReason.trim().length < 4}><Play size={16} />{connectionLoading ? "Registrando..." : "Solicitar acesso"}</button></div>
             </section>
           </div>

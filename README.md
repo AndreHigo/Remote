@@ -2,7 +2,7 @@
 
 Plataforma online de acesso remoto, suporte tecnico e gestao de dispositivos.
 
-O objetivo inicial e criar um produto proprio em volta de um motor de acesso remoto ja maduro, com RustDesk como candidato tecnico para o MVP. A plataforma deve oferecer painel web, cadastro de clientes, maquinas online/offline, permissoes, logs, inventario, comandos remotos e uma evolucao controlada para recursos mais avancados.
+O objetivo e criar um produto proprio de acesso remoto com painel web, agente Windows, cliente desktop unico, cadastro de clientes, maquinas online/offline, permissoes, logs, inventario, comandos remotos e um modo jogo acessivel por hardware.
 
 ## Visao curta
 
@@ -19,8 +19,8 @@ Criar uma alternativa brasileira, moderna e simples para operacoes de suporte re
 ```text
 apps/
   web/              Painel online para tecnicos, clientes e administradores
-  desktop-control/  Futuro app desktop do tecnico
-  agent/            Futuro agente instalado no dispositivo remoto
+  desktop-control/  Contrato e cliente desktop nativo em evolucao
+  agent/            Agente instalado no dispositivo remoto
 services/
   api/              API principal da plataforma
   realtime/         Presenca, heartbeats e eventos em tempo real
@@ -97,19 +97,19 @@ docker compose --env-file infra/docker/rustdesk.env -f infra/docker/docker-compo
 
 ## Decisao inicial
 
-Comecar com uma plataforma online propria e usar RustDesk como motor inicial e referencia tecnica.
+Manter a plataforma online, o agente e o cliente desktop sob nosso controle. RustDesk permanece como adaptador de suporte durante a transicao; o modo jogo tera um transporte nativo encapsulado pelo Remoto.
 
-Isso evita gastar meses reinventando streaming remoto, NAT traversal, relay e input remoto antes de validar o produto. Ao mesmo tempo, o painel, a experiencia comercial, as permissoes, a auditoria e as automacoes ficam sob nosso controle.
+O painel, a experiencia comercial, as permissoes, a auditoria e as automacoes ficam sob nosso controle. O cliente desktop deve esconder detalhes de engine e selecionar captura, codificacao e entrada conforme o hardware.
 
 ## Proximos passos
 
-1. Validar juridicamente o uso de componentes AGPL como RustDesk.
-2. Publicar o servidor RustDesk OSS em VPS com DNS e firewall.
+1. Implementar captura, codificacao, transporte e entrada do cliente nativo.
+2. Publicar os componentes de suporte em VPS com DNS e firewall.
 3. Evoluir permissoes mais finas e trocar o rate limit em memoria por Redis.
-4. Empacotar o agente e RustDesk em instalador Windows assinado.
-5. Testar conexao de tela entre duas maquinas externas.
+4. Empacotar agente e cliente Remoto em instalador Windows assinado.
+5. Testar suporte e modo jogo entre duas maquinas externas.
 
-O botao `Conectar` registra uma solicitacao de sessao; um owner ou admin precisa aprovar antes de abrir o protocolo `rustdesk://`. A conexao de tela depende de RustDesk instalado no computador do tecnico e no dispositivo remoto, ambos apontando para o mesmo `hbbs`/`hbbr`. Contas administrativas ja podem ativar 2FA TOTP no painel; em producao, configure `TOTP_ENCRYPTION_KEY` separado do `JWT_SECRET`.
+O botao `Conectar` registra uma solicitacao de sessao; um owner ou admin precisa aprovar antes de abrir o adaptador correspondente. Sessoes de suporte usam RustDesk quando instalado; sessoes de jogo permanecem bloqueadas ate o cliente nativo estar pronto. Contas administrativas ja podem ativar 2FA TOTP no painel; em producao, configure `TOTP_ENCRYPTION_KEY` separado do `JWT_SECRET`.
 
 A API possui `/health` para liveness e `/ready` para readiness com verificacao do PostgreSQL. O workflow em `.github/workflows/ci.yml` valida testes, tipos, build e os Compose antes de qualquer deploy.
 

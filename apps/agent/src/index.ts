@@ -294,6 +294,7 @@ async function getDevicePayload() {
 async function collectInventory() {
   const cpus = os.cpus();
   const disks = await getDisks();
+  const graphics = await collectGraphicsInventory();
   const identity = await collectDeviceIdentity();
 
   return {
@@ -315,6 +316,7 @@ async function collectInventory() {
         freeBytes: os.freemem()
       },
       disks,
+      graphics,
       network: getNetworkAddresses(),
       collectedAt: new Date().toISOString()
     },
@@ -438,6 +440,35 @@ async function getDisks() {
       }));
   } catch {
     return [];
+  }
+}
+
+async function collectGraphicsInventory() {
+  if (process.platform !== "win32") {
+    return { adapters: [], encoding: "unknown" };
+  }
+
+  try {
+    const { stdout } = await execFileAsync("powershell.exe", [
+      "-NoProfile",
+      "-Command",
+      "Get-CimInstance Win32_VideoController | Select-Object Name,AdapterRAM,DriverVersion | ConvertTo-Json -Compress"
+    ]);
+    const parsed = JSON.parse(stdout.trim() || "[]");
+    const rows = Array.isArray(parsed) ? parsed : [parsed];
+    const adapters = rows.map((adapter) => ({
+      name: String(adapter.Name ?? "desconhecido"),
+      adapterRamBytes: Number(adapter.AdapterRAM ?? 0),
+      driverVersion: String(adapter.DriverVersion ?? "desconhecido")
+    }));
+    const hasUsableAdapter = adapters.some((adapter) => !/microsoft basic|remote display/i.test(adapter.name));
+
+    return {
+      adapters,
+      encoding: hasUsableAdapter ? "hardware-preferred-with-cpu-fallback" : "cpu-fallback"
+    };
+  } catch {
+    return { adapters: [], encoding: "unavailable" };
   }
 }
 

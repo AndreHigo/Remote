@@ -1,5 +1,6 @@
 export type DeviceStatus = "online" | "offline";
 export type RemoteSessionStatus = "requested" | "approved" | "denied" | "ended";
+export type RemoteSessionMode = "support" | "game";
 export type UserRole = "owner" | "admin" | "technician" | "viewer";
 export type CommandExecutionStatus = "pending" | "running" | "succeeded" | "failed";
 export type CommandType = "ping" | "system-info" | "refresh-inventory";
@@ -42,6 +43,7 @@ export interface RemoteSession {
   userId: string | null;
   technicianName: string;
   reason: string;
+  mode: RemoteSessionMode;
   status: RemoteSessionStatus;
   requestedAt: string;
 }

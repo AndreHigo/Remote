@@ -91,7 +91,8 @@ const twoFactorCodeSchema = z.object({
 
 const remoteSessionSchema = z.object({
   deviceId: z.string().min(1),
-  reason: z.string().min(4)
+  reason: z.string().min(4),
+  mode: z.enum(["support", "game"]).default("support")
 });
 
 const inventorySchema = z.object({
@@ -699,6 +700,7 @@ app.post("/remote-sessions", requireRole(["owner", "admin", "technician"]), asyn
   const session = await repository.requestRemoteSession({
     deviceId: parsed.data.deviceId,
     reason: parsed.data.reason,
+    mode: parsed.data.mode,
     user: (request as AuthenticatedRequest).user
   });
   if (!session) {
@@ -726,6 +728,7 @@ app.post("/remote-sessions/:id/approve", requireRole(["owner", "admin"]), async 
   const result = await repository.approveRemoteSession({ id: z.string().parse(request.params.id), user: (request as AuthenticatedRequest).user });
   if (!result) return void response.status(404).json({ message: "Sessao nao encontrada" });
   if (result.kind === "unchanged") return void response.status(409).json({ message: `Sessao ja esta ${result.status}` });
+  if (result.kind === "unavailable") return void response.status(409).json({ message: result.message });
   response.json(result.session);
 });
 

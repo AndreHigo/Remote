@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import type { AuthUser, CommandType, DeviceView } from "./domain.js";
+import type { AuthUser, CommandType, DeviceView, RemoteSessionMode } from "./domain.js";
 import type { Prisma } from "./generated/prisma/client.js";
 import { prisma } from "./db.js";
 import { hashPassword } from "./password.js";
@@ -762,7 +762,7 @@ export const repository = {
     return toCommandView(updated);
   },
 
-  async requestRemoteSession(input: { deviceId: string; reason: string; user: AuthUser }) {
+  async requestRemoteSession(input: { deviceId: string; reason: string; mode: RemoteSessionMode; user: AuthUser }) {
     const device = await prisma.device.findUnique({ where: { id: input.deviceId } });
     if (!device) return null;
 
@@ -772,7 +772,8 @@ export const repository = {
           deviceId: device.id,
           userId: input.user.id,
           technicianName: input.user.name,
-          reason: input.reason
+          reason: input.reason,
+          mode: input.mode.toUpperCase() as "SUPPORT" | "GAME"
         }
       }),
       prisma.auditEvent.create({
@@ -782,7 +783,7 @@ export const repository = {
           targetId: device.id,
           deviceId: device.id,
           userId: input.user.id,
-          metadata: { reason: input.reason }
+          metadata: { reason: input.reason, mode: input.mode }
         }
       })
     ]);
@@ -791,6 +792,7 @@ export const repository = {
       ...session,
       requestedAt: session.requestedAt.toISOString(),
       endedAt: toIso(session.endedAt),
+      mode: session.mode.toLowerCase(),
       status: session.status.toLowerCase()
     };
   },
@@ -802,6 +804,20 @@ export const repository = {
     });
     if (!current) return null;
     if (current.status !== "REQUESTED") return { kind: "unchanged" as const, status: current.status.toLowerCase() };
+    if (current.mode === "GAME") {
+      await addAudit(
+        "remote-session.unavailable",
+        input.user.name,
+        current.deviceId,
+        { sessionId: current.id, mode: "game", reason: "native-game-client-not-ready" },
+        current.deviceId,
+        input.user.id
+      );
+      return {
+        kind: "unavailable" as const,
+        message: "O modo jogo ainda nao esta disponivel neste ambiente. A sessao nao foi aprovada."
+      };
+    }
 
     const session = await prisma.remoteSession.update({
       where: { id: current.id },
@@ -815,12 +831,27 @@ export const repository = {
         ...session,
         requestedAt: session.requestedAt.toISOString(),
         endedAt: toIso(session.endedAt),
+        mode: session.mode.toLowerCase(),
         status: session.status.toLowerCase(),
-        connection: {
-          protocol: "rustdesk",
-          uri: `rustdesk://connection/new/${encodeURIComponent(session.device.remoteId)}`,
-          command: `rustdesk.exe --connect "${session.device.remoteId}"`
-        }
+        connection: session.mode === "SUPPORT"
+          ? {
+              protocol: "rustdesk",
+              status: "ready",
+              uri: `rustdesk://connection/new/${encodeURIComponent(session.device.remoteId)}`,
+              command: `rustdesk.exe --connect "${session.device.remoteId}"`,
+              desktopSession: {
+                sessionId: session.id,
+                deviceId: session.deviceId,
+                mode: "support",
+                role: "client",
+                remoteId: session.device.remoteId
+              }
+            }
+          : {
+              protocol: "native-game",
+              status: "not-ready",
+              message: "O cliente nativo do modo jogo ainda nao esta instalado neste ambiente."
+            }
       }
     };
   },
@@ -847,6 +878,7 @@ export const repository = {
       customerName: session.device.customer.name,
       remoteId: session.device.remoteId,
       device: undefined,
+      mode: session.mode.toLowerCase(),
       requestedAt: session.requestedAt.toISOString(),
       endedAt: toIso(session.endedAt),
       status: session.status.toLowerCase()
@@ -866,6 +898,7 @@ export const repository = {
         ...current,
         requestedAt: current.requestedAt.toISOString(),
         endedAt: toIso(current.endedAt),
+        mode: current.mode.toLowerCase(),
         status: current.status.toLowerCase()
       };
     }
@@ -887,6 +920,7 @@ export const repository = {
       ...session,
       requestedAt: session.requestedAt.toISOString(),
       endedAt: toIso(session.endedAt),
+      mode: session.mode.toLowerCase(),
       status: session.status.toLowerCase()
     };
   },
