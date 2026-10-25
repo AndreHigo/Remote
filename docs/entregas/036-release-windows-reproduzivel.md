@@ -7,7 +7,7 @@
 - empacotamento do agente e do operador nativo;
 - manifest SHA256 gerado junto com os artefatos;
 - artefatos disponibilizados no GitHub Actions;
-- tags `v*` podem publicar uma release do GitHub com os instaladores; a versao sem o prefixo `v` e propagada para o instalador do agente e para o artefato do operador.
+- tags `v*` podem publicar uma release do GitHub com os instaladores; a versao sem o prefixo `v` e propagada para o instalador do agente, para o inventario reportado pelo agente e para o artefato do operador.
 
 ## Uso
 

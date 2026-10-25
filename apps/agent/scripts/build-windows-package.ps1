@@ -28,7 +28,9 @@ Push-Location $RepoRoot
 try {
   npm run build -w apps/desktop-control
   npm run build -w apps/agent
-  npx --no-install esbuild apps/agent/src/index.ts --bundle --platform=node --format=cjs --target=node20 --outfile=apps/agent/dist/standalone.cjs
+  $env:REMOTO_AGENT_VERSION = $Version
+  node apps/agent/scripts/bundle-agent.cjs
+  if ($LASTEXITCODE -ne 0) { throw "Falha ao gerar o bundle standalone do agente." }
   npx --no-install @yao-pkg/pkg apps/agent/dist/standalone.cjs --targets node20-win-x64 --output $OutputRoot\RemotoAgent.exe
 } finally {
   Pop-Location
