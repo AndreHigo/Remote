@@ -105,6 +105,7 @@ var
   ApiUrl: string;
   RealtimeUrl: string;
   AgentKey: string;
+  FfmpegPath: string;
 begin
   Result := True;
   if CurPageID <> ConnectionPage.ID then Exit;
@@ -112,6 +113,7 @@ begin
   ApiUrl := Trim(ConnectionPage.Values[0]);
   RealtimeUrl := Trim(ConnectionPage.Values[1]);
   AgentKey := Trim(ConnectionPage.Values[2]);
+  FfmpegPath := Trim(ConnectionPage.Values[3]);
 
   if ((CompareText(Copy(ApiUrl, 1, 7), 'http://') <> 0) and
       (CompareText(Copy(ApiUrl, 1, 8), 'https://') <> 0)) then begin
@@ -145,7 +147,7 @@ begin
     Exit;
   end;
 
-  if HasInvalidInput(ApiUrl) or HasInvalidInput(RealtimeUrl) or HasInvalidInput(AgentKey) or
+  if HasInvalidInput(ApiUrl) or HasInvalidInput(RealtimeUrl) or HasInvalidInput(AgentKey) or HasInvalidInput(FfmpegPath) or
      (Pos('@', ApiUrl) > 0) or (Pos('@', RealtimeUrl) > 0) then begin
     MsgBox('As URLs e a chave nao podem conter credenciais, aspas ou quebras de linha.', mbError, MB_OK);
     Result := False;
@@ -165,6 +167,9 @@ begin
     ' -ApiUrl ' + QuoteArgument(Trim(ConnectionPage.Values[0])) +
     ' -RealtimeUrl ' + QuoteArgument(Trim(ConnectionPage.Values[1])) +
     ' -AgentKey ' + QuoteArgument(Trim(ConnectionPage.Values[2]));
+  if Trim(ConnectionPage.Values[3]) <> '' then begin
+    Parameters := Parameters + ' -FfmpegPath ' + QuoteArgument(Trim(ConnectionPage.Values[3]));
+  end;
 
   ExecResult := Exec(PowerShellPath, Parameters, '', SW_HIDE, ewWaitUntilTerminated, ServiceInstallResult);
   if (not ExecResult) or (ServiceInstallResult <> 0) then begin
@@ -205,9 +210,11 @@ begin
   ConnectionPage.Add('URL da API:', False);
   ConnectionPage.Add('URL do relay realtime:', False);
   ConnectionPage.Add('Chave do agente:', True);
+  ConnectionPage.Add('Caminho do FFmpeg (opcional):', False);
   ConnectionPage.Values[0] := ExpandConstant('{param:APIURL|http://localhost:4100}');
   ConnectionPage.Values[1] := ExpandConstant('{param:REALTIMEURL|ws://localhost:4200}');
   ConnectionPage.Values[2] := ExpandConstant('{param:AGENTKEY|}');
+  ConnectionPage.Values[3] := ExpandConstant('{param:FFMPEGPATH|}');
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);

@@ -23,7 +23,7 @@ Stack candidata:
 
 O workspace oferece o agente local em Node/TypeScript e um instalador Windows que o registra como servico. O servico faz registro, heartbeat, inventario e comandos permitidos; um processo desktop do mesmo agente inicia no login do usuario e consulta sessoes de jogo aprovadas na sessao interativa, onde captura e `SendInput` podem acessar a area de trabalho correta. O transporte de captura do host usa o modulo realtime do desktop-control.
 
-O instalador pede tres valores: URL da API, URL publica do relay (`wss://dominio/realtime`) e chave de cadastro. Em uma instalacao local, use `http://localhost:4100` e `ws://localhost:4200`; fora de loopback, o agente exige `https://` na API e `wss://` no relay e rejeita credenciais embutidas. Em producao, nunca deixe o relay apontando para `localhost`.
+O instalador pede a URL da API, a URL publica do relay (`wss://dominio/realtime`) e a chave de cadastro. O caminho do `ffmpeg.exe` e opcional: informe-o quando o FFmpeg estiver instalado fora do PATH ou deixe em branco para a descoberta automatica. Em uma instalacao local, use `http://localhost:4100` e `ws://localhost:4200`; fora de loopback, o agente exige `https://` na API e `wss://` no relay e rejeita credenciais embutidas. Em producao, nunca deixe o relay apontando para `localhost`.
 
 ```bash
 npm run agent:register

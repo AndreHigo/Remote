@@ -3,6 +3,7 @@ param(
   [string]$ApiUrl = "",
   [string]$RealtimeUrl = "",
   [string]$AgentKey = "",
+  [string]$FfmpegPath = "",
   [string]$ServiceName = "RemotoAgent"
 )
 
@@ -52,6 +53,33 @@ function Assert-ProtectedAgentRoot {
   }
 }
 
+function Resolve-ConfiguredFfmpeg {
+  param([string]$PreferredPath)
+
+  $candidate = $PreferredPath.Trim()
+  if ($candidate) {
+    try { $candidate = [System.IO.Path]::GetFullPath($candidate) } catch { throw "O caminho do FFmpeg e invalido." }
+    if ([System.IO.Path]::GetFileName($candidate) -ine "ffmpeg.exe" -or -not (Test-Path -LiteralPath $candidate -PathType Leaf)) {
+      throw "O caminho informado precisa apontar para um arquivo ffmpeg.exe existente."
+    }
+    return $candidate
+  }
+
+  if ($env:REMOTO_FFMPEG_PATH) {
+    try {
+      $candidate = [System.IO.Path]::GetFullPath($env:REMOTO_FFMPEG_PATH)
+      if (Test-Path -LiteralPath $candidate -PathType Leaf) { return $candidate }
+    } catch { }
+  }
+
+  $command = Get-Command ffmpeg.exe -ErrorAction SilentlyContinue
+  if ($command -and (Test-Path -LiteralPath $command.Source -PathType Leaf)) {
+    return $command.Source
+  }
+
+  return $null
+}
+
 Assert-Administrator
 $AgentRoot = (Resolve-Path $PSScriptRoot).Path
 Assert-ProtectedAgentRoot -Path $AgentRoot
@@ -82,19 +110,14 @@ if ([string]::IsNullOrWhiteSpace($ApiUrl) -or [string]::IsNullOrWhiteSpace($Real
 }
 Assert-SecureEndpoint -Value $ApiUrl -Kind api
 Assert-SecureEndpoint -Value $RealtimeUrl -Kind realtime
+$resolvedFfmpegPath = Resolve-ConfiguredFfmpeg -PreferredPath $FfmpegPath
 
 $configJson = @{
   apiUrl = $ApiUrl.TrimEnd("/")
   realtimeUrl = $RealtimeUrl.TrimEnd("/")
   agentKey = $AgentKey.Trim()
   stateFile = $StatePath
-  ffmpegPath = $(
-    if ($env:REMOTO_FFMPEG_PATH) { $env:REMOTO_FFMPEG_PATH }
-    else {
-      $ffmpeg = Get-Command ffmpeg.exe -ErrorAction SilentlyContinue
-      if ($ffmpeg) { $ffmpeg.Source } else { $null }
-    }
-  )
+  ffmpegPath = $resolvedFfmpegPath
 } | ConvertTo-Json
 [System.IO.Directory]::CreateDirectory($StateDirectory) | Out-Null
 [System.IO.File]::WriteAllText($ConfigPath, $configJson, [System.Text.UTF8Encoding]::new($false))
@@ -121,3 +144,8 @@ Start-Service -Name $ServiceName
 
 Write-Output "Remoto Agent instalado e iniciado."
 Write-Output "Config: $ConfigPath"
+if ($resolvedFfmpegPath) {
+  Write-Output "FFmpeg: $resolvedFfmpegPath"
+} else {
+  Write-Warning "FFmpeg nao encontrado. O gerenciamento continua disponivel, mas o modo jogo exige FFmpeg instalado ou informado no instalador."
+}
