@@ -6,14 +6,14 @@ O FFmpeg encontrado no Windows foi consultado com:
 
 ```powershell
 ffmpeg -hide_banner -devices
-ffmpeg -hide_banner -h demuxer=wasapi
+ffmpeg -hide_banner -devices
 ffmpeg -hide_banner -list_devices true -f dshow -i dummy
 ```
 
 Resultado observado:
 
-- o pacote local oferece `gdigrab`, mas nao oferece o demuxer `wasapi`;
-- `-h demuxer=wasapi` retorna `Unknown format 'wasapi'`;
+- o pacote local oferece `gdigrab`, mas nao lista `wasapi` entre os dispositivos;
+- o preflight usa `-devices`, que e a forma documentada pelo FFmpeg para listar os dispositivos compilados;
 - o DirectShow lista microfones, mas nao fornece captura do audio de saida do desktop nesta maquina.
 
 ## Decisao

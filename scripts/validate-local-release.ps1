@@ -55,11 +55,11 @@ $ffmpegCommand = Get-Command ffmpeg.exe -ErrorAction SilentlyContinue
 if (!$ffmpegCommand) {
   Write-Warning "ffmpeg.exe nao esta no PATH; o agente ainda pode localizar uma instalacao confiavel por configuracao ou WinGet."
 } else {
-  $wasapiHelp = (& $ffmpegCommand.Source -hide_banner -h demuxer=wasapi 2>&1 | Out-String)
-  if ($wasapiHelp -match "Unknown format|Unknown demuxer") {
+  $deviceList = (& $ffmpegCommand.Source -hide_banner -devices 2>&1 | Out-String)
+  if ($deviceList -notmatch "(?m)\bwasapi\b") {
     Write-Warning "A build local do FFmpeg nao oferece WASAPI loopback. O modo jogo permanece video-only."
   } else {
-    Write-Host "WASAPI detectado; ainda requer homologacao de captura e sincronismo." -ForegroundColor Yellow
+    Write-Host "WASAPI listado pela build; ainda requer homologacao de captura e sincronismo." -ForegroundColor Yellow
   }
 }
 
