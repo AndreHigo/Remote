@@ -1,6 +1,6 @@
 # Web App
 
-Painel online da plataforma.
+Painel online da plataforma e cliente web experimental do modo jogo.
 
 Responsabilidades:
 
@@ -8,14 +8,18 @@ Responsabilidades:
 - organizacoes, clientes e usuarios;
 - dispositivos e grupos;
 - status online/offline;
-- iniciar acesso remoto;
+- solicitar e aprovar acesso remoto;
+- abrir suporte por RustDesk;
+- reproduzir o relay H.264 do modo jogo experimental com teclado e mouse;
 - inventario, comandos e auditoria;
 - chamados e relatorios em fases futuras.
 
-Stack candidata:
+Stack atual:
 
-- Next.js ou React;
-- Tailwind ou CSS modules;
-- TanStack Query;
-- WebSocket para eventos em tempo real.
+- React 18;
+- Vite;
+- CSS local;
+- WebSocket e Media Source Extensions para o modo jogo.
+
+O modo jogo permanece desabilitado por padrao e so aparece como disponivel quando a API responde `gameMode: "experimental"` em `/health`.
 

@@ -59,7 +59,7 @@ npm run deploy:preflight
 npm run deploy:preflight -- -Build
 ```
 
-A stack executa a migration versionada antes da API, publica o painel com HTTPS automatico pelo Caddy e mantem PostgreSQL sem porta publica. Libere no firewall somente `80/tcp`, `443/tcp`, `21115/tcp`, `21116/tcp+udp`, `21117/tcp`, `21118/tcp` e `21119/tcp`, conforme os recursos realmente usados.
+A stack executa a migration versionada antes da API, publica o painel com HTTPS automatico pelo Caddy e mantem PostgreSQL sem porta publica. O relay realtime sai pelo mesmo dominio em `/realtime`; o agente instalado deve receber `wss://WEB_DOMAIN/realtime` como URL do relay. Libere no firewall somente `80/tcp`, `443/tcp`, `21115/tcp`, `21116/tcp+udp`, `21117/tcp`, `21118/tcp` e `21119/tcp`, conforme os recursos realmente usados.
 
 Com a stack em execucao, gere um backup local do banco antes de mudancas:
 
