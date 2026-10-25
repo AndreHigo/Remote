@@ -56,6 +56,7 @@ export function buildWindowsCaptureArgs(profile: CaptureProfile = defaultProfile
     "-bufsize", `${bitrateKbps * 2}k`,
     "-pix_fmt", "yuv420p",
     "-movflags", "frag_keyframe+empty_moov+default_base_moof",
+    "-flush_packets", "1",
     "-f", "mp4",
     "pipe:1"
   );

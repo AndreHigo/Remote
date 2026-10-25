@@ -12,6 +12,7 @@ test("captura usa CPU e baixa latencia por padrao acessivel", () => {
   assert.ok(args.includes("libx264"));
   assert.ok(args.includes("zerolatency"));
   assert.ok(args.includes("frag_keyframe+empty_moov+default_base_moof"));
+  assert.ok(args.includes("-flush_packets"));
   assert.ok(args.includes("mp4"));
   assert.ok(args.includes("-g"));
   assert.ok(args.includes("15"));
