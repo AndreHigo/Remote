@@ -19,7 +19,7 @@
 - SHA256 atual do instalador do agente: `EC289DA8FF93BBA176367433316195C0B5A8AB639C92244C31DF405140E10431`;
 - o instalador do agente encerra o serviço e o processo interativo antes da atualização para evitar arquivo bloqueado.
 
-## Pendencias que bloqueiam producao
+## Fechamento antes da producao
 
 1. O limite de instalacao agora esta explicito no schema e na migracao `0006_workspace_scope`: usuarios, clientes e todas as operacoes administrativas sao filtrados pelo workspace autenticado. O MVP continua workspace-wide dentro de cada workspace; memberships por cliente e papeis por cliente ficam para uma etapa posterior, caso o produto precise desse nivel de delegacao.
 2. Assinar o instalador e os binarios Windows com Authenticode e publicar checksums assinados. As imagens Docker agora estao fixadas por digest e as ferramentas do pacote do agente ficam declaradas no lockfile; o script usa `npx --no-install` e falha se elas nao estiverem disponiveis localmente.
@@ -28,4 +28,4 @@
 
 ## Decisao
 
-O sistema esta pronto para homologacao controlada e para preparar a VPS, mas nao deve ser anunciado como release publica antes das tres pendencias operacionais acima e da confirmacao da migracao `0006_workspace_scope` no banco de homologacao.
+O sistema esta pronto para homologacao controlada e para preparar a VPS. Os bloqueios para uma release publica sao a assinatura dos binarios, o teste real entre duas maquinas e a configuracao validada da VPS; a migracao `0006_workspace_scope` ainda deve ser aplicada e confirmada no banco de homologacao.
