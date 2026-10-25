@@ -386,6 +386,10 @@ export const repository = {
       }
     });
 
+    if (!updated.active) {
+      await repository.revokeUserRemoteSessions({ userId: updated.id, actor: input.user.name, reason: "user-deactivated" });
+    }
+
     await addAudit(
       "user.updated",
       input.user.name,
@@ -411,6 +415,7 @@ export const repository = {
     if (!current) return { kind: "not_found" as const };
     if (current.role === "OWNER" && input.user.role !== "owner") return { kind: "forbidden" as const };
     await prisma.user.update({ where: { id: input.id }, data: { passwordHash: await hashPassword(input.password), sessionVersion: { increment: 1 } } });
+    await repository.revokeUserRemoteSessions({ userId: input.id, actor: input.user.name, reason: "password-reset" });
     await addAudit("user.password.reset", input.user.name, input.id, { email: current.email }, undefined, input.user.id);
     return { kind: "reset" as const, ok: true };
   },
@@ -484,9 +489,14 @@ export const repository = {
     if (!current) return null;
     if (current.archivedAt) return { id: current.id, displayName: current.displayName, archived: true as const };
 
+    const archivedAt = now();
     const device = await prisma.device.update({
       where: { id: current.id },
-      data: { archivedAt: now(), lastSeenAt: null }
+      data: { archivedAt, lastSeenAt: null }
+    });
+    await prisma.remoteSession.updateMany({
+      where: { deviceId: current.id, status: { not: "ENDED" } },
+      data: { status: "ENDED", endedAt: archivedAt, connectionTokenUsedAt: archivedAt }
     });
     await addAudit("device.archived", input.user.name, device.id, { customerId: device.customerId, displayName: device.displayName }, undefined, input.user.id);
     return { id: device.id, displayName: device.displayName, archived: true as const };
@@ -615,7 +625,7 @@ export const repository = {
 
   async heartbeat(input: { deviceId: string; customerId?: string }) {
     const current = await prisma.device.findFirst({
-      where: { id: input.deviceId, ...(input.customerId ? { customerId: input.customerId } : {}) }
+      where: { id: input.deviceId, archivedAt: null, ...(input.customerId ? { customerId: input.customerId } : {}) }
     });
     if (!current) return null;
 
@@ -637,7 +647,7 @@ export const repository = {
     actor: string;
   }) {
     const current = await prisma.device.findFirst({
-      where: { id: input.deviceId, ...(input.customerId ? { customerId: input.customerId } : {}) }
+      where: { id: input.deviceId, archivedAt: null, ...(input.customerId ? { customerId: input.customerId } : {}) }
     });
     if (!current) return null;
 
@@ -689,7 +699,7 @@ export const repository = {
     payload?: Prisma.InputJsonValue;
     user: AuthUser;
   }) {
-    const device = await prisma.device.findUnique({ where: { id: input.deviceId } });
+    const device = await prisma.device.findUnique({ where: { id: input.deviceId, archivedAt: null } });
     if (!device) return null;
 
     const [command] = await prisma.$transaction([
@@ -718,6 +728,8 @@ export const repository = {
   },
 
   async listCommands(deviceId: string) {
+    const device = await prisma.device.findUnique({ where: { id: deviceId, archivedAt: null }, select: { id: true } });
+    if (!device) return [];
     const commands = await prisma.commandExecution.findMany({
       where: { deviceId },
       orderBy: { requestedAt: "desc" },
@@ -729,7 +741,7 @@ export const repository = {
 
   async claimPendingCommands(input: { deviceId: string; customerId: string }) {
     const device = await prisma.device.findFirst({
-      where: { id: input.deviceId, customerId: input.customerId }
+      where: { id: input.deviceId, customerId: input.customerId, archivedAt: null }
     });
     if (!device) return null;
 
@@ -761,7 +773,7 @@ export const repository = {
     const command = await prisma.commandExecution.findFirst({
       where: {
         id: input.commandId,
-        device: { customerId: input.customerId }
+        device: { customerId: input.customerId, archivedAt: null }
       }
     });
     if (!command) return null;
@@ -788,7 +800,7 @@ export const repository = {
   },
 
   async requestRemoteSession(input: { deviceId: string; reason: string; mode: RemoteSessionMode; user: AuthUser }) {
-    const device = await prisma.device.findUnique({ where: { id: input.deviceId } });
+    const device = await prisma.device.findUnique({ where: { id: input.deviceId, archivedAt: null } });
     if (!device) return null;
 
     const [session] = await prisma.$transaction([
@@ -954,6 +966,32 @@ export const repository = {
     };
   },
 
+  async endDesktopSessionToken(token: string) {
+    const payload = verifyDesktopSessionToken(token);
+    if (!payload) return { kind: "invalid" as const };
+
+    const current = await prisma.remoteSession.findUnique({ where: { id: payload.sessionId } });
+    if (!current || current.connectionTokenHash !== hashToken(token)) return { kind: "invalid" as const };
+    if (current.status === "ENDED") return { kind: "ended" as const };
+
+    const endedAt = now();
+    const claimed = await prisma.remoteSession.updateMany({
+      where: { id: current.id, connectionTokenHash: hashToken(token), status: { not: "ENDED" } },
+      data: { status: "ENDED", endedAt, connectionTokenUsedAt: endedAt }
+    });
+    if (claimed.count !== 1) return { kind: "ended" as const };
+
+    await addAudit(
+      "remote-session.ended",
+      "native-operator",
+      current.deviceId,
+      { sessionId: current.id, source: "native-client" },
+      current.deviceId,
+      current.userId ?? undefined
+    );
+    return { kind: "ended" as const };
+  },
+
   async authorizeDesktopSessionChannel(token: string) {
     const payload = verifyDesktopSessionToken(token);
     if (!payload) return { kind: "invalid" as const };
@@ -1094,6 +1132,31 @@ export const repository = {
     );
 
     return toRemoteSessionView(session);
+  },
+
+  async revokeUserRemoteSessions(input: { userId: string; actor: string; reason: string }) {
+    const endedAt = now();
+    const activeSessions = await prisma.remoteSession.findMany({
+      where: { userId: input.userId, status: { not: "ENDED" } },
+      select: { id: true, deviceId: true }
+    });
+    if (activeSessions.length === 0) return 0;
+
+    await prisma.remoteSession.updateMany({
+      where: { userId: input.userId, status: { not: "ENDED" } },
+      data: { status: "ENDED", endedAt, connectionTokenUsedAt: endedAt }
+    });
+    for (const session of activeSessions) {
+      await addAudit(
+        "remote-session.revoked",
+        input.actor,
+        session.deviceId,
+        { sessionId: session.id, reason: input.reason },
+        session.deviceId,
+        input.userId
+      );
+    }
+    return activeSessions.length;
   },
 
   async listAuditEvents() {

@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 
-const JWT_SECRET = process.env.JWT_SECRET ?? "remoto-local-dev-secret-change-me";
+const JWT_SECRET = process.env.JWT_SECRET ?? crypto.randomBytes(32).toString("hex");
 const TOTP_ENCRYPTION_KEY = process.env.TOTP_ENCRYPTION_KEY ?? JWT_SECRET;
 const TOTP_PERIOD_SECONDS = 30;
 const TOTP_DIGITS = 6;

@@ -23,7 +23,7 @@ export type ServerMessage =
   | { type: "pong"; sentAt?: number }
   | { type: "closed"; reason: string };
 
-const TOKEN_SECRET = process.env.DESKTOP_SESSION_SECRET ?? process.env.JWT_SECRET ?? "remoto-local-desktop-secret-change-me";
+const TOKEN_SECRET = process.env.DESKTOP_SESSION_SECRET ?? process.env.JWT_SECRET ?? crypto.randomBytes(32).toString("hex");
 const MAX_CONTROL_MESSAGE_BYTES = 64 * 1024;
 
 export function verifyChannelToken(token: string): ChannelTokenPayload | null {
@@ -65,4 +65,8 @@ export function parseControlMessage(data: Buffer | string): ClientMessage | null
 
 export function maxControlMessageBytes() {
   return MAX_CONTROL_MESSAGE_BYTES;
+}
+
+export function channelTokenSignatureForTest(body: string) {
+  return crypto.createHmac("sha256", TOKEN_SECRET).update(body).digest("base64url");
 }

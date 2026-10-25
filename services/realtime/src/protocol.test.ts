@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
-import crypto from "node:crypto";
 import test from "node:test";
-import { maxControlMessageBytes, parseControlMessage, verifyChannelToken } from "./protocol.js";
+import { channelTokenSignatureForTest, maxControlMessageBytes, parseControlMessage, verifyChannelToken } from "./protocol.js";
 
 test("protocolo aceita hello, ping e entrada tipada", () => {
   assert.deepEqual(parseControlMessage(JSON.stringify({ type: "hello", accessToken: "abc" })), { type: "hello", accessToken: "abc" });
@@ -26,8 +25,7 @@ test("token do canal valida assinatura e expiracao", () => {
     nonce: "nonce-1",
     exp: Date.now() + 60_000
   })).toString("base64url");
-  const secret = process.env.DESKTOP_SESSION_SECRET ?? process.env.JWT_SECRET ?? "remoto-local-desktop-secret-change-me";
-  const signature = crypto.createHmac("sha256", secret).update(payload).digest("base64url");
+  const signature = channelTokenSignatureForTest(payload);
   assert.equal(verifyChannelToken(`${payload}.${signature}`)?.sessionId, "session-1");
   assert.equal(verifyChannelToken(`${payload}.bad`), null);
 });

@@ -7,11 +7,11 @@
 - Auditoria e listagem exibem o modo escolhido.
 - Sessoes de suporte continuam abrindo RustDesk.
 - Sessoes de jogo podem ser aprovadas somente quando `ENABLE_GAME_MODE=true` e `REALTIME_INTERNAL_SECRET` estao configurados; sem isso a API continua devolvendo conflito `native-game/not-ready`.
-- O painel possui um cliente web experimental com video H.264 e entrada tipada; isso nao deve ser confundido com o cliente desktop nativo final.
+- O painel possui um cliente web experimental com video H.264 e entrada tipada; o cliente desktop nativo inicial fica em `apps/operator` e continua separado do fluxo de suporte.
 
-## Proxima implementacao
+## Proxima validacao
 
-O proximo componente opcional e o cliente nativo Windows, com a mesma sessao aprovada e um renderer local. O painel e o cliente web ja integram a sessao experimental sem misturar o fluxo de suporte.
+O proximo trabalho e validar o cliente nativo Windows em duas maquinas e medir os perfis de captura. O painel, o cliente web e o operador nativo usam a mesma sessao aprovada sem misturar o fluxo de suporte.
 
 ## Validacao
 

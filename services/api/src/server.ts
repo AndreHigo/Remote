@@ -202,6 +202,7 @@ app.post("/auth/login", async (request, response) => {
 app.post("/auth/logout", authenticate, async (request, response) => {
   const user = (request as AuthenticatedRequest).user;
   await prisma.user.update({ where: { id: user.id }, data: { sessionVersion: { increment: 1 } } });
+  await repository.revokeUserRemoteSessions({ userId: user.id, actor: user.name, reason: "logout" });
   clearSessionCookie(response);
   response.json({ ok: true });
 });
@@ -372,6 +373,26 @@ app.post(
     }
 
     response.json(result.session);
+  }
+);
+
+app.post(
+  "/desktop-sessions/end",
+  createRateLimiter({ name: "DesktopSessionEnd", windowMs: 60 * 1000, max: 60 }),
+  async (request, response) => {
+    const parsed = desktopSessionConsumeSchema.safeParse(request.body);
+    if (!parsed.success) {
+      response.status(400).json({ message: "Token de sessao invalido" });
+      return;
+    }
+
+    const result = await repository.endDesktopSessionToken(parsed.data.accessToken);
+    if (result.kind === "invalid") {
+      response.status(401).json({ message: "Token de sessao invalido" });
+      return;
+    }
+
+    response.json({ ok: true });
   }
 );
 

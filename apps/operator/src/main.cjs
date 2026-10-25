@@ -5,6 +5,7 @@ const { pathToFileURL } = require("node:url");
 
 let mainWindow;
 let nativeSession;
+let activeDescriptor;
 
 function parseArgs(argv) {
   const index = argv.indexOf("--descriptor-file");
@@ -34,8 +35,29 @@ async function readDescriptor(filePath) {
   return descriptor;
 }
 
-async function consumeSession(descriptor) {
-  const apiUrl = String(descriptor.apiUrl || process.env.REMOTO_API_URL || "http://localhost:4100").replace(/\/+$/, "");
+function isLoopback(hostname) {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
+}
+
+function normalizeEndpoint(rawValue, kind) {
+  const value = String(rawValue || (kind === "api" ? "http://localhost:4100" : "ws://localhost:4200"));
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(`Endpoint ${kind} invalido.`);
+  }
+  const allowedProtocols = kind === "api" ? ["http:", "https:"] : ["ws:", "wss:"];
+  if (!allowedProtocols.includes(url.protocol) || url.username || url.password || url.search || url.hash) {
+    throw new Error(`Endpoint ${kind} nao permitido.`);
+  }
+  if (!isLoopback(url.hostname) && ((kind === "api" && url.protocol !== "https:") || (kind === "realtime" && url.protocol !== "wss:"))) {
+    throw new Error(`Endpoint ${kind} remoto exige ${kind === "api" ? "HTTPS" : "WSS"}.`);
+  }
+  return url.toString().replace(/\/+$/, "");
+}
+
+async function consumeSession(descriptor, apiUrl) {
   let response;
   try {
     response = await fetch(`${apiUrl}/desktop-sessions/consume`, {
@@ -81,13 +103,17 @@ async function startSession() {
   const descriptorPath = parseArgs(process.argv.slice(1));
   try {
     const descriptor = await readDescriptor(descriptorPath);
-    await consumeSession(descriptor);
+    activeDescriptor = descriptor;
+    const apiUrl = normalizeEndpoint(descriptor.apiUrl || process.env.REMOTO_API_URL, "api");
+    const realtimeUrl = normalizeEndpoint(descriptor.realtimeUrl || process.env.REMOTO_REALTIME_URL, "realtime");
+    await consumeSession(descriptor, apiUrl);
     const transportModule = app.isPackaged
       ? pathToFileURL(path.join(app.getAppPath(), "build", "desktop-control.mjs")).href
       : "@remoto/desktop-control/operator";
     const { openNativeOperatorSession } = await import(transportModule);
     sendStatus("connecting", "Autenticando a sessao...");
     nativeSession = await openNativeOperatorSession(descriptor, {
+      url: realtimeUrl,
       onFrame(frame) {
         if (!mainWindow || mainWindow.isDestroyed()) return;
         mainWindow.webContents.send("video-frame", Uint8Array.from(frame));
@@ -106,9 +132,24 @@ async function startSession() {
 }
 
 async function closeSession() {
-  if (!nativeSession) return;
-  nativeSession.close();
+  const session = nativeSession;
+  const descriptor = activeDescriptor;
   nativeSession = undefined;
+  if (session) session.close();
+  if (!descriptor) return;
+  try {
+    const apiUrl = normalizeEndpoint(descriptor.apiUrl || process.env.REMOTO_API_URL, "api");
+    await fetch(`${apiUrl}/desktop-sessions/end`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accessToken: descriptor.accessToken }),
+      signal: AbortSignal.timeout(3_000)
+    });
+  } catch {
+    // Socket closure remains the local fallback if the API is unavailable.
+  } finally {
+    activeDescriptor = undefined;
+  }
 }
 
 async function createWindow() {

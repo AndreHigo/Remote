@@ -12,7 +12,7 @@ import {
 } from "./totp.js";
 
 const TOKEN_TTL_SECONDS = 60 * 60 * 8;
-const JWT_SECRET = process.env.JWT_SECRET ?? "remoto-local-dev-secret-change-me";
+const JWT_SECRET = process.env.JWT_SECRET ?? crypto.randomBytes(32).toString("hex");
 const SESSION_COOKIE = "remoto_session";
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_MAX_FAILURES = 5;

@@ -58,15 +58,13 @@ Servicos locais:
 Usuarios seed:
 
 ```text
-admin@remoto.local / remoto123
-tecnico@remoto.local / tecnico123
-viewer@remoto.local / viewer123
+O seed gera senhas aleatorias e as imprime no terminal ao terminar. Para repetir credenciais previsiveis somente em desenvolvimento, defina `SEED_OWNER_PASSWORD`, `SEED_TECHNICIAN_PASSWORD` e `SEED_VIEWER_PASSWORD` antes de executar.
 ```
 
 Chave seed do agente:
 
 ```text
-REMOTO-DEMO-AGENT-KEY
+O seed tambem gera uma chave aleatoria e a imprime no terminal. Para desenvolvimento, defina `SEED_AGENT_KEY` antes de executar.
 ```
 
 Scripts uteis:
@@ -87,6 +85,7 @@ npm run agent:config:init
 npm run agent:status
 npm run agent:service:install
 npm run agent:service:uninstall
+npm run operator:package:windows
 ```
 
 Servidor RustDesk OSS de laboratorio:
@@ -110,7 +109,7 @@ O painel, a experiencia comercial, as permissoes, a auditoria e as automacoes fi
 4. Assinar o instalador Windows e definir atualizacao automatica.
 5. Validar o cliente nativo visual em duas maquinas, assinar o instalador e medir a matriz de jogos suportados.
 
-O botao `Conectar` registra uma solicitacao de sessao; um owner ou admin precisa aprovar antes de abrir o adaptador correspondente. Sessoes de suporte usam RustDesk quando instalado; sessoes de jogo usam o relay H.264 experimental do proprio Remoto quando `ENABLE_GAME_MODE=true` e os segredos do canal estao configurados. O cliente nativo inicial fica em `apps/operator` e abre descritores de sessao de uso unico; ele ainda nao e liberado como instalador assinado e nao promete compatibilidade com anti-cheat ou desktop seguro. Contas administrativas ja podem ativar 2FA TOTP no painel; em producao, configure `TOTP_ENCRYPTION_KEY` e `DESKTOP_SESSION_SECRET` separados do `JWT_SECRET`.
+O botao `Conectar` registra uma solicitacao de sessao; um owner ou admin precisa aprovar antes de abrir o adaptador correspondente. Sessoes de suporte usam RustDesk quando instalado; sessoes de jogo usam o relay H.264 experimental do proprio Remoto quando `ENABLE_GAME_MODE=true` e os segredos do canal estao configurados. O cliente nativo inicial fica em `apps/operator`, abre descritores de sessao de uso unico e pode ser iniciado pelo `GameEngine`; ele ainda nao e liberado como instalador assinado e nao promete compatibilidade com anti-cheat ou desktop seguro. Contas administrativas ja podem ativar 2FA TOTP no painel; em producao, configure `TOTP_ENCRYPTION_KEY` e `DESKTOP_SESSION_SECRET` separados do `JWT_SECRET`.
 
 A API possui `/health` para liveness e `/ready` para readiness com verificacao do PostgreSQL. O workflow em `.github/workflows/ci.yml` valida testes, tipos, build e os Compose antes de qualquer deploy.
 

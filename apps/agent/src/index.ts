@@ -13,7 +13,6 @@ const execFileAsync = promisify(execFile);
 const packagedProcess = process as NodeJS.Process & { pkg?: unknown };
 const runtimeRoot = packagedProcess.pkg ? path.dirname(process.execPath) : process.cwd();
 const CONFIG_FILE = process.env.REMOTO_AGENT_CONFIG ?? path.join(runtimeRoot, ".remoto-agent.config.json");
-const DEMO_AGENT_KEY = "REMOTO-DEMO-AGENT-KEY";
 const activeRemoteSessions = new Map<string, RealtimeConnection>();
 
 interface AgentConfigFile {
@@ -703,10 +702,13 @@ async function loadConfig(): Promise<AgentConfig> {
   const apiUrl = validateEndpointUrl(process.env.REMOTO_API_URL ?? fileConfig.apiUrl ?? "http://localhost:4100", "api");
   const realtimeUrl = validateEndpointUrl(process.env.REMOTO_REALTIME_URL ?? fileConfig.realtimeUrl ?? "ws://localhost:4200", "realtime");
 
+  const agentKey = process.env.REMOTO_AGENT_KEY ?? fileConfig.agentKey;
+  if (!agentKey) throw new Error(`agentKey ausente em ${CONFIG_FILE}. Gere uma chave no painel antes de iniciar o agente.`);
+
   return {
     apiUrl,
     realtimeUrl,
-    agentKey: process.env.REMOTO_AGENT_KEY ?? fileConfig.agentKey ?? DEMO_AGENT_KEY,
+    agentKey,
     stateFile: path.isAbsolute(stateFile) ? stateFile : path.resolve(path.dirname(CONFIG_FILE), stateFile),
     heartbeatIntervalSeconds: readInterval("REMOTO_AGENT_HEARTBEAT_SECONDS", 30),
     commandIntervalSeconds: readInterval("REMOTO_AGENT_COMMAND_SECONDS", 10),

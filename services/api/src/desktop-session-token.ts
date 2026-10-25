@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import type { RemoteSessionMode } from "./domain.js";
 
 const TOKEN_TTL_MS = 5 * 60 * 1000;
-const TOKEN_SECRET = process.env.DESKTOP_SESSION_SECRET ?? process.env.JWT_SECRET ?? "remoto-local-desktop-secret-change-me";
+const TOKEN_SECRET = process.env.DESKTOP_SESSION_SECRET ?? process.env.JWT_SECRET ?? crypto.randomBytes(32).toString("hex");
 
 export interface DesktopSessionTokenPayload {
   sessionId: string;

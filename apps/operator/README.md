@@ -32,7 +32,7 @@ Abra a janela:
 npm run operator:dev -- --descriptor-file C:\temp\remoto-session.json
 ```
 
-O arquivo e apagado depois da leitura. Antes de abrir o WebSocket, o cliente consome o token uma unica vez em `POST /desktop-sessions/consume`; `apiUrl` e `realtimeUrl` do descritor prevalecem, com fallback para `REMOTO_API_URL` e `REMOTO_REALTIME_URL`. A sessao exige `role: client`, `mode: game` e um relay acessivel.
+O arquivo e apagado depois da leitura. Antes de abrir o WebSocket, o cliente consome o token uma unica vez em `POST /desktop-sessions/consume`; `apiUrl` e `realtimeUrl` do descritor prevalecem, com fallback para `REMOTO_API_URL` e `REMOTO_REALTIME_URL`. Em endpoints remotos, somente HTTPS/WSS sao aceitos; HTTP/WS ficam restritos a loopback para desenvolvimento. A sessao exige `role: client`, `mode: game` e um relay acessivel.
 
 ## Instalador Windows
 

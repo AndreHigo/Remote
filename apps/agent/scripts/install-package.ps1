@@ -38,8 +38,23 @@ function Assert-SecureEndpoint {
   }
 }
 
+function Assert-ProtectedAgentRoot {
+  param([string]$Path)
+  $resolved = [System.IO.Path]::GetFullPath($Path).TrimEnd('\')
+  $programFilesRoots = @($env:ProgramFiles, ${env:ProgramFiles(x86)}) |
+    Where-Object { $_ } |
+    ForEach-Object { [System.IO.Path]::GetFullPath($_).TrimEnd('\') }
+  $isUnderProgramFiles = $programFilesRoots | Where-Object {
+    $resolved.StartsWith($_ + '\', [System.StringComparison]::OrdinalIgnoreCase)
+  }
+  if (-not $isUnderProgramFiles -or [System.IO.Path]::GetFileName($resolved) -ne 'Remoto Agent') {
+    throw "O agente precisa estar instalado em uma pasta protegida dentro de Program Files (ex.: C:\Program Files\Remoto Agent)."
+  }
+}
+
 Assert-Administrator
 $AgentRoot = (Resolve-Path $PSScriptRoot).Path
+Assert-ProtectedAgentRoot -Path $AgentRoot
 $AgentExe = Join-Path $AgentRoot "RemotoAgent.exe"
 $ServiceExe = Join-Path $AgentRoot "RemotoAgentService.exe"
 $ConfigPath = Join-Path $AgentRoot ".remoto-agent.config.json"

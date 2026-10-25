@@ -1,4 +1,5 @@
 import "dotenv/config";
+import crypto from "node:crypto";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client.js";
 import { hashAgentKey } from "../src/agent-auth.js";
@@ -21,10 +22,15 @@ async function main() {
   await prisma.customer.deleteMany();
   await prisma.user.deleteMany();
 
+  const ownerPlainPassword = process.env.SEED_OWNER_PASSWORD ?? `remoto-${crypto.randomBytes(12).toString("base64url")}`;
+  const technicianPlainPassword = process.env.SEED_TECHNICIAN_PASSWORD ?? `tecnico-${crypto.randomBytes(12).toString("base64url")}`;
+  const viewerPlainPassword = process.env.SEED_VIEWER_PASSWORD ?? `viewer-${crypto.randomBytes(12).toString("base64url")}`;
+  const seedAgentKey = process.env.SEED_AGENT_KEY ?? `rm_seed_${crypto.randomBytes(24).toString("base64url")}`;
+
   const [ownerPassword, technicianPassword, viewerPassword] = await Promise.all([
-    hashPassword("remoto123"),
-    hashPassword("tecnico123"),
-    hashPassword("viewer123")
+    hashPassword(ownerPlainPassword),
+    hashPassword(technicianPlainPassword),
+    hashPassword(viewerPlainPassword)
   ]);
 
   const owner = await prisma.user.create({
@@ -81,7 +87,7 @@ async function main() {
       id: "agent_key_pequizeiro_demo",
       customerId: pequizeiro.id,
       name: "Pequizeiro Agent Demo",
-      keyHash: hashAgentKey("REMOTO-DEMO-AGENT-KEY")
+      keyHash: hashAgentKey(seedAgentKey)
     }
   });
 
@@ -148,12 +154,24 @@ async function main() {
       metadata: { customers: 2, devices: 3 }
     }
   });
+
+  return {
+    ownerPlainPassword,
+    technicianPlainPassword,
+    viewerPlainPassword,
+    seedAgentKey
+  };
 }
 
 main()
-  .then(async () => {
+  .then(async (credentials) => {
     await prisma.$disconnect();
     console.log("Seed concluido.");
+    console.log("Credenciais geradas nesta execucao:");
+    console.log(`admin@remoto.local / ${credentials.ownerPlainPassword}`);
+    console.log(`tecnico@remoto.local / ${credentials.technicianPlainPassword}`);
+    console.log(`viewer@remoto.local / ${credentials.viewerPlainPassword}`);
+    console.log(`Chave do agente: ${credentials.seedAgentKey}`);
   })
   .catch(async (error) => {
     console.error(error);

@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_DB: remoto
       POSTGRES_USER: remoto
-      POSTGRES_PASSWORD: remoto
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no ambiente ou no arquivo .env}
     ports:
       - "55432:5432"
     volumes:

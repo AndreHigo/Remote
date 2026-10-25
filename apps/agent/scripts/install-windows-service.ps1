@@ -24,11 +24,26 @@ function Invoke-Sc {
   }
 }
 
+function Assert-ProtectedAgentRoot {
+  param([string]$Path)
+  $resolved = [System.IO.Path]::GetFullPath($Path).TrimEnd('\')
+  $programFilesRoots = @($env:ProgramFiles, ${env:ProgramFiles(x86)}) |
+    Where-Object { $_ } |
+    ForEach-Object { [System.IO.Path]::GetFullPath($_).TrimEnd('\') }
+  $isUnderProgramFiles = $programFilesRoots | Where-Object {
+    $resolved.StartsWith($_ + '\', [System.StringComparison]::OrdinalIgnoreCase)
+  }
+  if (-not $isUnderProgramFiles -or [System.IO.Path]::GetFileName($resolved) -ne 'Remoto Agent') {
+    throw "O agente precisa estar instalado em uma pasta protegida dentro de Program Files."
+  }
+}
+
 Assert-Administrator
 if ([string]::IsNullOrWhiteSpace($AgentRoot)) {
   $AgentRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 }
 $AgentRoot = (Resolve-Path $AgentRoot).Path
+Assert-ProtectedAgentRoot -Path $AgentRoot
 
 if ($Uninstall) {
   try { Invoke-Sc @("stop", $ServiceName) } catch { }

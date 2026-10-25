@@ -4,7 +4,7 @@
 
 - Modelo `AgentEnrollmentKey` no Prisma.
 - Chave de agente com hash SHA-256 no banco.
-- Seed com chave demo `REMOTO-DEMO-AGENT-KEY`.
+- Seed com chave de agente aleatoria por execucao, exibida somente no output do seed.
 - Middleware `authenticateAgent` usando header `x-agent-key`.
 - Rotas publicas protegidas por chave de agente:
   - `POST /agent/devices/register`;

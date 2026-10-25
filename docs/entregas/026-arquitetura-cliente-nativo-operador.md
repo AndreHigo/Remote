@@ -71,12 +71,11 @@ Isso nao exige Sunshine nem placa de video dedicada. A captura CPU e o fallback 
 
 O instalador Windows agora separa o processo de gestao do processo desktop: o servico permanece em modo management-only e o mesmo agente inicia `sessions` no login do usuario. Isso evita depender da Session 0 para captura e `SendInput`; a validacao final ainda precisa ser feita em Windows com usuario logado, bloqueio/desbloqueio e troca de sessao.
 
-## Proxima implementacao do cliente nativo
+## Proximas validacoes do cliente nativo
 
-1. empacotar a janela Windows e integrar a abertura do descritor ao painel autenticado, sem expor token na URL;
-2. reutilizar `connectRemoteSession` para o canal autenticado;
-3. adicionar decodificador H.264 nativo ou WebView controlada para MSE;
-4. mapear entrada com foco, pointer lock e gamepad;
-5. exibir diagnostico de codec, RTT, perda e encerramento;
-6. validar em duas maquinas, com rede local e internet, antes de habilitar `ENABLE_GAME_MODE` em producao.
+1. validar a abertura pelo painel em duas maquinas Windows, sem expor token na URL;
+2. medir FPS, RTT, perda, CPU/GPU e reconexao em rede local e internet;
+3. validar UAC, bloqueio de tela, troca de usuario e jogos com anti-cheat, sem tentar contorna-lo;
+4. adicionar diagnostico de perda, gamepad e audio conforme a matriz de compatibilidade;
+5. assinar o instalador e definir atualizacao verificada antes de habilitar `ENABLE_GAME_MODE` em producao.
 

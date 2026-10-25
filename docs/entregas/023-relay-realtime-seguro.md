@@ -15,7 +15,7 @@
 
 ## Limite atual
 
-O relay e a captura/entrada nativos estao prontos como fundacao de transporte. Existe um cliente web experimental que decodifica os frames e captura foco/teclado/mouse; ainda falta medir a experiencia em duas maquinas reais e concluir o cliente visual nativo, caso ele seja mantido como produto separado.
+O relay e a captura/entrada nativos estao prontos como fundacao de transporte. Existe um cliente web experimental e um cliente nativo operador que decodificam os frames e capturam foco/teclado/mouse; ainda falta medir a experiencia em duas maquinas reais e completar a matriz de compatibilidade.
 
 O modo suporte continua usando RustDesk. Essa escolha nao mistura os protocolos no mesmo fluxo: cada sessao declara o modo e recebe somente o transporte correspondente.
 

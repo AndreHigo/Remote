@@ -24,7 +24,7 @@ Estado atual: contrato, captura, entrada e transporte realtime autenticado estao
 
 O modulo `capture.ts` monta uma captura Windows de baixa latencia via FFmpeg, com CPU como caminho acessivel e encoders de GPU como aceleracao opcional. O modulo `input.ts` valida eventos tipados e usa uma ponte Windows isolada para SendInput. O modulo `realtime.ts` conecta o host ao relay autenticado e envia video e entrada somente dentro da sessao aprovada.
 
-O modulo `operator.ts` e a fronteira do cliente nativo operador: aceita somente `role: client` no modo `game`, entrega frames ao renderer escolhido pela aplicacao, informa quando o peer host entrou e mantem entrada/encerramento no mesmo contrato realtime. A primeira janela Electron fica em `apps/operator`; ela nao duplica autenticacao ou protocolo e recebe o descritor por arquivo de uso unico.
+O modulo `operator.ts` e a fronteira do cliente nativo operador: aceita somente `role: client` no modo `game`, entrega frames ao renderer escolhido pela aplicacao, informa quando o peer host entrou e mantem entrada/encerramento no mesmo contrato realtime. A primeira janela Electron fica em `apps/operator`; ela nao duplica autenticacao ou protocolo e recebe o descritor por arquivo de uso unico. O `GameEngine` detecta o instalador ou a arvore Electron local, cria esse descritor em uma pasta temporaria e inicia o operador sem colocar o token na linha de comando.
 
 Diagnostico local:
 

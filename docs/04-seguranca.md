@@ -183,6 +183,7 @@ Regras:
 - pinar imagens Docker por digest e proteger backups com criptografia operacional;
 - concluir isolamento multi-tenant: o MVP atual ainda representa um workspace unico;
 - confirmar os encoders, FPS, RTT e perda em computadores com GPU dedicada, integrada e somente CPU.
+- validar o cliente nativo com duas maquinas, jogos reais, UAC, bloqueio de tela e troca de sessao.
 
 ## Limite atual do MVP
 
