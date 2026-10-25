@@ -11,6 +11,10 @@
     "./realtime": {
       "types": "./src/realtime.ts",
       "default": "./dist/realtime.js"
+    },
+    "./operator": {
+      "types": "./src/operator.ts",
+      "default": "./dist/operator.js"
     }
   },
   "scripts": {
