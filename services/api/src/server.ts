@@ -28,8 +28,8 @@ const nodeEnv = process.env.NODE_ENV ?? "development";
 const realtimeInternalSecret = process.env.REALTIME_INTERNAL_SECRET;
 const gameModeEnabled = process.env.ENABLE_GAME_MODE === "true" && Boolean(realtimeInternalSecret);
 
-if (nodeEnv === "production" && (!process.env.JWT_SECRET || !process.env.TOTP_ENCRYPTION_KEY)) {
-  throw new Error("JWT_SECRET e TOTP_ENCRYPTION_KEY sao obrigatorios em producao");
+if (nodeEnv === "production" && (!process.env.JWT_SECRET || !process.env.DESKTOP_SESSION_SECRET || !process.env.TOTP_ENCRYPTION_KEY)) {
+  throw new Error("JWT_SECRET, DESKTOP_SESSION_SECRET e TOTP_ENCRYPTION_KEY sao obrigatorios em producao");
 }
 
 app.disable("x-powered-by");
