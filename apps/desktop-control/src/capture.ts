@@ -87,7 +87,7 @@ export function startWindowsCapture(profile: CaptureProfile = defaultProfile): C
   }
   const executable = resolvedExecutable ?? "ffmpeg.exe";
   const selectedEncoder = resolveCaptureEncoder(profile.encoder, executable);
-  const selectedMethod = resolveCaptureMethod(profile.captureMethod ?? "auto", executable);
+  const selectedMethod = resolveCaptureMethod(profile.captureMethod ?? "auto", executable, selectedEncoder);
   const child = spawn(executable, buildWindowsCaptureArgs({ ...profile, encoder: selectedEncoder }, selectedMethod), {
     stdio: "pipe",
     windowsHide: true
@@ -144,7 +144,7 @@ export function inspectFfmpegCapabilities(preferredPath?: string, profile: Captu
     ? cpuEncoderAvailable
     : hardwareEncoders.includes(selectedEncoder);
   const selectedCaptureMethod = captureMethods.length > 0
-    ? selectCaptureMethod(profile.captureMethod ?? "auto", captureMethods)
+    ? selectCaptureMethod(profile.captureMethod ?? "auto", captureMethods, selectedEncoder)
     : "gdigrab";
 
   return {
@@ -172,10 +172,15 @@ export function selectCaptureEncoder(requested: VideoEncoder, availableEncoders:
   return "cpu";
 }
 
-export function selectCaptureMethod(requested: CaptureMethod, availableFilters: Iterable<string>): Exclude<CaptureMethod, "auto"> {
+export function selectCaptureMethod(
+  requested: CaptureMethod,
+  availableFilters: Iterable<string>,
+  selectedEncoder?: Exclude<VideoEncoder, "auto">
+): Exclude<CaptureMethod, "auto"> {
   const available = new Set(availableFilters);
   if (requested === "gdigrab") return "gdigrab";
   if (requested === "ddagrab") return available.has("ddagrab") ? "ddagrab" : "gdigrab";
+  if (selectedEncoder === "cpu") return "gdigrab";
   return available.has("ddagrab") ? "ddagrab" : "gdigrab";
 }
 
@@ -195,7 +200,11 @@ function resolveCaptureEncoder(requested: VideoEncoder, executable: string): Exc
   }
 }
 
-function resolveCaptureMethod(requested: CaptureMethod, executable: string): Exclude<CaptureMethod, "auto"> {
+function resolveCaptureMethod(
+  requested: CaptureMethod,
+  executable: string,
+  selectedEncoder: Exclude<VideoEncoder, "auto">
+): Exclude<CaptureMethod, "auto"> {
   if (requested === "gdigrab") return "gdigrab";
   try {
     const output = execFileSync(executable, ["-hide_banner", "-filters"], {
@@ -205,7 +214,7 @@ function resolveCaptureMethod(requested: CaptureMethod, executable: string): Exc
       stdio: ["ignore", "pipe", "ignore"]
     });
     const available = [...output.matchAll(/(?:^|\s)ddagrab\s+/gm)].map(() => "ddagrab");
-    return selectCaptureMethod(requested, available);
+    return selectCaptureMethod(requested, available, selectedEncoder);
   } catch {
     return "gdigrab";
   }

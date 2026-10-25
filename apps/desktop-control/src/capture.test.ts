@@ -41,6 +41,12 @@ test("metodo auto usa ddagrab quando a build do FFmpeg oferece o filtro", () => 
   assert.equal(selectCaptureMethod("ddagrab", []), "gdigrab");
 });
 
+test("metodo auto prioriza gdigrab quando a captura usa CPU", () => {
+  assert.equal(selectCaptureMethod("auto", ["ddagrab"], "cpu"), "gdigrab");
+  assert.equal(selectCaptureMethod("auto", ["ddagrab"], "nvidia"), "ddagrab");
+  assert.equal(selectCaptureMethod("ddagrab", ["ddagrab"], "cpu"), "ddagrab");
+});
+
 test("perfil auto escolhe a primeira aceleracao disponivel", () => {
   assert.equal(selectCaptureEncoder("auto", ["h264_qsv", "h264_nvenc"]), "nvidia");
   assert.equal(selectCaptureEncoder("auto", ["h264_amf"]), "amd");
