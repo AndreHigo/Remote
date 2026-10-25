@@ -109,7 +109,7 @@ O painel, a experiencia comercial, as permissoes, a auditoria e as automacoes fi
 4. Assinar o instalador Windows e definir atualizacao automatica.
 5. Decidir e implementar o cliente nativo visual, caso o painel web nao seja suficiente para o produto final.
 
-O botao `Conectar` registra uma solicitacao de sessao; um owner ou admin precisa aprovar antes de abrir o adaptador correspondente. Sessoes de suporte usam RustDesk quando instalado; sessoes de jogo usam o relay H.264 experimental do proprio Remoto quando `ENABLE_GAME_MODE=true` e o segredo interno do relay estao configurados. O cliente nativo visual continua separado e ainda nao esta liberado. Contas administrativas ja podem ativar 2FA TOTP no painel; em producao, configure `TOTP_ENCRYPTION_KEY` separado do `JWT_SECRET`.
+O botao `Conectar` registra uma solicitacao de sessao; um owner ou admin precisa aprovar antes de abrir o adaptador correspondente. Sessoes de suporte usam RustDesk quando instalado; sessoes de jogo usam o relay H.264 experimental do proprio Remoto quando `ENABLE_GAME_MODE=true` e os segredos do canal estao configurados. O cliente nativo visual continua separado e ainda nao esta liberado. Contas administrativas ja podem ativar 2FA TOTP no painel; em producao, configure `TOTP_ENCRYPTION_KEY` e `DESKTOP_SESSION_SECRET` separados do `JWT_SECRET`.
 
 A API possui `/health` para liveness e `/ready` para readiness com verificacao do PostgreSQL. O workflow em `.github/workflows/ci.yml` valida testes, tipos, build e os Compose antes de qualquer deploy.
 

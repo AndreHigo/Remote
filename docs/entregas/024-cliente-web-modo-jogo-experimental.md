@@ -16,7 +16,7 @@ O fluxo ainda e experimental. A fila MSE, o codec H.264, o pointer lock e os per
 ## Como testar depois da validacao local
 
 1. Definir `ENABLE_GAME_MODE=true` somente no ambiente de teste.
-2. Subir API, web e realtime com `REALTIME_INTERNAL_SECRET` igual na API e no relay.
+2. Subir API, web e realtime com `REALTIME_INTERNAL_SECRET` igual na API e no relay, e `DESKTOP_SESSION_SECRET` igual na API e no relay.
 3. Instalar FFmpeg no computador remoto e iniciar o agente com a mesma API.
 4. Solicitar uma sessao em modo jogo, aprovar no painel e clicar dentro do video para capturar o mouse.
 5. Registrar FPS, RTT, perda, CPU, GPU e comportamento ao encerrar.

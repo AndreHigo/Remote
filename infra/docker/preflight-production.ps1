@@ -25,6 +25,7 @@ $required = @(
   "POSTGRES_USER",
   "POSTGRES_PASSWORD",
   "JWT_SECRET",
+  "DESKTOP_SESSION_SECRET",
   "TOTP_ENCRYPTION_KEY",
   "REALTIME_INTERNAL_SECRET",
   "REALTIME_ALLOWED_ORIGINS",
@@ -40,6 +41,7 @@ foreach ($name in $required) {
 
 if ($values["POSTGRES_PASSWORD"].Length -lt 20) { throw "POSTGRES_PASSWORD deve ter pelo menos 20 caracteres" }
 if ($values["JWT_SECRET"].Length -lt 32) { throw "JWT_SECRET deve ter pelo menos 32 caracteres" }
+if ($values["DESKTOP_SESSION_SECRET"].Length -lt 32) { throw "DESKTOP_SESSION_SECRET deve ter pelo menos 32 caracteres" }
 if ($values["TOTP_ENCRYPTION_KEY"].Length -lt 32) { throw "TOTP_ENCRYPTION_KEY deve ter pelo menos 32 caracteres" }
 if ($values["REALTIME_INTERNAL_SECRET"].Length -lt 32) { throw "REALTIME_INTERNAL_SECRET deve ter pelo menos 32 caracteres" }
 if ($values["BOOTSTRAP_ADMIN_PASSWORD"].Length -lt 12) { throw "BOOTSTRAP_ADMIN_PASSWORD deve ter pelo menos 12 caracteres" }

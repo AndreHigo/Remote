@@ -5,7 +5,7 @@
 - Headers de seguranca na API: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` e `Permissions-Policy`.
 - Remocao da assinatura `X-Powered-By` do Express.
 - Limite de payload JSON de 1 MB.
-- Validacao obrigatoria de `JWT_SECRET` e `TOTP_ENCRYPTION_KEY` em producao.
+- Validacao obrigatoria de `JWT_SECRET`, `DESKTOP_SESSION_SECRET` e `TOTP_ENCRYPTION_KEY` em producao.
 - Configuracao explicita de `TRUST_PROXY` para preservar a leitura segura do IP do rate limit.
 - Endpoint `/ready` com verificacao real de conexao ao PostgreSQL.
 - Rate limit por IP para o grupo de endpoints do agente.
