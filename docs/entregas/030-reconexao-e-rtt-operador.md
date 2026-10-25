@@ -20,7 +20,7 @@ node --check apps/operator/src/renderer.js
 node --check apps/operator/src/preload.cjs
 ```
 
-O teste de transporte confirma frame, entrada tipada, RTT e fechamento de socket. O instalador atualizado foi gerado em `apps/operator/release/Remoto-Operator-Setup-0.1.0.exe`, com SHA256 `D8DC663ABB6D73A7F7819035865060F5C28F7B3D5DF6B8022F9FE7AACCB217DA`. Ainda falta validar a reconexao com duas maquinas Windows e uma interrupcao real de rede.
+O teste de transporte confirma frame, entrada tipada, RTT e fechamento de socket. O instalador atualizado foi gerado em `apps/operator/release/Remoto-Operator-Setup-0.1.0.exe`, com SHA256 `3971F20D1213F694F2A699D70A942397EFB2A9C948D205D496BE56BB97AB4C00`. Ainda falta validar a reconexao com duas maquinas Windows e uma interrupcao real de rede.
 
 ## Ainda falta
 

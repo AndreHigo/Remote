@@ -149,6 +149,10 @@ async function connectNativeSession(descriptor, realtimeUrl) {
       onClosed(reason) {
         if (closingSession || activeDescriptor?.sessionId !== descriptor.sessionId) return;
         nativeSession = undefined;
+        if (isTerminalSessionReason(reason)) {
+          sendStatus("closed", reason);
+          return;
+        }
         scheduleReconnect(descriptor, realtimeUrl, reason);
       }
     });
@@ -157,6 +161,11 @@ async function connectNativeSession(descriptor, realtimeUrl) {
     if (closingSession || activeDescriptor?.sessionId !== descriptor.sessionId) return;
     scheduleReconnect(descriptor, realtimeUrl, message);
   }
+}
+
+function isTerminalSessionReason(reason) {
+  return new Set(["session-ended", "session-expired", "session-revoked", "channel-not-authorized", "invalid-session-token"])
+    .has(String(reason).toLowerCase());
 }
 
 function scheduleReconnect(descriptor, realtimeUrl, reason) {
