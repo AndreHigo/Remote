@@ -1,0 +1,71 @@
+param(
+  [switch]$SkipBuild,
+  [switch]$SkipAudit
+)
+
+$ErrorActionPreference = "Stop"
+$root = Split-Path -Parent $PSScriptRoot
+Set-Location -LiteralPath $root
+
+function Invoke-Checked([string]$Label, [scriptblock]$Command) {
+  Write-Host "`n== $Label ==" -ForegroundColor Cyan
+  & $Command
+  if ($LASTEXITCODE -ne 0) {
+    throw "$Label falhou com codigo $LASTEXITCODE"
+  }
+}
+
+Invoke-Checked "Testes" { npm test }
+Invoke-Checked "Typecheck" { npm run typecheck }
+
+if (!$SkipBuild) {
+  Invoke-Checked "Build" { npm run build }
+}
+
+if (!$SkipAudit) {
+  Invoke-Checked "Auditoria de dependencias" { npm audit --audit-level=high }
+}
+
+Invoke-Checked "Sintaxe do operador nativo" {
+  node --check apps/operator/src/main.cjs
+  node --check apps/operator/src/preload.cjs
+  node --check apps/operator/src/renderer.js
+}
+
+Write-Host "`n== Instaladores ==" -ForegroundColor Cyan
+$artifacts = @(
+  "apps/operator/release/Remoto-Operator-Setup-0.1.0.exe",
+  "apps/agent/release/RemotoAgent-Setup.exe"
+)
+$sha256 = [System.Security.Cryptography.SHA256]::Create()
+foreach ($artifact in $artifacts) {
+  if (Test-Path -LiteralPath $artifact) {
+    $resolvedArtifact = (Resolve-Path -LiteralPath $artifact).Path
+    $bytes = [System.IO.File]::ReadAllBytes($resolvedArtifact)
+    $hash = ([BitConverter]::ToString($sha256.ComputeHash($bytes))).Replace("-", "")
+    Write-Host "$artifact`n  SHA256: $hash"
+  } else {
+    Write-Warning "Artefato ausente: $artifact"
+  }
+}
+$sha256.Dispose()
+
+Write-Host "`n== Audio de sistema ==" -ForegroundColor Cyan
+$ffmpegCommand = Get-Command ffmpeg.exe -ErrorAction SilentlyContinue
+if (!$ffmpegCommand) {
+  Write-Warning "ffmpeg.exe nao esta no PATH; o agente ainda pode localizar uma instalacao confiavel por configuracao ou WinGet."
+} else {
+  $wasapiHelp = (& $ffmpegCommand.Source -hide_banner -h demuxer=wasapi 2>&1 | Out-String)
+  if ($wasapiHelp -match "Unknown format|Unknown demuxer") {
+    Write-Warning "A build local do FFmpeg nao oferece WASAPI loopback. O modo jogo permanece video-only."
+  } else {
+    Write-Host "WASAPI detectado; ainda requer homologacao de captura e sincronismo." -ForegroundColor Yellow
+  }
+}
+
+Invoke-Checked "Diff whitespace" { git diff --check }
+if ((git status --porcelain)) {
+  Write-Warning "Existem alteracoes locais nao commitadas."
+}
+
+Write-Host "`nPreflight local concluido. Teste entre duas maquinas, assinatura e VPS continuam gates externos." -ForegroundColor Green

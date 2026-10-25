@@ -13,6 +13,7 @@
     "test": "npm run test:security && npm run test -w apps/agent && npm run test -w apps/desktop-control && npm run test -w services/realtime",
     "test:security": "npm run test:security -w services/api",
     "typecheck": "npm run typecheck -w services/api && npm run typecheck -w apps/web && npm run typecheck -w apps/desktop-control && npm run typecheck -w apps/agent && npm run typecheck -w services/realtime",
+    "validate:release": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/validate-local-release.ps1",
     "db:up": "docker compose -f infra/docker/docker-compose.yml up -d postgres",
     "db:push": "npm run db:push -w services/api",
     "db:seed": "npm run db:seed -w services/api",
