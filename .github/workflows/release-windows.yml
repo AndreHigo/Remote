@@ -70,7 +70,15 @@ jobs:
         run: npm run agent:package:windows
 
       - name: Package native operator
-        run: npm run operator:package:windows
+        shell: powershell
+        env:
+          REMOTO_OPERATOR_API_URL: ${{ secrets.REMOTO_OPERATOR_API_URL }}
+          REMOTO_OPERATOR_REALTIME_URL: ${{ secrets.REMOTO_OPERATOR_REALTIME_URL }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:REMOTO_OPERATOR_API_URL) -or [string]::IsNullOrWhiteSpace($env:REMOTO_OPERATOR_REALTIME_URL)) {
+            throw "Configure REMOTO_OPERATOR_API_URL e REMOTO_OPERATOR_REALTIME_URL nos secrets antes de publicar o operador."
+          }
+          npm run operator:package:windows
 
       - name: Sign Windows installers
         if: startsWith(github.ref, 'refs/tags/')
