@@ -1,4 +1,5 @@
 import http from "node:http";
+import crypto from "node:crypto";
 import { WebSocketServer, WebSocket, type RawData } from "ws";
 import { maxControlMessageBytes, parseControlMessage, verifyChannelToken, type ChannelTokenPayload, type ServerMessage, type SessionRole } from "./protocol.js";
 
@@ -26,7 +27,23 @@ interface Room {
 
 export function createRealtimeServer() {
   const rooms = new Map<string, Room>();
-  const server = http.createServer((_request, response) => {
+  const server = http.createServer((request, response) => {
+    const pathname = new URL(request.url ?? "/", "http://localhost").pathname;
+    if (request.method === "POST" && pathname.startsWith("/internal/sessions/") && pathname.endsWith("/close")) {
+      const receivedSecret = request.headers["x-realtime-secret"];
+      if (!internalSecret || typeof receivedSecret !== "string" || !secretsMatch(receivedSecret, internalSecret)) {
+        response.writeHead(401).end();
+        return;
+      }
+      const sessionId = pathname.slice("/internal/sessions/".length, -"/close".length).replace(/\/$/, "");
+      const closed = closeRoom(sessionId);
+      response.writeHead(closed ? 204 : 404).end();
+      return;
+    }
+    if (request.method !== "GET" || pathname !== "/health") {
+      response.writeHead(404).end();
+      return;
+    }
     response.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
     response.end(JSON.stringify({ ok: true, service: "remoto-realtime" }));
   });
@@ -133,6 +150,19 @@ export function createRealtimeServer() {
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
   };
+
+  function closeRoom(sessionId: string) {
+    const room = rooms.get(sessionId);
+    if (!room) return false;
+    if (room.expiryTimer) clearTimeout(room.expiryTimer);
+    rooms.delete(sessionId);
+    for (const peer of [room.host, room.client]) {
+      if (!peer) continue;
+      send(peer.socket, { type: "closed", reason: "session-ended" });
+      peer.socket.close(1000, "session-ended");
+    }
+    return true;
+  }
 }
 
 export function startRealtimeServer(listenPort = port) {
@@ -147,6 +177,12 @@ function send(socket: WebSocket, message: ServerMessage) {
 
 function close(socket: WebSocket, reason: string) {
   socket.close(1008, reason.slice(0, 120));
+}
+
+function secretsMatch(received: string, expected: string) {
+  const receivedBuffer = Buffer.from(received);
+  const expectedBuffer = Buffer.from(expected);
+  return receivedBuffer.length === expectedBuffer.length && crypto.timingSafeEqual(receivedBuffer, expectedBuffer);
 }
 
 async function authorizeChannel(accessToken: string) {

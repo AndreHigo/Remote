@@ -18,5 +18,7 @@ Responsabilidades:
 - `REALTIME_ALLOWED_ORIGINS`: origens web separadas por virgula;
 - `REALTIME_MAX_FRAME_BYTES`: limite de cada frame binario.
 
+A API usa `POST /internal/sessions/{id}/close` com `X-Realtime-Secret` para encerrar imediatamente uma sessao administrativa. Essa rota nao e publica e retorna `404` quando a sala nao esta ativa.
+
 O servico nao deve ser exposto diretamente na internet sem proxy TLS. Na stack de producao, o Caddy publica `/realtime/*` e o agente usa a URL publica `wss://dominio/realtime`.
 

@@ -31,6 +31,8 @@ test("relay autentica os dois papeis e encaminha video e entrada", async (t) => 
   let reconnectedClient: WebSocket | undefined;
   let expiringHost: WebSocket | undefined;
   let expiringClient: WebSocket | undefined;
+  let controlHost: WebSocket | undefined;
+  let controlClient: WebSocket | undefined;
   t.after(async () => {
     host?.terminate();
     client?.terminate();
@@ -38,6 +40,8 @@ test("relay autentica os dois papeis e encaminha video e entrada", async (t) => 
     reconnectedClient?.terminate();
     expiringHost?.terminate();
     expiringClient?.terminate();
+    controlHost?.terminate();
+    controlClient?.terminate();
     if (relay) await relay.close();
     if (api.listening) await closeServer(api);
   });
@@ -111,6 +115,26 @@ test("relay autentica os dois papeis e encaminha video e entrada", async (t) => 
   assert.equal((await nextJson(expiringClientMessages)).type, "ready");
   assert.equal((await nextJson(expiringHostMessages)).reason, "session-expired");
   assert.equal((await nextJson(expiringClientMessages)).reason, "session-expired");
+
+  controlHost = await connect(url.replace("session-1", "session-control"));
+  controlClient = await connect(url.replace("session-1", "session-control"));
+  const controlHostMessages = createMessageQueue(controlHost);
+  const controlClientMessages = createMessageQueue(controlClient);
+  controlHost.send(JSON.stringify({ type: "hello", accessToken: token("host", "session-control") }));
+  controlClient.send(JSON.stringify({ type: "hello", accessToken: token("client", "session-control") }));
+  const controlHostReady = await nextJson(controlHostMessages);
+  assert.equal(controlHostReady.type, "ready");
+  if (!controlHostReady.peerConnected) assert.equal((await nextJson(controlHostMessages)).peerConnected, true);
+  const controlClientReady = await nextJson(controlClientMessages);
+  assert.equal(controlClientReady.type, "ready");
+  if (!controlClientReady.peerConnected) assert.equal((await nextJson(controlClientMessages)).peerConnected, true);
+  const closeResponse = await fetch(`http://127.0.0.1:${relayAddress.port}/internal/sessions/session-control/close`, {
+    method: "POST",
+    headers: { "X-Realtime-Secret": process.env.REALTIME_INTERNAL_SECRET ?? "" }
+  });
+  assert.equal(closeResponse.status, 204);
+  assert.deepEqual(await nextJson(controlHostMessages), { type: "closed", reason: "session-ended" });
+  assert.deepEqual(await nextJson(controlClientMessages), { type: "closed", reason: "session-ended" });
 
   function token(role: "host" | "client", targetSessionId = "session-1", expiresAt = Date.now() + 60_000) {
     const body = Buffer.from(JSON.stringify({

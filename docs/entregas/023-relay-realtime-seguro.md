@@ -8,6 +8,7 @@
 - Limite de payload, timeout de hello, bloqueio de papeis duplicados e limpeza ao desconectar.
 - Token de cliente de uso unico, com hash no banco, expiracao e conferencia de sessao aprovada.
 - Token de host temporario emitido somente para o agente autenticado do dispositivo.
+- Encerramento administrativo imediato por rota interna protegida, com fallback no proximo polling do agente.
 - Captura Windows com FFmpeg, CPU como padrao e descarte de fila atrasada para preservar latencia.
 - Ponte de entrada Windows restrita a eventos tipados e `SendInput`.
 - Servico realtime, proxy WebSocket, healthcheck e segredo interno adicionados ao compose de producao.

@@ -8,6 +8,7 @@
 - Bloqueio para nunca deixar o workspace sem owner ativo.
 - Invalidacao imediata de sessoes antigas ao trocar senha, funcao ou status.
 - Controle de solicitacoes de sessao: solicitar, aprovar, negar e encerrar.
+- Encerramento administrativo sinalizado ao relay realtime para derrubar os peers imediatamente.
 - Movimentacao de dispositivo entre clientes.
 - Arquivamento e restauracao de dispositivos.
 - Exclusao definitiva separada do arquivamento.

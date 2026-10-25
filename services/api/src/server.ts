@@ -26,6 +26,7 @@ const app = express();
 const port = Number(process.env.PORT ?? 4100);
 const nodeEnv = process.env.NODE_ENV ?? "development";
 const realtimeInternalSecret = process.env.REALTIME_INTERNAL_SECRET;
+const realtimeControlUrl = process.env.REALTIME_CONTROL_URL ?? "http://localhost:4200";
 const gameModeEnabled = process.env.ENABLE_GAME_MODE === "true" && Boolean(realtimeInternalSecret);
 
 if (nodeEnv === "production" && (!process.env.JWT_SECRET || !process.env.DESKTOP_SESSION_SECRET || !process.env.TOTP_ENCRYPTION_KEY)) {
@@ -793,6 +794,7 @@ app.post("/remote-sessions/:id/end", requireRole(["owner", "admin", "technician"
     return;
   }
 
+  void closeRealtimeSession(session.id);
   response.json(session);
 });
 
@@ -838,4 +840,17 @@ function secretsMatch(received: string | undefined, expected: string) {
   const receivedBuffer = Buffer.from(received);
   const expectedBuffer = Buffer.from(expected);
   return receivedBuffer.length === expectedBuffer.length && crypto.timingSafeEqual(receivedBuffer, expectedBuffer);
+}
+
+async function closeRealtimeSession(sessionId: string) {
+  if (!realtimeInternalSecret) return;
+  try {
+    await fetch(`${realtimeControlUrl.replace(/\/$/, "")}/internal/sessions/${encodeURIComponent(sessionId)}/close`, {
+      method: "POST",
+      headers: { "X-Realtime-Secret": realtimeInternalSecret },
+      signal: AbortSignal.timeout(1000)
+    });
+  } catch {
+    // The agent polling loop remains the fallback if the relay is temporarily unavailable.
+  }
 }
