@@ -938,8 +938,12 @@ h3 { color: #24343b; font-size: 13px; }
 .danger:hover { border-color: #db9d98; background: #fff1ef; }
 .commandList, .keyList, .auditList { padding: 0; list-style: none; }
 .commandList { margin: 12px 0 0; }
-.commandList li { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; padding: 8px 0; border-top: 1px solid #edf1f2; font-size: 11px; }
+.commandList li { display: grid; gap: 4px 8px; padding: 8px 0; border-top: 1px solid #edf1f2; font-size: 11px; }
+.commandHeading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .commandList small { grid-column: 1 / -1; color: #89979c; font-size: 10px; }
+.commandOutputDetails { margin-top: 3px; }
+.commandOutputDetails summary { cursor: pointer; color: var(--accent-dark); font-size: 10px; font-weight: 800; }
+.commandOutput { max-height: 230px; overflow: auto; margin: 7px 0 0; padding: 9px; border: 1px solid #dce8e5; border-radius: 7px; background: #f7fbfa; color: #41565d; font: 10px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; word-break: break-word; }
 .commandStatus { width: fit-content; border-radius: 999px; padding: 4px 7px; background: #eff2f3; color: #687880; font-size: 10px; font-weight: 800; text-transform: capitalize; }
 .commandStatus.succeeded { background: #e2f5ed; color: #167357; }
 .commandStatus.failed { background: #fbe9e7; color: #aa5046; }

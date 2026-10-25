@@ -283,6 +283,26 @@ const formatBytes = (value?: number) => {
   return `${nextValue.toFixed(unitIndex >= 3 ? 1 : 0)} ${units[unitIndex]}`;
 };
 
+function commandLabel(commandType: CommandExecution["commandType"]) {
+  return {
+    ping: "Ping",
+    "system-info": "Informacoes do sistema",
+    "refresh-inventory": "Atualizar inventario",
+    "list-processes": "Processos ativos",
+    "list-services": "Servicos instalados",
+    "collect-diagnostics": "Diagnostico"
+  }[commandType];
+}
+
+function formatCommandOutput(value: unknown) {
+  if (value === null || value === undefined) return "Sem dados retornados.";
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
 async function getJson<T>(path: string, token: string): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     credentials: "include",
@@ -1596,7 +1616,7 @@ function OperationsConsole(props: OperationsConsoleProps) {
                         <button className="secondary compact" type="button" onClick={() => onRequestCommand(selectedDevice, "list-services")}>servicos</button>
                         <button className="secondary compact" type="button" onClick={() => onRequestCommand(selectedDevice, "collect-diagnostics")}>diagnostico</button>
                       </div>
-                      {commands.length ? <ul className="commandList">{commands.slice(0, 4).map((item) => <li key={item.id}><strong>{item.commandType}</strong><span className={`commandStatus ${item.status}`}>{item.status}</span><small>{new Date(item.requestedAt).toLocaleString("pt-BR")}</small></li>)}</ul> : <p className="empty">Nenhum comando recente.</p>}
+                      {commands.length ? <ul className="commandList">{commands.slice(0, 6).map((item) => <li key={item.id}><div className="commandHeading"><strong>{commandLabel(item.commandType)}</strong><span className={`commandStatus ${item.status}`}>{item.status}</span></div><small>{new Date(item.requestedAt).toLocaleString("pt-BR")}</small>{item.status === "succeeded" || item.status === "failed" ? <details className="commandOutputDetails"><summary>{item.status === "failed" ? "Ver erro" : "Ver resultado"}</summary><pre className="commandOutput">{formatCommandOutput(item.status === "failed" ? item.error : item.output)}</pre></details> : null}</li>)}</ul> : <p className="empty">Nenhum comando recente.</p>}
                     </section>
                   </>
                 ) : <div className="emptyState"><Monitor size={24} /><strong>Selecione um dispositivo</strong><span>Os detalhes aparecem aqui.</span></div>}
