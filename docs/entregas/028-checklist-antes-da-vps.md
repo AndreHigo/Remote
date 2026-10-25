@@ -2,7 +2,7 @@
 
 ## Estado validado
 
-- commit de referência publicado: `808a9e9`;
+- commit de referência publicado: `e37a0ae`;
 - `npm test`: 29 testes passando;
 - `npm run typecheck`: API, web, desktop-control, agent e realtime sem erros;
 - `npm run build`: build completo validado no estado atual do workspace;
@@ -19,6 +19,7 @@
 - SHA256 atual do instalador do agente: `D3703E18B72DE2FEADB700E77536AB87AE9063000DD3E60898070D793C81B7A1`;
 - o instalador do agente encerra o serviço e o processo interativo antes da atualização para evitar arquivo bloqueado.
 - o operador nativo agora exibe RTT e tenta reconectar após queda transitória, conforme `docs/entregas/030-reconexao-e-rtt-operador-nativo.md`.
+- o transporte do host preserva segmentos fMP4 completos antes de enviá-los ao relay, conforme `docs/entregas/032-segmentacao-fmp4-baixa-latencia.md`.
 
 ## Fechamento antes da producao
 
