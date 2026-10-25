@@ -467,7 +467,7 @@ export const repository = {
   async deleteCustomer(input: { id: string; user: AuthUser }) {
     const customer = await prisma.customer.findFirst({
       where: { id: input.id, workspaceId: input.user.workspaceId },
-      include: { _count: { select: { devices: { where: { archivedAt: null } }, agentEnrollmentKeys: true } } }
+      include: { _count: { select: { devices: true, agentEnrollmentKeys: true } } }
     });
     if (!customer) return null;
 
