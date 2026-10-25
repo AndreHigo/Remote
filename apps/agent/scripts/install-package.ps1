@@ -63,25 +63,37 @@ function Resolve-ConfiguredFfmpeg {
     if ([System.IO.Path]::GetFileName($candidate) -ine "ffmpeg.exe" -or -not (Test-Path -LiteralPath $candidate -PathType Leaf)) {
       throw "O caminho informado precisa apontar para um arquivo ffmpeg.exe existente."
     }
-    if (-not (Test-ProtectedFfmpegPath -Path $candidate)) {
-      throw "O FFmpeg do servico precisa estar em uma pasta protegida, como Program Files ou ProgramData. O caminho informado esta em uma pasta de usuario mutavel."
-    }
-    return $candidate
+    return Install-ProtectedFfmpeg -SourcePath $candidate
   }
 
   if ($env:REMOTO_FFMPEG_PATH) {
     try {
       $candidate = [System.IO.Path]::GetFullPath($env:REMOTO_FFMPEG_PATH)
-      if ((Test-Path -LiteralPath $candidate -PathType Leaf) -and (Test-ProtectedFfmpegPath -Path $candidate)) { return $candidate }
+      if (Test-Path -LiteralPath $candidate -PathType Leaf) { return Install-ProtectedFfmpeg -SourcePath $candidate }
     } catch { }
   }
 
   $command = Get-Command ffmpeg.exe -ErrorAction SilentlyContinue
-  if ($command -and (Test-Path -LiteralPath $command.Source -PathType Leaf) -and (Test-ProtectedFfmpegPath -Path $command.Source)) {
-    return $command.Source
+  if ($command -and (Test-Path -LiteralPath $command.Source -PathType Leaf)) {
+    return Install-ProtectedFfmpeg -SourcePath $command.Source
   }
 
   return $null
+}
+
+function Install-ProtectedFfmpeg {
+  param([string]$SourcePath)
+
+  if (Test-ProtectedFfmpegPath -Path $SourcePath) { return $SourcePath }
+  $targetDirectory = Join-Path $AgentRoot "ffmpeg"
+  $targetPath = Join-Path $targetDirectory "ffmpeg.exe"
+  New-Item -ItemType Directory -Path $targetDirectory -Force | Out-Null
+  Copy-Item -LiteralPath $SourcePath -Destination $targetPath -Force
+  if (-not (Test-Path -LiteralPath $targetPath -PathType Leaf)) {
+    throw "Nao foi possivel copiar o FFmpeg para a pasta protegida do agente."
+  }
+  Write-Output "FFmpeg copiado para caminho protegido: $targetPath"
+  return $targetPath
 }
 
 function Test-ProtectedFfmpegPath {
@@ -189,5 +201,5 @@ Write-Output "Processo interativo: tarefa $InteractiveTaskName para $CurrentUser
 if ($resolvedFfmpegPath) {
   Write-Output "FFmpeg: $resolvedFfmpegPath"
 } else {
-  Write-Warning "FFmpeg protegido nao encontrado. O gerenciamento continua disponivel, mas o modo jogo exige ffmpeg.exe instalado em Program Files/ProgramData ou informado por um caminho protegido."
+  Write-Warning "FFmpeg nao encontrado. O gerenciamento continua disponivel, mas o modo jogo exige ffmpeg.exe instalado ou informado no instalador; um caminho de usuario sera copiado para a pasta protegida do agente."
 }

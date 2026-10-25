@@ -51,6 +51,7 @@ Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile
 [UninstallDelete]
 Type: files; Name: "{app}\.remoto-agent.config.json"
 Type: files; Name: "{app}\.remoto-agent.state.json"
+Type: dirifempty; Name: "{app}\ffmpeg"
 Type: dirifempty; Name: "{app}"
 
 [Code]
@@ -228,7 +229,7 @@ begin
   ConnectionPage.Add('URL da API:', False);
   ConnectionPage.Add('URL do relay realtime:', False);
   ConnectionPage.Add('Chave do agente:', True);
-  ConnectionPage.Add('Caminho do FFmpeg (opcional):', False);
+  ConnectionPage.Add('Caminho do FFmpeg (opcional; sera protegido):', False);
   ConnectionPage.Values[0] := ExpandConstant('{param:APIURL|http://localhost:4100}');
   ConnectionPage.Values[1] := ExpandConstant('{param:REALTIMEURL|ws://localhost:4200}');
   ConnectionPage.Values[2] := ExpandConstant('{param:AGENTKEY|}');
