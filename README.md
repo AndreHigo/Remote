@@ -123,7 +123,7 @@ docker compose --env-file infra/docker/rustdesk.env -f infra/docker/docker-compo
 
 Manter a plataforma online, o agente e o cliente desktop sob nosso controle. RustDesk permanece como adaptador de suporte durante a transicao; o modo jogo tera um transporte nativo encapsulado pelo Remoto.
 
-O painel, a experiencia comercial, as permissoes, a auditoria e as automacoes ficam sob nosso controle. O cliente desktop deve esconder detalhes de engine e selecionar captura, codificacao e entrada conforme o hardware.
+O painel, a experiencia comercial, as permissoes, a auditoria e as automacoes ficam sob nosso controle. O cliente desktop deve esconder detalhes de engine e selecionar captura, codificacao e entrada conforme o hardware. O modo jogo aceita teclado e mouse e oferece um mapa experimental de gamepad para WASD, teclas comuns e mouse; isso nao cria um dispositivo XInput/DirectInput no host.
 
 ## Proximos passos
 
