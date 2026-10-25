@@ -1562,6 +1562,7 @@ function GameSessionPanel({ session, realtimeUrl, onClose }: { session: GameSess
   const sourceBufferRef = React.useRef<SourceBuffer | null>(null);
   const mediaQueueRef = React.useRef<Uint8Array[]>([]);
   const mediaQueueBytesRef = React.useRef(0);
+  const pressedKeysRef = React.useRef(new Set<string>());
   const pingTimerRef = React.useRef<number | null>(null);
   const [status, setStatus] = React.useState("Conectando ao computador...");
   const [error, setError] = React.useState<string | null>(null);
@@ -1664,6 +1665,26 @@ function GameSessionPanel({ session, realtimeUrl, onClose }: { session: GameSess
     };
   }, [realtimeUrl, session.accessToken, session.sessionId]);
 
+  React.useEffect(() => {
+    const releasePressedKeys = () => {
+      for (const code of pressedKeysRef.current) {
+        const scanCode = scanCodes[code];
+        if (!scanCode) continue;
+        const extended = extendedScanCodes.has(code);
+        sendInput({ type: "key", scanCode, action: "up", ...(extended ? { extended: true } : {}) });
+      }
+      pressedKeysRef.current.clear();
+    };
+
+    window.addEventListener("blur", releasePressedKeys);
+    document.addEventListener("visibilitychange", releasePressedKeys);
+    return () => {
+      window.removeEventListener("blur", releasePressedKeys);
+      document.removeEventListener("visibilitychange", releasePressedKeys);
+      releasePressedKeys();
+    };
+  }, [session.sessionId]);
+
   function sendInput(event: Record<string, unknown>) {
     const socket = socketRef.current;
     if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: "input", event }));
@@ -1673,6 +1694,8 @@ function GameSessionPanel({ session, realtimeUrl, onClose }: { session: GameSess
     const scanCode = scanCodes[event.code];
     if (!scanCode) return;
     event.preventDefault();
+    if (action === "down") pressedKeysRef.current.add(event.code);
+    else pressedKeysRef.current.delete(event.code);
     sendInput({ type: "key", scanCode, action, ...(extendedScanCodes.has(event.code) ? { extended: true } : {}) });
   }
 
