@@ -11,7 +11,7 @@ npm install
 npm run build -w apps/desktop-control
 ```
 
-Crie um arquivo temporario com um descritor entregue pela API (use um token real somente no ambiente local):
+Na sessao web aprovada, use o botao `Cliente nativo` para baixar o descritor. Para um teste manual, o formato e este (use um token real somente no ambiente local):
 
 ```json
 {
@@ -20,7 +20,9 @@ Crie um arquivo temporario com um descritor entregue pela API (use um token real
   "mode": "game",
   "role": "client",
   "accessToken": "token-de-uso-unico",
-  "expiresAt": "2026-10-25T18:00:00.000Z"
+  "expiresAt": "2026-10-25T18:00:00.000Z",
+  "apiUrl": "http://localhost:4100",
+  "realtimeUrl": "ws://localhost:4200"
 }
 ```
 
@@ -30,7 +32,7 @@ Abra a janela:
 npm run operator:dev -- --descriptor-file C:\temp\remoto-session.json
 ```
 
-O arquivo e apagado depois da leitura. Antes de abrir o WebSocket, o cliente consome o token uma unica vez em `POST /desktop-sessions/consume`; configure `REMOTO_API_URL` quando a API nao estiver em `http://localhost:4100`. A sessao exige `role: client`, `mode: game`, `accessToken` e um relay acessivel pela configuracao `REMOTO_REALTIME_URL`.
+O arquivo e apagado depois da leitura. Antes de abrir o WebSocket, o cliente consome o token uma unica vez em `POST /desktop-sessions/consume`; `apiUrl` e `realtimeUrl` do descritor prevalecem, com fallback para `REMOTO_API_URL` e `REMOTO_REALTIME_URL`. A sessao exige `role: client`, `mode: game` e um relay acessivel.
 
 ## Limites desta entrega
 

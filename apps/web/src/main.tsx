@@ -8,6 +8,7 @@ import {
   Ban,
   ChevronRight,
   Copy,
+  Download,
   Gamepad2,
   KeyRound,
   LockKeyhole,
@@ -1738,6 +1739,21 @@ function GameSessionPanel({ session, realtimeUrl, onClose }: { session: GameSess
     if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: "input", event }));
   }
 
+  function downloadNativeDescriptor() {
+    const payload = {
+      ...session,
+      apiUrl: API_URL,
+      realtimeUrl
+    };
+    const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `remoto-${session.deviceId}-session.json`;
+    anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
   function sendKey(event: React.KeyboardEvent<HTMLVideoElement>, action: "down" | "up") {
     const scanCode = scanCodes[event.code];
     if (!scanCode) return;
@@ -1771,7 +1787,7 @@ function GameSessionPanel({ session, realtimeUrl, onClose }: { session: GameSess
           onKeyDown={(event) => sendKey(event, "down")}
           onKeyUp={(event) => sendKey(event, "up")}
         />
-        <footer className="gameSessionFooter"><span>Video H.264 / relay autenticado{latencyMs === null ? "" : ` / RTT ${latencyMs} ms`}</span><button className="danger" type="button" onClick={onClose}>Encerrar sessao</button></footer>
+        <footer className="gameSessionFooter"><span>Video H.264 / relay autenticado{latencyMs === null ? "" : ` / RTT ${latencyMs} ms`}</span><div className="gameSessionFooterActions"><button className="secondary" type="button" onClick={downloadNativeDescriptor} title="Baixar descritor para abrir no cliente nativo"><Download size={14} />Cliente nativo</button><button className="danger" type="button" onClick={onClose}>Encerrar sessao</button></div></footer>
       </section>
     </div>
   );

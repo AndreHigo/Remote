@@ -55,7 +55,7 @@ API Remoto ---- autoriza canal ---- Relay WebSocket
 
 ## Decisao de produto
 
-O cliente web continua sendo o caminho sem instalacao. O cliente nativo inicial e uma casca Windows com o mesmo contrato e o mesmo modulo `@remoto/desktop-control`, permitindo trocar apenas a camada de apresentacao e decodificacao. Ele fica em `apps/operator` e recebe o descritor por arquivo de uso unico para o primeiro teste controlado.
+O cliente web continua sendo o caminho sem instalacao. O cliente nativo inicial e uma casca Windows com o mesmo contrato e o mesmo modulo `@remoto/desktop-control`, permitindo trocar apenas a camada de apresentacao e decodificacao. Ele fica em `apps/operator`; o painel oferece o botao `Cliente nativo` para baixar o descritor de uso unico no primeiro teste controlado.
 
 Isso nao exige Sunshine nem placa de video dedicada. A captura CPU e o fallback acessivel; hardware H.264 e uma otimização quando existir.
 
