@@ -31,7 +31,7 @@ export function buildWindowsCaptureArgs(profile: CaptureProfile = defaultProfile
   const fps = profile.fps ?? qualityDefaults(profile.quality).fps;
   const bitrateKbps = profile.bitrateKbps ?? qualityDefaults(profile.quality).bitrateKbps;
   const keyframeInterval = Math.max(15, Math.round(fps / 2));
-  const args = ["-hide_banner", "-loglevel", "error"];
+  const args = ["-hide_banner", "-loglevel", "error", "-nostdin"];
   if (captureMethod === "ddagrab") {
     args.push("-f", "lavfi", "-i", `ddagrab=framerate=${fps}:draw_mouse=1`);
   } else {

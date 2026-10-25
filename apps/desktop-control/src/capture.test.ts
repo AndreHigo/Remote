@@ -5,8 +5,8 @@ import { buildWindowsCaptureArgs, selectCaptureEncoder, selectCaptureMethod } fr
 test("captura usa CPU e baixa latencia por padrao acessivel", () => {
   const args = buildWindowsCaptureArgs({ quality: "low", encoder: "cpu" });
 
-  assert.deepEqual(args.slice(0, 12), [
-    "-hide_banner", "-loglevel", "error", "-f", "gdigrab", "-framerate", "30",
+  assert.deepEqual(args.slice(0, 13), [
+    "-hide_banner", "-loglevel", "error", "-nostdin", "-f", "gdigrab", "-framerate", "30",
     "-draw_mouse", "1", "-i", "desktop", "-an"
   ]);
   assert.ok(args.includes("libx264"));
@@ -29,8 +29,8 @@ test("captura pode priorizar encoder de GPU sem quebrar fallback de perfil", () 
 test("captura pode usar Desktop Duplication para jogos em tela cheia", () => {
   const args = buildWindowsCaptureArgs({ quality: "balanced", encoder: "cpu" }, "ddagrab");
 
-  assert.deepEqual(args.slice(0, 7), [
-    "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "ddagrab=framerate=60:draw_mouse=1"
+  assert.deepEqual(args.slice(0, 8), [
+    "-hide_banner", "-loglevel", "error", "-nostdin", "-f", "lavfi", "-i", "ddagrab=framerate=60:draw_mouse=1"
   ]);
   assert.ok(!args.includes("gdigrab"));
 });
