@@ -25,6 +25,7 @@ const defaultProfile: Required<Pick<CaptureProfile, "quality" | "encoder">> = {
 export function buildWindowsCaptureArgs(profile: CaptureProfile = defaultProfile) {
   const fps = profile.fps ?? qualityDefaults(profile.quality).fps;
   const bitrateKbps = profile.bitrateKbps ?? qualityDefaults(profile.quality).bitrateKbps;
+  const keyframeInterval = Math.max(15, Math.round(fps / 2));
   const args = [
     "-hide_banner",
     "-loglevel", "error",
@@ -45,6 +46,8 @@ export function buildWindowsCaptureArgs(profile: CaptureProfile = defaultProfile
     "-tune", "zerolatency",
     "-profile:v", "main",
     "-level", "4.2",
+    "-g", String(keyframeInterval),
+    "-keyint_min", String(keyframeInterval),
     "-b:v", `${bitrateKbps}k`,
     "-maxrate", `${bitrateKbps}k`,
     "-bufsize", `${bitrateKbps * 2}k`,
