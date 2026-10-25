@@ -100,11 +100,13 @@ O inventario do agente consulta a capacidade real da build do FFmpeg: encoder H.
 
 Para um pacote de homologacao sem depender de `PATH`, gere o instalador com `-FfmpegPath` apontando para um `ffmpeg.exe` validado. O procedimento e os limites de distribuicao estao em [`docs/entregas/068-pacote-homologacao-com-ffmpeg.md`](docs/entregas/068-pacote-homologacao-com-ffmpeg.md).
 
-O agente tambem possui limite por credencial e retencao dos 50 inventarios mais recentes por dispositivo; os limites conhecidos antes da VPS estao em [`docs/entregas/069-limites-de-agente-e-inventario.md`](docs/entregas/069-limites-de-agente-e-inventario.md).
+O agente tambem possui limite distribuido por credencial quando `REDIS_URL` esta configurada e retencao dos 50 inventarios mais recentes por dispositivo; os detalhes estao em [`docs/entregas/069-limites-de-agente-e-inventario.md`](docs/entregas/069-limites-de-agente-e-inventario.md).
 
 O MFA operacional e a validacao de caminho confiavel do Node no servico Windows estao registrados em [`docs/entregas/070-mfa-operacional-e-node-confiavel.md`](docs/entregas/070-mfa-operacional-e-node-confiavel.md).
 
 O smoke local de regressao do canal game passou com API, agente, relay, captura FFmpeg e primeiro frame real; a evidencia e seus limites estao em [`docs/entregas/071-smoke-local-regressao.md`](docs/entregas/071-smoke-local-regressao.md).
+
+O rate limit distribuido com Redis, incluindo o preflight de producao, esta descrito em [`docs/entregas/072-rate-limit-redis-distribuido.md`](docs/entregas/072-rate-limit-redis-distribuido.md).
 
 No instalador Windows, o caminho opcional do `ffmpeg.exe` pode apontar para uma instalacao no perfil do usuario; durante a instalacao elevada ele e copiado para a pasta protegida do Remoto, para que o servico nao execute um binario mutavel do perfil.
 
@@ -125,7 +127,7 @@ O painel, a experiencia comercial, as permissoes, a auditoria e as automacoes fi
 
 1. Testar suporte e modo jogo entre duas maquinas externas, medindo RTT, FPS, perda e reconexao.
 2. Publicar API, painel e relay em VPS com DNS, firewall, TLS e segredos reais.
-3. Evoluir permissoes mais finas e trocar o rate limit em memoria por Redis.
+3. Evoluir permissoes mais finas e configurar Redis compartilhado na VPS.
 4. Assinar o instalador Windows e definir atualizacao automatica.
 5. Validar o cliente nativo visual em duas maquinas, assinar o instalador e medir a matriz de jogos suportados.
 

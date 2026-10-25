@@ -31,8 +31,8 @@ const realtimeInternalSecret = process.env.REALTIME_INTERNAL_SECRET;
 const realtimeControlUrl = process.env.REALTIME_CONTROL_URL ?? "http://localhost:4200";
 const gameModeEnabled = process.env.ENABLE_GAME_MODE === "true" && Boolean(realtimeInternalSecret);
 
-if (nodeEnv === "production" && (!process.env.JWT_SECRET || !process.env.DESKTOP_SESSION_SECRET || !process.env.TOTP_ENCRYPTION_KEY)) {
-  throw new Error("JWT_SECRET, DESKTOP_SESSION_SECRET e TOTP_ENCRYPTION_KEY sao obrigatorios em producao");
+if (nodeEnv === "production" && (!process.env.JWT_SECRET || !process.env.DESKTOP_SESSION_SECRET || !process.env.TOTP_ENCRYPTION_KEY || !process.env.REDIS_URL)) {
+  throw new Error("JWT_SECRET, DESKTOP_SESSION_SECRET, TOTP_ENCRYPTION_KEY e REDIS_URL sao obrigatorios em producao");
 }
 
 app.disable("x-powered-by");

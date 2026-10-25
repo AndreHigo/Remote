@@ -70,6 +70,7 @@ jobs:
           JWT_SECRET: ci-jwt-secret-123456789012345678901234
           DESKTOP_SESSION_SECRET: ci-desktop-session-secret-123456789012345678901234
           TOTP_ENCRYPTION_KEY: ci-totp-secret-123456789012345678901234
+          REDIS_URL: redis://ci-redis:6379/0
           REALTIME_INTERNAL_SECRET: ci-realtime-secret-123456789012345678901234
           REALTIME_ALLOWED_ORIGINS: https://remoto.test.example
           BOOTSTRAP_ADMIN_NAME: CI Admin
