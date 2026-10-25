@@ -38,6 +38,27 @@ function Assert-ProtectedAgentRoot {
   }
 }
 
+function Resolve-TrustedNodePath {
+  param([string]$Path)
+  $resolved = [System.IO.Path]::GetFullPath($Path)
+  if ([System.IO.Path]::GetFileName($resolved) -ine "node.exe" -or -not (Test-Path -LiteralPath $resolved -PathType Leaf)) {
+    throw "NodePath precisa apontar para um node.exe existente."
+  }
+
+  $trustedRoots = @(
+    $env:ProgramFiles,
+    ${env:ProgramFiles(x86)},
+    (Join-Path $env:LOCALAPPDATA "Programs")
+  ) | Where-Object { $_ } | ForEach-Object { [System.IO.Path]::GetFullPath($_).TrimEnd('\') }
+  $isTrusted = $trustedRoots | Where-Object {
+    $resolved.StartsWith($_ + '\', [System.StringComparison]::OrdinalIgnoreCase)
+  }
+  if (-not $isTrusted) {
+    throw "NodePath precisa estar em uma pasta protegida do Node.js dentro de Program Files ou LocalAppData\Programs."
+  }
+  return $resolved
+}
+
 Assert-Administrator
 if ([string]::IsNullOrWhiteSpace($AgentRoot)) {
   $AgentRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
@@ -62,6 +83,7 @@ if ($Uninstall) {
 if ([string]::IsNullOrWhiteSpace($NodePath)) {
   $NodePath = (Get-Command node.exe -ErrorAction Stop).Source
 }
+$NodePath = Resolve-TrustedNodePath -Path $NodePath
 
 $entryPoint = Join-Path $AgentRoot "dist\index.js"
 $runner = Join-Path $AgentRoot "scripts\service-runner.cjs"
