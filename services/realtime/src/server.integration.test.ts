@@ -172,7 +172,11 @@ async function nextJson(queue: MessageQueue) {
 
 async function nextBinary(queue: MessageQueue) {
   const [data, isBinary] = await withTimeout(queue.next(), "WebSocket message");
-  assert.equal(isBinary, true);
+  if (!isBinary) {
+    const control = JSON.parse(data.toString("utf8")) as { type?: string };
+    assert.equal(control.type, "ready");
+    return nextBinary(queue);
+  }
   if (Buffer.isBuffer(data)) return data;
   if (Array.isArray(data)) return Buffer.concat(data);
   return Buffer.from(new Uint8Array(data));

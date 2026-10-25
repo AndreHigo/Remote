@@ -198,7 +198,13 @@ export function createRealtimeServer() {
     const peers = [room.host, room.client].filter((peer): peer is Peer => Boolean(peer));
     for (const peer of peers) {
       const authorized = await authorizeChannel(peer.accessToken);
-      if (!authorized || authorized.sessionId !== sessionId || authorized.role !== peer.role) {
+      if (
+        !authorized ||
+        authorized.sessionId !== sessionId ||
+        authorized.deviceId !== peer.payload.deviceId ||
+        authorized.mode !== peer.payload.mode ||
+        authorized.role !== peer.role
+      ) {
         closeRoom(sessionId, "session-revoked", 1008);
         return;
       }

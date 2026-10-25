@@ -11,8 +11,8 @@ Nao publique tokens, chaves de agente, credenciais ou provas de conceito em issu
 ## Invariantes de seguranca
 
 - Toda sessao remota nasce de uma solicitacao com motivo e aprovacao administrativa.
-- Tokens desktop sao assinados, curtos, armazenados como hash e consumidos uma unica vez pelo operador.
-- O relay exige segredo interno para consultar a API e valida `sessionId`, dispositivo, modo, papel e expiracao.
+- Tokens desktop sao assinados, curtos, armazenados como hash e consumidos uma unica vez pelo endpoint do operador; reconexoes do canal permanecem limitadas pela expiracao da sessao.
+- O relay exige segredo interno para consultar a API e valida `sessionId`, dispositivo, modo, papel e expiracao na entrada e durante a revalidacao da sala.
 - Uma sala aceita no maximo um `host` e um `client`; frames so vao de host para client e entrada tipada so vai de client para host.
 - O agente so acessa dispositivos do cliente associado a sua chave.
 - Entrada Windows aceita somente eventos tipados; nao existe avaliacao de comando arbitrario.
@@ -31,7 +31,7 @@ Nao publique tokens, chaves de agente, credenciais ou provas de conceito em issu
 
 ## Limites conhecidos do MVP
 
-- O schema atual ainda representa um workspace unico; isolamento multi-tenant por organizacao precisa ser implementado antes de oferecer varias empresas na mesma instalacao.
+- O schema agora representa explicitamente o limite de um workspace e as consultas administrativas aplicam esse escopo. O MVP continua workspace-wide dentro de cada workspace; memberships por cliente e gestao de varias empresas ainda nao estao expostos.
 - O teste entre duas maquinas e a validacao de internet ainda sao obrigatorios antes de producao.
 - O cliente nativo visual, audio e gamepad ainda nao estao concluidos.
 - A auditoria estrutural completa deve ser executada em ambiente com Python e seus artefatos revisados.

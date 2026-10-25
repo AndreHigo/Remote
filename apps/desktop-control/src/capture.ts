@@ -69,7 +69,11 @@ export function startWindowsCapture(profile: CaptureProfile = defaultProfile): C
     throw new Error("A captura gdigrab esta disponivel apenas no Windows.");
   }
 
-  const executable = resolveFfmpegExecutable(profile.ffmpegPath) ?? "ffmpeg.exe";
+  const resolvedExecutable = resolveFfmpegExecutable(profile.ffmpegPath);
+  if (!resolvedExecutable && process.env.REMOTO_AGENT_SERVICE === "1") {
+    throw new Error("FFmpeg nao encontrado em um caminho confiavel para o servico.");
+  }
+  const executable = resolvedExecutable ?? "ffmpeg.exe";
   const child = spawn(executable, buildWindowsCaptureArgs(profile), {
     stdio: "pipe",
     windowsHide: true
