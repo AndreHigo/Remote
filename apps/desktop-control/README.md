@@ -24,7 +24,7 @@ Estado atual: contrato, captura, entrada e transporte realtime autenticado estao
 
 O modulo `capture.ts` monta uma captura Windows de baixa latencia via FFmpeg, com CPU como caminho acessivel e encoders de GPU como aceleracao opcional. O modulo `input.ts` valida eventos tipados e usa uma ponte Windows isolada para SendInput. O modulo `realtime.ts` conecta o host ao relay autenticado e envia video e entrada somente dentro da sessao aprovada.
 
-O modulo `operator.ts` e a fronteira do cliente nativo operador: aceita somente `role: client` no modo `game`, entrega frames ao renderer escolhido pela aplicacao e mantem entrada/encerramento no mesmo contrato realtime. A janela nativa ainda precisa ser adicionada, mas nao devera duplicar autenticacao ou protocolo.
+O modulo `operator.ts` e a fronteira do cliente nativo operador: aceita somente `role: client` no modo `game`, entrega frames ao renderer escolhido pela aplicacao, informa quando o peer host entrou e mantem entrada/encerramento no mesmo contrato realtime. A janela nativa ainda precisa ser adicionada, mas nao devera duplicar autenticacao ou protocolo.
 
 Diagnostico local:
 

@@ -8,6 +8,7 @@ export interface RealtimeClientOptions {
   url?: string;
   capture?: CaptureProfile;
   onFrame?: (frame: Buffer) => void;
+  onReady?: (peerConnected: boolean) => void;
   onClosed?: (reason: string) => void;
 }
 
@@ -65,6 +66,7 @@ export async function connectRemoteSession(
         if (settled) return;
         settled = true;
         socket.off("error", fail);
+        options.onReady?.(message.peerConnected === true);
         if (session.role === "host") {
           try {
             input = new WindowsInputBridge();

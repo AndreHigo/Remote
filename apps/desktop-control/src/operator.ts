@@ -4,6 +4,7 @@ import type { DesktopSessionDescriptor } from "./engine.js";
 export interface NativeOperatorOptions {
   url?: string;
   onFrame?: (frame: Buffer) => void;
+  onReady?: (peerConnected: boolean) => void;
   onClosed?: (reason: string) => void;
 }
 
@@ -28,6 +29,7 @@ export async function openNativeOperatorSession(
   const connectionOptions: RealtimeClientOptions = {
     url: options.url,
     onFrame: options.onFrame,
+    onReady: options.onReady,
     onClosed: options.onClosed
   };
   const connection = await connectRemoteSession(descriptor, connectionOptions);
