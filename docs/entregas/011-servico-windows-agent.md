@@ -7,7 +7,7 @@
 - instalacao exige PowerShell elevado, build pronto e `agentKey` preenchido;
 - servico inicia automaticamente com o Windows;
 - falhas acionam reinicio progressivo pelo Service Control Manager;
-- o instalador registra tambem o processo `sessions` no login do usuario para que captura e entrada nao dependam da Session 0;
+- o instalador registra tambem uma tarefa agendada para iniciar o processo `sessions` no login do usuario, para que captura e entrada nao dependam da Session 0;
 - desinstalacao exige comando explicito `npm run agent:service:uninstall`.
 
 ## Uso

@@ -2,6 +2,7 @@
 param([string]$ServiceName = "RemotoAgent")
 
 $ErrorActionPreference = "Stop"
+$interactiveTaskName = "RemotoAgentDesktop"
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $principal = [Security.Principal.WindowsPrincipal]::new($identity)
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
@@ -27,6 +28,10 @@ while ((Get-Process -Name "RemotoAgentService", "RemotoAgent" -ErrorAction Silen
 }
 
 & sc.exe delete $ServiceName | Out-Host
+$scheduledTask = Get-Command Unregister-ScheduledTask -ErrorAction SilentlyContinue
+if ($scheduledTask) {
+  Unregister-ScheduledTask -TaskName $interactiveTaskName -Confirm:$false -ErrorAction SilentlyContinue
+}
 $runKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
 Remove-ItemProperty -Path $runKey -Name "RemotoAgentDesktop" -ErrorAction SilentlyContinue
 $stateDirectory = Join-Path $env:ProgramData "Remoto\state"

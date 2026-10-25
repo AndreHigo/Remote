@@ -124,4 +124,19 @@ jobs:
             if (-not (Test-Path -LiteralPath $file)) { throw "Artefato ausente: $file" }
             $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $file).Hash
             Write-Host "$hash  $file"
+
+      - name: Validate host diagnostics
+        shell: powershell
+        run: .\scripts\homologate-host.ps1 -OutputPath "$env:RUNNER_TEMP\remoto-host-report.json"
+
+      - name: Validate agent installer scripts
+        shell: powershell
+        run: |
+          $files = @(
+            "apps/agent/scripts/install-package.ps1",
+            "apps/agent/scripts/uninstall-package.ps1"
+          )
+          foreach ($file in $files) {
+            [scriptblock]::Create((Get-Content -LiteralPath $file -Raw)) | Out-Null
+          }
           }

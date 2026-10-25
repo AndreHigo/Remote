@@ -90,8 +90,10 @@ $ConfigPath = Join-Path $AgentRoot ".remoto-agent.config.json"
 $StateDirectory = Join-Path $env:ProgramData "Remoto\state"
 $StatePath = Join-Path $StateDirectory "agent.state.json"
 $CurrentUserSid = ([Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
+$CurrentUserName = "$env:USERDOMAIN\$env:USERNAME"
 $CurrentUserReadGrant = "*{0}:(R)" -f $CurrentUserSid
 $CurrentUserModifyGrant = "*{0}:(OI)(CI)(M)" -f $CurrentUserSid
+$InteractiveTaskName = "RemotoAgentDesktop"
 
 if (-not (Test-Path $AgentExe) -or -not (Test-Path $ServiceExe)) {
   throw "Arquivos do Remoto Agent nao encontrados em $AgentRoot."
@@ -152,8 +154,23 @@ Invoke-Sc @("description", $ServiceName, "Agente Remoto para presenca, inventari
 Invoke-Sc @("failure", $ServiceName, "reset=", "86400", "actions=", "restart/5000/restart/15000/restart/60000")
 Start-Service -Name $ServiceName
 
+$legacyRunKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+Remove-ItemProperty -Path $legacyRunKey -Name "RemotoAgentDesktop" -ErrorAction SilentlyContinue
+if (Get-Command Register-ScheduledTask -ErrorAction SilentlyContinue) {
+  $action = New-ScheduledTaskAction -Execute $AgentExe -Argument "sessions" -WorkingDirectory $AgentRoot
+  $trigger = New-ScheduledTaskTrigger -AtLogOn -User $CurrentUserName
+  $principal = New-ScheduledTaskPrincipal -UserId $CurrentUserSid -LogonType Interactive -RunLevel Limited
+  Register-ScheduledTask -TaskName $InteractiveTaskName -Action $action -Trigger $trigger -Principal $principal -Force | Out-Null
+  try { Start-ScheduledTask -TaskName $InteractiveTaskName -ErrorAction Stop } catch { Write-Warning "O processo interativo sera iniciado no proximo logon: $($_.Exception.Message)" }
+} else {
+  New-Item -Path $legacyRunKey -Force | Out-Null
+  Set-ItemProperty -Path $legacyRunKey -Name "RemotoAgentDesktop" -Value ('"{0}" sessions' -f $AgentExe)
+  Write-Warning "O modulo ScheduledTasks nao esta disponivel; usando autostart legado do usuario."
+}
+
 Write-Output "Remoto Agent instalado e iniciado."
 Write-Output "Config: $ConfigPath"
+Write-Output "Processo interativo: tarefa $InteractiveTaskName para $CurrentUserName"
 if ($resolvedFfmpegPath) {
   Write-Output "FFmpeg: $resolvedFfmpegPath"
 } else {
