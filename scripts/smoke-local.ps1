@@ -191,8 +191,28 @@ try {
     throw "O agente nao conectou o host ao relay.`n$details"
   }
 
-  Write-Host "Smoke test local aprovado: API, banco, agente, sessao game e relay host." -ForegroundColor Green
-  Write-Host "Limite: primeiro frame, entrada e medicao de rede exigem um cliente Windows separado." -ForegroundColor Yellow
+  $env:SMOKE_SESSION_ID = $sessionId
+  $env:SMOKE_DEVICE_ID = $state.deviceId
+  $env:SMOKE_ACCESS_TOKEN = $accessToken
+  $env:SMOKE_REALTIME_URL = "ws://127.0.0.1:4200"
+  $clientLog = Join-Path $tempRoot "smoke-client.log"
+  $clientErrorLog = Join-Path $tempRoot "smoke-client-error.log"
+  $clientProcess = Start-WorkspaceProcess "Cliente realtime smoke" @("exec", "--", "tsx", "scripts/smoke-realtime-client.ts") $clientLog $clientErrorLog
+  $deadline = (Get-Date).AddSeconds(25)
+  $firstFrameReceived = $false
+  while ((Get-Date) -lt $deadline) {
+    $clientOutput = (Read-LogText $clientLog) + "`n" + (Read-LogText $clientErrorLog)
+    if ($clientOutput -match "first-frame:\s+\d+\s+bytes") { $firstFrameReceived = $true; break }
+    if ($clientProcess.HasExited) { break }
+    Start-Sleep -Seconds 1
+  }
+  if (-not $firstFrameReceived) {
+    $details = (Read-LogText $clientLog) + "`n" + (Read-LogText $clientErrorLog)
+    throw "O cliente smoke nao recebeu o primeiro frame real pelo relay.`n$details"
+  }
+
+  Write-Host "Smoke test local aprovado: API, banco, agente, captura FFmpeg, primeiro frame, sessao game e relay." -ForegroundColor Green
+  Write-Host "Limite: entrada, medicao de rede, audio, gamepad e homologacao entre duas maquinas exigem clientes Windows separados." -ForegroundColor Yellow
 } finally {
   if ($sessionId -and $loginToken) {
     try {

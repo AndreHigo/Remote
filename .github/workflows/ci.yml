@@ -47,6 +47,9 @@ jobs:
           node --check apps/operator/src/preload.cjs
           node --check apps/operator/src/renderer.js
 
+      - name: Validate realtime smoke client
+        run: npx --no-install tsc --noEmit --target ES2022 --module NodeNext --moduleResolution NodeNext --strict --skipLibCheck --esModuleInterop scripts/smoke-realtime-client.ts
+
       - name: Validate Postgres compose
         env:
           POSTGRES_PASSWORD: ci-postgres-password-123456789

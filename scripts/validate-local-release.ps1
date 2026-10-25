@@ -33,6 +33,10 @@ Invoke-Checked "Sintaxe do operador nativo" {
   node --test apps/operator/src/media.test.cjs
 }
 
+Invoke-Checked "Tipagem do cliente smoke realtime" {
+  npx --no-install tsc --noEmit --target ES2022 --module NodeNext --moduleResolution NodeNext --strict --skipLibCheck --esModuleInterop scripts/smoke-realtime-client.ts
+}
+
 Write-Host "`n== Instaladores ==" -ForegroundColor Cyan
 $artifacts = @(
   "apps/operator/release/Remoto-Operator-Setup-0.1.0.exe",
