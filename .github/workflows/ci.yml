@@ -48,6 +48,8 @@ jobs:
           node --check apps/operator/src/renderer.js
 
       - name: Validate Postgres compose
+        env:
+          POSTGRES_PASSWORD: ci-postgres-password-123456789
         run: docker compose -f infra/docker/docker-compose.yml config
 
       - name: Validate RustDesk compose
