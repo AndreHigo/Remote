@@ -103,6 +103,40 @@ begin
     HasExactHost(LowerValue, 'wss://[::1]');
 end;
 
+function ReadExistingConfigValue(Name: string; DefaultValue: string): string;
+var
+  ConfigPath: string;
+  Raw: AnsiString;
+  Marker: string;
+  Tail: string;
+  StartPos: Integer;
+  EndPos: Integer;
+begin
+  Result := DefaultValue;
+  ConfigPath := ExpandConstant('{app}\.remoto-agent.config.json');
+  if not FileExists(ConfigPath) then Exit;
+  if not LoadStringFromFile(ConfigPath, Raw) then Exit;
+
+  Marker := '"' + Name + '"';
+  StartPos := Pos(Marker, Raw);
+  if StartPos = 0 then Exit;
+  Tail := Copy(Raw, StartPos + Length(Marker), Length(Raw));
+  StartPos := Pos(':', Tail);
+  if StartPos = 0 then Exit;
+  Delete(Tail, 1, StartPos);
+  while (Length(Tail) > 0) and (Tail[1] in [' ', #9, #13, #10]) do Delete(Tail, 1, 1);
+  if (Length(Tail) = 0) or (Tail[1] <> '"') then Exit;
+  Delete(Tail, 1, 1);
+  EndPos := Pos('"', Tail);
+  if EndPos = 0 then Exit;
+  Result := Copy(Tail, 1, EndPos - 1);
+end;
+
+function InstallerParameter(Name: string): string;
+begin
+  Result := ExpandConstant('{param:' + Name + '|}');
+end;
+
 function NextButtonClick(CurPageID: Integer): Boolean;
 var
   ApiUrl: string;
@@ -226,6 +260,8 @@ begin
 end;
 
 procedure InitializeWizard;
+var
+  ParameterValue: string;
 begin
   ConnectionPage := CreateInputQueryPage(wpSelectDir,
     'Conexao do agente',
@@ -235,10 +271,21 @@ begin
   ConnectionPage.Add('URL do relay realtime:', False);
   ConnectionPage.Add('Chave do agente:', True);
   ConnectionPage.Add('Caminho do FFmpeg (opcional; sera protegido):', False);
-  ConnectionPage.Values[0] := ExpandConstant('{param:APIURL|http://localhost:4100}');
-  ConnectionPage.Values[1] := ExpandConstant('{param:REALTIMEURL|ws://localhost:4200}');
-  ConnectionPage.Values[2] := ExpandConstant('{param:AGENTKEY|}');
-  ConnectionPage.Values[3] := ExpandConstant('{param:FFMPEGPATH|}');
+  ConnectionPage.Values[0] := ReadExistingConfigValue('apiUrl', 'http://localhost:4100');
+  ParameterValue := InstallerParameter('APIURL');
+  if ParameterValue <> '' then ConnectionPage.Values[0] := ParameterValue;
+
+  ConnectionPage.Values[1] := ReadExistingConfigValue('realtimeUrl', 'ws://localhost:4200');
+  ParameterValue := InstallerParameter('REALTIMEURL');
+  if ParameterValue <> '' then ConnectionPage.Values[1] := ParameterValue;
+
+  ConnectionPage.Values[2] := ReadExistingConfigValue('agentKey', '');
+  ParameterValue := InstallerParameter('AGENTKEY');
+  if ParameterValue <> '' then ConnectionPage.Values[2] := ParameterValue;
+
+  ConnectionPage.Values[3] := ReadExistingConfigValue('ffmpegPath', '');
+  ParameterValue := InstallerParameter('FFMPEGPATH');
+  if ParameterValue <> '' then ConnectionPage.Values[3] := ParameterValue;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);

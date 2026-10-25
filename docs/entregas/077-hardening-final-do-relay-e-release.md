@@ -7,6 +7,7 @@
 - Mensagens de entrada malformadas sao rejeitadas no relay e nao derrubam o host da sessao.
 - O preflight de producao exige `rediss://` para o Redis; o exemplo oficial usa TLS.
 - O operador so remove o descritor de sessao depois que o consumo do token foi confirmado pela API, permitindo retry em falhas de rede.
+- O instalador do agente reaproveita a configuracao existente ao reparar ou atualizar, incluindo a URL do relay e o caminho protegido do FFmpeg.
 - Os instaladores locais foram reconstruidos com o codigo final.
 
 ## Validacao
