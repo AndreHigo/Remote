@@ -11,6 +11,7 @@ const latencyText = document.getElementById("latency");
 const firstFrameText = document.getElementById("first-frame");
 const receivedText = document.getElementById("received");
 const dropsText = document.getElementById("drops");
+const gamepadStatus = document.getElementById("gamepad-status");
 const frameQueue = [];
 let mediaStarted = false;
 let frameCount = 0;
@@ -21,6 +22,7 @@ let queuedBytes = 0;
 let droppedFrames = 0;
 const pressedKeys = new Set();
 const pressedButtons = new Set();
+const pressedGamepadKeys = new Set();
 
 const mouseButtons = ["left", "middle", "right"];
 const scanCodes = {
@@ -115,17 +117,63 @@ function sendKey(event, action) {
   const scanCode = scanCodes[event.code];
   if (!scanCode) return;
   event.preventDefault();
-  if (action === "down") pressedKeys.add(event.code); else pressedKeys.delete(event.code);
-  send({ type: "key", scanCode, action, ...(extendedScanCodes.has(event.code) ? { extended: true } : {}) });
+  if (action === "down") {
+    pressedKeys.add(event.code);
+    if (!pressedGamepadKeys.has(event.code)) send({ type: "key", scanCode, action, ...(extendedScanCodes.has(event.code) ? { extended: true } : {}) });
+  } else {
+    pressedKeys.delete(event.code);
+    if (!pressedGamepadKeys.has(event.code)) send({ type: "key", scanCode, action, ...(extendedScanCodes.has(event.code) ? { extended: true } : {}) });
+  }
 }
 function releaseInputs() {
   for (const button of pressedButtons) send({ type: "mouse.button", button, action: "up" });
   pressedButtons.clear();
-  for (const code of pressedKeys) {
+  for (const code of new Set([...pressedKeys, ...pressedGamepadKeys])) {
     if (scanCodes[code]) send({ type: "key", scanCode: scanCodes[code], action: "up", ...(extendedScanCodes.has(code) ? { extended: true } : {}) });
   }
   pressedKeys.clear();
+  pressedGamepadKeys.clear();
 }
+
+const gamepadButtonScanCodes = new Map([
+  [0, "Space"], [1, "Escape"], [2, "KeyR"], [3, "KeyE"], [4, "KeyQ"], [5, "KeyF"],
+  [6, "ShiftLeft"], [7, "ControlLeft"], [8, "Backspace"], [9, "Enter"], [10, "AltLeft"], [11, "Tab"],
+  [12, "ArrowUp"], [13, "ArrowDown"], [14, "ArrowLeft"], [15, "ArrowRight"]
+]);
+function setGamepadKey(code, down) {
+  const scanCode = scanCodes[code];
+  if (!scanCode) return;
+  if (down) {
+    if (pressedGamepadKeys.has(code)) return;
+    pressedGamepadKeys.add(code);
+    if (!pressedKeys.has(code)) send({ type: "key", scanCode, action: "down", ...(extendedScanCodes.has(code) ? { extended: true } : {}) });
+  } else if (pressedGamepadKeys.delete(code) && !pressedKeys.has(code)) {
+    send({ type: "key", scanCode, action: "up", ...(extendedScanCodes.has(code) ? { extended: true } : {}) });
+  }
+}
+function pollGamepad() {
+  if (!navigator.getGamepads) return;
+  const pad = Array.from(navigator.getGamepads()).find((candidate) => candidate?.connected);
+  if (!pad) {
+    if (gamepadStatus) gamepadStatus.textContent = "Gamepad: conecte um controle";
+    for (const code of [...pressedGamepadKeys]) setGamepadKey(code, false);
+    return;
+  }
+  if (gamepadStatus) gamepadStatus.textContent = "Gamepad: mapa experimental";
+  const deadZone = 0.24;
+  const leftX = pad.axes[0] || 0;
+  const leftY = pad.axes[1] || 0;
+  setGamepadKey("KeyA", leftX < -deadZone);
+  setGamepadKey("KeyD", leftX > deadZone);
+  setGamepadKey("KeyW", leftY < -deadZone);
+  setGamepadKey("KeyS", leftY > deadZone);
+  const rightX = pad.axes[2] || 0;
+  const rightY = pad.axes[3] || 0;
+  if (Math.abs(rightX) > deadZone || Math.abs(rightY) > deadZone) send({ type: "mouse.relative", dx: Math.round(rightX * 18), dy: Math.round(rightY * 18) });
+  for (const [index, code] of gamepadButtonScanCodes) setGamepadKey(code, pad.buttons[index]?.pressed === true);
+}
+const gamepadTimer = window.setInterval(pollGamepad, 33);
+pollGamepad();
 function fail(error) {
   const message = error instanceof Error ? error.message : String(error);
   setStatus("error");
@@ -143,6 +191,7 @@ video.addEventListener("keyup", (event) => sendKey(event, "up"));
 window.addEventListener("blur", releaseInputs);
 document.addEventListener("visibilitychange", releaseInputs);
 document.addEventListener("pointerlockchange", () => { if (document.pointerLockElement !== video) releaseInputs(); });
+window.addEventListener("beforeunload", () => window.clearInterval(gamepadTimer));
 document.getElementById("close").addEventListener("click", () => window.remotoOperator.closeSession());
 window.remotoOperator.onStatus(({ status, detail: message }) => {
   setStatus(status);

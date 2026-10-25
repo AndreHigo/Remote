@@ -1666,6 +1666,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
   const mediaQueueBytesRef = React.useRef(0);
   const pressedKeysRef = React.useRef(new Set<string>());
   const pressedButtonsRef = React.useRef(new Set<"left" | "middle" | "right">());
+  const pressedGamepadKeysRef = React.useRef(new Set<string>());
   const pingTimerRef = React.useRef<number | null>(null);
   const frameCountRef = React.useRef(0);
   const fpsTimerRef = React.useRef<number | null>(null);
@@ -1674,6 +1675,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
   const [latencyMs, setLatencyMs] = React.useState<number | null>(null);
   const [fps, setFps] = React.useState<number | null>(null);
   const [nativeDownloaded, setNativeDownloaded] = React.useState(false);
+  const [gamepadConnected, setGamepadConnected] = React.useState(false);
 
   React.useEffect(() => {
     fpsTimerRef.current = window.setInterval(() => {
@@ -1867,18 +1869,76 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
   }, [realtimeUrl, session.accessToken, session.sessionId, started]);
 
   React.useEffect(() => {
+    if (!started || typeof navigator.getGamepads !== "function") {
+      setGamepadConnected(false);
+      return;
+    }
+
+    const releaseGamepad = () => {
+      for (const code of pressedGamepadKeysRef.current) {
+        if (pressedKeysRef.current.has(code)) continue;
+        const scanCode = scanCodes[code];
+        if (scanCode) sendInput({ type: "key", scanCode, action: "up", ...(extendedScanCodes.has(code) ? { extended: true } : {}) });
+      }
+      pressedGamepadKeysRef.current.clear();
+    };
+    const setGamepadKey = (code: string, down: boolean) => {
+      const scanCode = scanCodes[code];
+      if (!scanCode) return;
+      if (down) {
+        if (pressedGamepadKeysRef.current.has(code)) return;
+        pressedGamepadKeysRef.current.add(code);
+        if (!pressedKeysRef.current.has(code)) sendInput({ type: "key", scanCode, action: "down", ...(extendedScanCodes.has(code) ? { extended: true } : {}) });
+      } else if (pressedGamepadKeysRef.current.delete(code) && !pressedKeysRef.current.has(code)) {
+        sendInput({ type: "key", scanCode, action: "up", ...(extendedScanCodes.has(code) ? { extended: true } : {}) });
+      }
+    };
+    const pollGamepad = () => {
+      const pad = Array.from(navigator.getGamepads()).find((candidate) => candidate?.connected);
+      if (!pad) {
+        setGamepadConnected((current) => current ? false : current);
+        releaseGamepad();
+        return;
+      }
+      setGamepadConnected((current) => current ? current : true);
+      const deadZone = 0.24;
+      const leftX = pad.axes[0] ?? 0;
+      const leftY = pad.axes[1] ?? 0;
+      setGamepadKey("KeyA", leftX < -deadZone);
+      setGamepadKey("KeyD", leftX > deadZone);
+      setGamepadKey("KeyW", leftY < -deadZone);
+      setGamepadKey("KeyS", leftY > deadZone);
+      const rightX = pad.axes[2] ?? 0;
+      const rightY = pad.axes[3] ?? 0;
+      if (Math.abs(rightX) > deadZone || Math.abs(rightY) > deadZone) {
+        sendInput({ type: "mouse.relative", dx: Math.round(rightX * 18), dy: Math.round(rightY * 18) });
+      }
+      for (const [index, code] of gamepadButtonScanCodes) setGamepadKey(code, pad.buttons[index]?.pressed === true);
+    };
+
+    const timer = window.setInterval(pollGamepad, 33);
+    pollGamepad();
+    return () => {
+      window.clearInterval(timer);
+      releaseGamepad();
+      setGamepadConnected(false);
+    };
+  }, [started, session.sessionId]);
+
+  React.useEffect(() => {
     const releasePressedInputs = () => {
       for (const button of pressedButtonsRef.current) {
         sendInput({ type: "mouse.button", button, action: "up" });
       }
       pressedButtonsRef.current.clear();
-      for (const code of pressedKeysRef.current) {
+      for (const code of new Set([...pressedKeysRef.current, ...pressedGamepadKeysRef.current])) {
         const scanCode = scanCodes[code];
         if (!scanCode) continue;
         const extended = extendedScanCodes.has(code);
         sendInput({ type: "key", scanCode, action: "up", ...(extended ? { extended: true } : {}) });
       }
       pressedKeysRef.current.clear();
+      pressedGamepadKeysRef.current.clear();
     };
     const releaseOnPointerLockChange = () => {
       if (document.pointerLockElement !== videoRef.current) releasePressedInputs();
@@ -1925,9 +1985,13 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
     const scanCode = scanCodes[event.code];
     if (!scanCode) return;
     event.preventDefault();
-    if (action === "down") pressedKeysRef.current.add(event.code);
-    else pressedKeysRef.current.delete(event.code);
-    sendInput({ type: "key", scanCode, action, ...(extendedScanCodes.has(event.code) ? { extended: true } : {}) });
+    if (action === "down") {
+      pressedKeysRef.current.add(event.code);
+      if (!pressedGamepadKeysRef.current.has(event.code)) sendInput({ type: "key", scanCode, action, ...(extendedScanCodes.has(event.code) ? { extended: true } : {}) });
+    } else {
+      pressedKeysRef.current.delete(event.code);
+      if (!pressedGamepadKeysRef.current.has(event.code)) sendInput({ type: "key", scanCode, action, ...(extendedScanCodes.has(event.code) ? { extended: true } : {}) });
+    }
   }
 
   return (
@@ -1966,13 +2030,18 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
             onKeyUp={(event) => sendKey(event, "up")}
           />
         )}
-        <footer className="gameSessionFooter"><span>{started ? <>Video H.264 / relay autenticado / Entrada: teclado + mouse / Gamepad indisponivel{latencyMs === null ? "" : ` / RTT ${latencyMs} ms`}{fps === null ? "" : ` / FPS ${fps}`}</> : "Sessao aprovada e aguardando sua escolha"}</span><div className="gameSessionFooterActions"><button className="danger" type="button" onClick={onClose}>Encerrar sessao</button></div></footer>
+        <footer className="gameSessionFooter"><span>{started ? <>Video H.264 / relay autenticado / Entrada: teclado + mouse / Gamepad: {gamepadConnected ? "mapa experimental" : "conecte um controle"}{latencyMs === null ? "" : ` / RTT ${latencyMs} ms`}{fps === null ? "" : ` / FPS ${fps}`}</> : "Sessao aprovada e aguardando sua escolha"}</span><div className="gameSessionFooterActions"><button className="danger" type="button" onClick={onClose}>Encerrar sessao</button></div></footer>
       </section>
     </div>
   );
 }
 
 const mouseButtons = ["left", "middle", "right"] as const;
+const gamepadButtonScanCodes = new Map<number, string>([
+  [0, "Space"], [1, "Escape"], [2, "KeyR"], [3, "KeyE"], [4, "KeyQ"], [5, "KeyF"],
+  [6, "ShiftLeft"], [7, "ControlLeft"], [8, "Backspace"], [9, "Enter"], [10, "AltLeft"], [11, "Tab"],
+  [12, "ArrowUp"], [13, "ArrowDown"], [14, "ArrowLeft"], [15, "ArrowRight"]
+]);
 const scanCodes: Record<string, number> = {
   Escape: 1, Digit1: 2, Digit2: 3, Digit3: 4, Digit4: 5, Digit5: 6, Digit6: 7, Digit7: 8, Digit8: 9, Digit9: 10, Digit0: 11,
   Minus: 12, Equal: 13, Backspace: 14, Tab: 15, KeyQ: 16, KeyW: 17, KeyE: 18, KeyR: 19, KeyT: 20, KeyY: 21,
