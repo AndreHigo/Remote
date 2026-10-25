@@ -1740,10 +1740,14 @@ function GameSessionPanel({ session, realtimeUrl, onClose }: { session: GameSess
   }
 
   function downloadNativeDescriptor() {
+    const apiUrl = API_URL.startsWith("/") ? `${window.location.origin}${API_URL}` : API_URL;
+    const absoluteRealtimeUrl = realtimeUrl.startsWith("/")
+      ? `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}${realtimeUrl}`
+      : realtimeUrl;
     const payload = {
       ...session,
-      apiUrl: API_URL,
-      realtimeUrl
+      apiUrl,
+      realtimeUrl: absoluteRealtimeUrl
     };
     const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
