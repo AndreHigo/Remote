@@ -1671,8 +1671,12 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
 
     const onSourceOpen = () => {
       try {
-        const mime = "video/mp4; codecs=\"avc1.4D002A\"";
-        if (!MediaSource.isTypeSupported(mime)) throw new Error("Codec H.264 nao suportado neste navegador");
+        const mime = [
+          "video/mp4; codecs=\"avc1.4D002A\"",
+          "video/mp4; codecs=\"avc1.4D401F\"",
+          "video/mp4; codecs=\"avc1.64002A\""
+        ].find((candidate) => MediaSource.isTypeSupported(candidate));
+        if (!mime) throw new Error("Codec H.264 nao suportado neste navegador");
         const sourceBuffer = mediaSource.addSourceBuffer(mime);
         sourceBuffer.mode = "sequence";
         sourceBuffer.addEventListener("updateend", pump);

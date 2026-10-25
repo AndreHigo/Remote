@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "concurrently -n api,web -c blue,green \"npm run dev -w services/api\" \"npm run dev -w apps/web\"",
     "build": "npm run build -w services/api && npm run build -w apps/web && npm run build -w apps/desktop-control && npm run build -w apps/agent && npm run build -w services/realtime && npm run build -w apps/operator",
-    "test": "npm run test:security && npm run test -w apps/agent && npm run test -w apps/desktop-control && npm run test -w services/realtime",
+    "test": "npm run test:security && npm run test -w apps/agent && npm run test -w apps/desktop-control && npm run test -w services/realtime && npm run test -w apps/operator",
     "test:security": "npm run test:security -w services/api",
     "typecheck": "npm run typecheck -w services/api && npm run typecheck -w apps/web && npm run typecheck -w apps/desktop-control && npm run typecheck -w apps/agent && npm run typecheck -w services/realtime",
     "validate:release": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/validate-local-release.ps1",

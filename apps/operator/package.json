@@ -7,7 +7,8 @@
   "main": "src/main.cjs",
   "scripts": {
     "dev": "electron .",
-    "build": "node -e \"const fs=require('fs'); for (const f of ['src/main.cjs','src/preload.cjs','src/renderer.html','src/renderer.js','src/renderer.css']) if (!fs.existsSync(f)) process.exit(1); console.log('Cliente operador nativo pronto para empacotamento.')\"",
+    "build": "node -e \"const fs=require('fs'); for (const f of ['src/main.cjs','src/preload.cjs','src/renderer.html','src/media.js','src/renderer.js','src/renderer.css']) if (!fs.existsSync(f)) process.exit(1); console.log('Cliente operador nativo pronto para empacotamento.')\"",
+    "test": "node --test src/media.test.cjs",
     "bundle:transport": "esbuild ../desktop-control/src/operator.ts --bundle --platform=node --format=esm --outfile=build/desktop-control.mjs --external:node:*",
     "package:windows:dir": "npm run bundle:transport && electron-builder --dir",
     "package:windows": "npm run bundle:transport && electron-builder --win nsis"

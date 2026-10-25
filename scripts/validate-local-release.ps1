@@ -30,6 +30,7 @@ Invoke-Checked "Sintaxe do operador nativo" {
   node --check apps/operator/src/main.cjs
   node --check apps/operator/src/preload.cjs
   node --check apps/operator/src/renderer.js
+  node --test apps/operator/src/media.test.cjs
 }
 
 Write-Host "`n== Instaladores ==" -ForegroundColor Cyan

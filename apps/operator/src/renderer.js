@@ -52,13 +52,14 @@ function showDetail(title, message, isError = false) {
 }
 
 function startMedia() {
-  if (!window.MediaSource || !MediaSource.isTypeSupported("video/mp4; codecs=\"avc1.4D002A\"")) {
+  const mime = window.MediaSource && window.remotoMedia?.selectH264Mime((value) => MediaSource.isTypeSupported(value));
+  if (!mime) {
     throw new Error("Este computador nao disponibilizou decodificacao H.264 para a sessao.");
   }
   mediaSource = new MediaSource();
   video.src = URL.createObjectURL(mediaSource);
   mediaSource.addEventListener("sourceopen", () => {
-    sourceBuffer = mediaSource.addSourceBuffer("video/mp4; codecs=\"avc1.4D002A\"");
+    sourceBuffer = mediaSource.addSourceBuffer(mime);
     sourceBuffer.mode = "sequence";
     sourceBuffer.addEventListener("updateend", pumpFrames);
     pumpFrames();
