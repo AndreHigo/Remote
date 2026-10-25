@@ -702,7 +702,7 @@ async function printStatus() {
   console.log(`api.url=${config.apiUrl}`);
   console.log(`api.reachable=${health.reachable} status=${health.status ?? "-"}`);
   console.log(`agent.key.configured=${hasKey}`);
-  console.log(`capture.ffmpeg=${config.ffmpegPath ?? resolveFfmpegExecutable() ?? "nao-encontrado"}`);
+  console.log(`capture.ffmpeg=${resolveFfmpegExecutable(config.ffmpegPath) ?? "nao-encontrado"}`);
 
   if (!state) {
     console.log("device.state=nao-registrado");

@@ -68,7 +68,7 @@ export function startWindowsCapture(profile: CaptureProfile = defaultProfile): C
     throw new Error("A captura gdigrab esta disponivel apenas no Windows.");
   }
 
-  const executable = profile.ffmpegPath ?? process.env.REMOTO_FFMPEG_PATH ?? resolveFfmpegExecutable() ?? "ffmpeg.exe";
+  const executable = resolveFfmpegExecutable(profile.ffmpegPath) ?? "ffmpeg.exe";
   const child = spawn(executable, buildWindowsCaptureArgs(profile), {
     stdio: "pipe",
     windowsHide: true
@@ -82,21 +82,23 @@ export function startWindowsCapture(profile: CaptureProfile = defaultProfile): C
   };
 }
 
-export function resolveFfmpegExecutable() {
+export function resolveFfmpegExecutable(preferredPath?: string) {
   const candidates = [
+    preferredPath,
+    process.env.REMOTO_FFMPEG_PATH,
     path.join(path.dirname(process.execPath), "ffmpeg.exe"),
     path.join(process.env.ProgramFiles ?? "C:\\Program Files", "ffmpeg", "bin", "ffmpeg.exe"),
     path.join(process.env.ProgramFiles ?? "C:\\Program Files", "FFmpeg", "bin", "ffmpeg.exe"),
     path.join(process.env.ProgramData ?? "C:\\ProgramData", "chocolatey", "bin", "ffmpeg.exe"),
     path.join(process.env.LOCALAPPDATA ?? "", "Microsoft", "WinGet", "Packages", "Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe", "ffmpeg-8.1.2-full_build", "bin", "ffmpeg.exe")
-  ];
+  ].filter((candidate): candidate is string => Boolean(candidate));
   const direct = candidates.find((candidate) => fs.existsSync(candidate));
   if (direct) return direct;
 
   const roots = [
     process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, "Microsoft", "WinGet", "Packages") : "",
     ...(process.env.SystemDrive ? listWindowsUserPackageRoots(path.join(process.env.SystemDrive, "Users")) : [])
-  ].filter(Boolean);
+  ];
   for (const root of roots) {
     const discovered = findFfmpegInWinGet(root);
     if (discovered) return discovered;
