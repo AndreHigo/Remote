@@ -14,6 +14,10 @@
 - instalador do operador gerado localmente:
   `apps/operator/release/Remoto-Operator-Setup-0.1.0.exe`;
 - SHA256 do instalador: `3B541BCACC485EFAE73815AC18BE18CF9E8246C0A09CFCA166E01F5C6D661E52`.
+- instalador do agente Windows gerado localmente:
+  `apps/agent/release/RemotoAgent-Setup.exe`;
+- SHA256 atual do instalador do agente: `EC289DA8FF93BBA176367433316195C0B5A8AB639C92244C31DF405140E10431`;
+- o instalador do agente encerra o serviço e o processo interativo antes da atualização para evitar arquivo bloqueado.
 
 ## Pendencias que bloqueiam producao
 
