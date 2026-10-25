@@ -13,9 +13,16 @@ test("entrada aceita somente eventos tipados e limita movimento", () => {
     scanCode: 30,
     action: "down"
   });
+  assert.deepEqual(validateInputEvent({ type: "key", scanCode: 72, action: "down", extended: true }), {
+    type: "key",
+    scanCode: 72,
+    action: "down",
+    extended: true
+  });
 });
 
 test("entrada rejeita comando arbitrario e scan code fora da faixa", () => {
   assert.throws(() => validateInputEvent({ type: "shell", command: "whoami" }), /nao permitido/);
   assert.throws(() => validateInputEvent({ type: "key", scanCode: 999, action: "down" }), /nao permitido/);
+  assert.throws(() => validateInputEvent({ type: "key", scanCode: 72, action: "down", extended: "yes" }), /nao permitido/);
 });

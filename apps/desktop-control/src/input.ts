@@ -4,7 +4,7 @@ export type RemoteInputEvent =
   | { type: "mouse.relative"; dx: number; dy: number }
   | { type: "mouse.button"; button: "left" | "right" | "middle"; action: "down" | "up" }
   | { type: "mouse.wheel"; delta: number }
-  | { type: "key"; scanCode: number; action: "down" | "up" };
+  | { type: "key"; scanCode: number; action: "down" | "up"; extended?: boolean };
 
 export function validateInputEvent(value: unknown): RemoteInputEvent {
   if (!value || typeof value !== "object") throw new Error("Evento de entrada invalido");
@@ -26,8 +26,18 @@ export function validateInputEvent(value: unknown): RemoteInputEvent {
     return { type: event.type, delta: clamp(event.delta, -12000, 12000) };
   }
 
-  if (event.type === "key" && isIntegerInRange(event.scanCode, 1, 255) && (event.action === "down" || event.action === "up")) {
-    return { type: event.type, scanCode: event.scanCode, action: event.action };
+  if (
+    event.type === "key" &&
+    isIntegerInRange(event.scanCode, 1, 255) &&
+    (event.action === "down" || event.action === "up") &&
+    (event.extended === undefined || typeof event.extended === "boolean")
+  ) {
+    return {
+      type: event.type,
+      scanCode: event.scanCode,
+      action: event.action,
+      ...(event.extended === undefined ? {} : { extended: event.extended })
+    };
   }
 
   throw new Error("Evento de entrada nao permitido");
@@ -82,7 +92,7 @@ public static class RemotoInput {
   public static void Move(int dx, int dy) { SendMouse(dx, dy, 0, 0x0001); }
   public static void Button(uint data, uint flags) { SendMouse(0, 0, data, flags); }
   public static void Wheel(int delta) { SendMouse(0, 0, unchecked((uint)delta), 0x0800); }
-  public static void Key(ushort scan, bool up) { var input = Base(); input.ki.wScan = scan; input.ki.dwFlags = 0x0008u | (up ? 0x0002u : 0u); SendInput(1, new[] { input }, Marshal.SizeOf(typeof(INPUT))); }
+  public static void Key(ushort scan, bool up, bool extended) { var input = Base(); input.ki.wScan = scan; input.ki.dwFlags = 0x0008u | (up ? 0x0002u : 0u) | (extended ? 0x0001u : 0u); SendInput(1, new[] { input }, Marshal.SizeOf(typeof(INPUT))); }
   private static void SendMouse(int dx, int dy, uint data, uint flags) { var input = Base(); input.mi.dx = dx; input.mi.dy = dy; input.mi.mouseData = data; input.mi.dwFlags = flags; SendInput(1, new[] { input }, Marshal.SizeOf(typeof(INPUT))); }
   private static INPUT Base() { var input = new INPUT(); input.type = 0; return input; }
 }
@@ -100,7 +110,7 @@ while ($line = [Console]::In.ReadLine()) {
         [RemotoInput]::Button($data, $flag)
       }
       'mouse.wheel' { [RemotoInput]::Wheel([int]$event.delta) }
-      'key' { [RemotoInput]::Key([ushort]$event.scanCode, $event.action -eq 'up') }
+      'key' { [RemotoInput]::Key([ushort]$event.scanCode, $event.action -eq 'up', $event.extended -eq $true) }
     }
   } catch { }
 }

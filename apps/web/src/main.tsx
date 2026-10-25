@@ -1673,7 +1673,7 @@ function GameSessionPanel({ session, realtimeUrl, onClose }: { session: GameSess
     const scanCode = scanCodes[event.code];
     if (!scanCode) return;
     event.preventDefault();
-    sendInput({ type: "key", scanCode, action });
+    sendInput({ type: "key", scanCode, action, ...(extendedScanCodes.has(event.code) ? { extended: true } : {}) });
   }
 
   return (
@@ -1717,8 +1717,14 @@ const scanCodes: Record<string, number> = {
   Space: 57, CapsLock: 58, F1: 59, F2: 60, F3: 61, F4: 62, F5: 63, F6: 64, F7: 65, F8: 66, F9: 67,
   F10: 68, NumLock: 69, ScrollLock: 70, Numpad7: 71, Numpad8: 72, Numpad9: 73, NumpadSubtract: 74,
   Numpad4: 75, Numpad5: 76, Numpad6: 77, NumpadAdd: 78, Numpad1: 79, Numpad2: 80, Numpad3: 81,
-  Numpad0: 82, NumpadDecimal: 83, F11: 87, F12: 88, ControlRight: 157, AltRight: 184
+  Numpad0: 82, NumpadDecimal: 83, F11: 87, F12: 88, ControlRight: 157, AltRight: 184,
+  ArrowUp: 72, ArrowDown: 80, ArrowLeft: 75, ArrowRight: 77, Home: 71, End: 79, PageUp: 73,
+  PageDown: 81, Insert: 82, Delete: 83, NumpadEnter: 28, NumpadDivide: 53, ContextMenu: 93, PrintScreen: 55
 };
+const extendedScanCodes = new Set([
+  "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Insert", "Delete", "Home", "End", "PageUp", "PageDown",
+  "NumpadEnter", "NumpadDivide", "ContextMenu", "PrintScreen"
+]);
 
 function LoginScreen({ onLogin }: { onLogin: (response: LoginResponse) => void }) {
   const [email, setEmail] = React.useState("");
