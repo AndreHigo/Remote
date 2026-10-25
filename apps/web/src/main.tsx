@@ -1685,9 +1685,10 @@ function GameSessionPanel({ session, realtimeUrl, onClose }: { session: GameSess
         pump();
       });
       socket.addEventListener("error", () => setError("Nao foi possivel conectar ao relay realtime."));
-      socket.addEventListener("close", () => {
+      socket.addEventListener("close", (event) => {
         clearPing();
         if (socketRef.current === socket) socketRef.current = null;
+        if (event.code === 1008) reconnectAllowed = false;
         if (!disposed && reconnectAllowed) scheduleReconnect();
         else if (!disposed) setStatus("Sessao realtime encerrada.");
       });
