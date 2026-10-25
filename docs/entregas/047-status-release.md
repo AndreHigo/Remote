@@ -2,8 +2,8 @@
 
 ## Estado atual
 
-- commit de referencia: `5606083`;
-- CI remoto verde no GitHub Actions: [Remoto CI 40219712552](https://github.com/AndreHigo/Remote/actions/runs/40219712552);
+- commit de referencia: `a878ee0`;
+- CI remoto verde no GitHub Actions: [Remoto CI 40220197284](https://github.com/AndreHigo/Remote/actions/runs/40220197284);
 - o CI passou nos testes de seguranca, agente, desktop-control e realtime;
 - typecheck, build, preflight dos Compose e empacotamento Windows do Agent e do Operator passaram;
 - o pacote Windows inclui o diagnostico automatico do host e a criacao da tarefa interativa de logon;
@@ -14,6 +14,7 @@
 - os endpoints de sessao e comandos limitam motivo, chaves e payloads operacionais antes de persistir ou encaminhar dados;
 - o smoke test local pode ser repetido com `npm run smoke:local`, validando Postgres, API, relay, cadastro do agente e conexao do host.
 - o procedimento de restauracao do backup criptografado esta versionado em `infra/docker/restore-postgres.ps1` e exige `-ConfirmRestore`.
+- o CI publica por 14 dias os instaladores Windows e o manifesto SHA256 como artefato da execucao; tags `v*` usam o workflow de release e exigem certificado para publicar.
 
 ## Validacao local
 
@@ -27,7 +28,7 @@ npx prisma validate --schema services/api/prisma/schema.prisma
 npx prisma migrate diff --from-migrations services/api/prisma/migrations --to-schema services/api/prisma/schema.prisma --script
 ```
 
-O CI do commit `5606083` tambem passou na auditoria de dependencias, nos testes de seguranca, no typecheck, no build, no preflight dos Compose e no empacotamento Windows do Agent e do Operator.
+O CI do commit `a878ee0` tambem passou na auditoria de dependencias, nos testes de seguranca, no typecheck, no build, no preflight dos Compose e no empacotamento Windows do Agent e do Operator.
 
 A auditoria estrutural de seguranca do commit `8053b42` terminou sem achados validados nas superficies criticas revisadas. A cobertura foi source-backed e parcial: ainda nao substitui homologacao em duas maquinas, teste pela internet ou revisao independente em ambiente de producao. O limite de payload adicionado em `d1c6fe6` foi validado separadamente por testes e typecheck.
 

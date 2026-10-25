@@ -17,4 +17,4 @@
 
 ## Limites
 
-O workflow ainda não assina os binários com Authenticode e não executa homologação entre duas máquinas Windows. A publicação de uma release não transforma o modo jogo em compatível com todos os jogos.
+Execuções manuais geram artefatos de homologação sem assinatura. Publicações por tag `v*` exigem `WINDOWS_CODESIGN_PFX_B64` e `WINDOWS_CODESIGN_PFX_PASSWORD`, assinam os executáveis com Authenticode e só então publicam a release. Isso ainda não substitui homologação entre duas máquinas Windows nem transforma o modo jogo em compatível com todos os jogos.
