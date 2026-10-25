@@ -31,6 +31,7 @@ Nao publique tokens, chaves de agente, credenciais ou provas de conceito em issu
 
 ## Limites conhecidos do MVP
 
+- O schema atual ainda representa um workspace unico; isolamento multi-tenant por organizacao precisa ser implementado antes de oferecer varias empresas na mesma instalacao.
 - O teste entre duas maquinas e a validacao de internet ainda sao obrigatorios antes de producao.
 - O cliente nativo visual, audio e gamepad ainda nao estao concluidos.
 - A auditoria estrutural completa deve ser executada em ambiente com Python e seus artefatos revisados.

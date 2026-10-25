@@ -164,6 +164,10 @@ Regras:
 - Instalador assinado.
 - Atualizacao automatica com assinatura/verificacao.
 
+## Limite atual do MVP
+
+O schema atual representa um workspace unico. As regras de segregacao por organizacao descritas acima sao objetivo de produto, mas ainda nao devem ser tratadas como isolamento multi-tenant implementado.
+
 ## Decisao sobre codigo aberto
 
 Se RustDesk for modificado ou distribuido como parte do produto, a licenca AGPL-3.0 precisa ser respeitada. Antes de vender ou disponibilizar publicamente, validar com advogado ou especialista em licencas open source.
