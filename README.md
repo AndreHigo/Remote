@@ -104,6 +104,8 @@ O agente tambem possui limite por credencial e retencao dos 50 inventarios mais 
 
 O MFA operacional e a validacao de caminho confiavel do Node no servico Windows estao registrados em [`docs/entregas/070-mfa-operacional-e-node-confiavel.md`](docs/entregas/070-mfa-operacional-e-node-confiavel.md).
 
+O smoke local de regressao do canal game passou com API, agente, relay, captura FFmpeg e primeiro frame real; a evidencia e seus limites estao em [`docs/entregas/071-smoke-local-regressao.md`](docs/entregas/071-smoke-local-regressao.md).
+
 No instalador Windows, o caminho opcional do `ffmpeg.exe` pode apontar para uma instalacao no perfil do usuario; durante a instalacao elevada ele e copiado para a pasta protegida do Remoto, para que o servico nao execute um binario mutavel do perfil.
 
 Servidor RustDesk OSS de laboratorio:
