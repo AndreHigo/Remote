@@ -8,10 +8,11 @@ Validar o caminho completo entre o painel, o agente Windows e o cliente operador
 
 1. Use duas maquinas Windows na mesma rede para o primeiro teste. A maquina host deve ter uma sessao de usuario ativa e bloqueio de tela desativado durante a captura.
 2. Instale o `RemotoAgent-Setup.exe` na maquina host, informe a URL da API, a URL do relay e uma chave de agente criada para o cliente correto.
-3. Confirme no host que o servico `RemotoAgent` iniciou e que o processo interativo `RemotoAgent.exe sessions` esta ativo depois do login.
-4. Confirme que o host tem FFmpeg acessivel. O agente aceita CPU como padrao; GPU dedicada e aceleracao opcional.
-5. No painel, confirme o dispositivo online, solicite uma sessao `game` e aprove-a como owner ou admin.
-6. Abra o cliente operador com o descritor de uso unico gerado pelo painel. O descritor e consumido pela API e apagado localmente depois da leitura.
+3. Faca a instalacao usando a mesma conta Windows que mantera a sessao interativa. O servico roda protegido em segundo plano e o autostart do modo jogo fica restrito ao usuario que instalou o agente.
+4. Confirme no host que o servico `RemotoAgent` iniciou e que o processo interativo `RemotoAgent.exe sessions` esta ativo depois do login.
+5. Confirme que o host tem FFmpeg acessivel. O agente aceita CPU como padrao; GPU dedicada e aceleracao opcional.
+6. No painel, confirme o dispositivo online, solicite uma sessao `game` e aprove-a como owner ou admin.
+7. Abra o cliente operador com o descritor de uso unico gerado pelo painel. O descritor e consumido pela API e apagado localmente depois da leitura.
 
 ## Matriz minima
 
