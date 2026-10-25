@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { connectRemoteSession, type RealtimeConnection } from "@remoto/desktop-control/realtime";
+import { resolveFfmpegExecutable } from "@remoto/desktop-control/capture";
 
 const execFileAsync = promisify(execFile);
 const packagedProcess = process as NodeJS.Process & { pkg?: unknown };
@@ -701,6 +702,7 @@ async function printStatus() {
   console.log(`api.url=${config.apiUrl}`);
   console.log(`api.reachable=${health.reachable} status=${health.status ?? "-"}`);
   console.log(`agent.key.configured=${hasKey}`);
+  console.log(`capture.ffmpeg=${config.ffmpegPath ?? resolveFfmpegExecutable() ?? "nao-encontrado"}`);
 
   if (!state) {
     console.log("device.state=nao-registrado");

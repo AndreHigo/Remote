@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./capture": {
+      "types": "./src/capture.ts",
+      "default": "./dist/capture.js"
+    },
     "./realtime": {
       "types": "./src/realtime.ts",
       "default": "./dist/realtime.js"

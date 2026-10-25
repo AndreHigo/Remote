@@ -68,7 +68,7 @@ export function startWindowsCapture(profile: CaptureProfile = defaultProfile): C
     throw new Error("A captura gdigrab esta disponivel apenas no Windows.");
   }
 
-  const executable = profile.ffmpegPath ?? process.env.REMOTO_FFMPEG_PATH ?? findFfmpegExecutable();
+  const executable = profile.ffmpegPath ?? process.env.REMOTO_FFMPEG_PATH ?? resolveFfmpegExecutable() ?? "ffmpeg.exe";
   const child = spawn(executable, buildWindowsCaptureArgs(profile), {
     stdio: "pipe",
     windowsHide: true
@@ -82,7 +82,7 @@ export function startWindowsCapture(profile: CaptureProfile = defaultProfile): C
   };
 }
 
-function findFfmpegExecutable() {
+export function resolveFfmpegExecutable() {
   const candidates = [
     path.join(path.dirname(process.execPath), "ffmpeg.exe"),
     path.join(process.env.ProgramFiles ?? "C:\\Program Files", "ffmpeg", "bin", "ffmpeg.exe"),
@@ -90,7 +90,46 @@ function findFfmpegExecutable() {
     path.join(process.env.ProgramData ?? "C:\\ProgramData", "chocolatey", "bin", "ffmpeg.exe"),
     path.join(process.env.LOCALAPPDATA ?? "", "Microsoft", "WinGet", "Packages", "Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe", "ffmpeg-8.1.2-full_build", "bin", "ffmpeg.exe")
   ];
-  return candidates.find((candidate) => fs.existsSync(candidate)) ?? "ffmpeg.exe";
+  const direct = candidates.find((candidate) => fs.existsSync(candidate));
+  if (direct) return direct;
+
+  const roots = [
+    process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, "Microsoft", "WinGet", "Packages") : "",
+    ...(process.env.SystemDrive ? listWindowsUserPackageRoots(path.join(process.env.SystemDrive, "Users")) : [])
+  ].filter(Boolean);
+  for (const root of roots) {
+    const discovered = findFfmpegInWinGet(root);
+    if (discovered) return discovered;
+  }
+  return null;
+}
+
+function listWindowsUserPackageRoots(usersRoot: string) {
+  try {
+    return fs.readdirSync(usersRoot, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && !/^(Default|Public|Default User|All Users)$/i.test(entry.name))
+      .map((entry) => path.join(usersRoot, entry.name, "AppData", "Local", "Microsoft", "WinGet", "Packages"));
+  } catch {
+    return [];
+  }
+}
+
+function findFfmpegInWinGet(root: string) {
+  try {
+    const packageRoots = fs.readdirSync(root, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && /ffmpeg/i.test(entry.name))
+      .map((entry) => path.join(root, entry.name));
+    for (const packageRoot of packageRoots) {
+      const versions = fs.readdirSync(packageRoot, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => path.join(packageRoot, entry.name));
+      const candidate = versions.map((version) => path.join(version, "bin", "ffmpeg.exe")).find((value) => fs.existsSync(value));
+      if (candidate) return candidate;
+    }
+  } catch {
+    // Discovery is best-effort; the caller can still use PATH or an explicit path.
+  }
+  return null;
 }
 
 function encoderName(encoder: VideoEncoder) {
