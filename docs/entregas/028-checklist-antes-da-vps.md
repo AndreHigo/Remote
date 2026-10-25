@@ -1,0 +1,27 @@
+# Entrega 028 - Checklist antes da VPS
+
+## Estado validado
+
+- commit publicado: `a0b3717`;
+- `npm test`: 27 testes passando;
+- `npm run typecheck`: API, web, desktop-control, agent e realtime sem erros;
+- `npm run build`: build completo validado antes do ultimo ajuste do relay;
+- `npm audit --audit-level=high`: 0 vulnerabilidades;
+- `docker compose config`: configuracao local valida;
+- relay revalida salas a cada 10 segundos e fecha sessoes revogadas;
+- logout, desativacao, reset de senha, arquivamento e fechamento nativo revogam sessoes;
+- agente arquivado nao aceita heartbeat, inventario ou comandos;
+- instalador do operador gerado localmente:
+  `apps/operator/release/Remoto-Operator-Setup-0.1.0.exe`;
+- SHA256 do instalador: `3B541BCACC485EFAE73815AC18BE18CF9E8246C0A09CFCA166E01F5C6D661E52`.
+
+## Pendencias que bloqueiam producao
+
+1. Definir o modelo de acesso entre usuarios, workspace e clientes. Hoje o MVP e workspace-wide: os papeis autorizados podem consultar os clientes da mesma instalacao. Antes de oferecer isolamento multi-tenant, criar memberships e aplicar o escopo em todas as rotas de clientes, dispositivos, comandos, inventario, sessoes e chaves.
+2. Assinar o instalador e os binarios Windows com Authenticode, publicar checksums assinados, trocar imagens `latest` por digests fixos e eliminar downloads de ferramentas via `npx` durante release.
+3. Executar o teste de duas maquinas Windows, primeiro na rede local e depois pela internet com HTTPS/WSS, medindo FPS, RTT, perda, CPU/GPU, UAC, troca de sessao, bloqueio de tela, gamepad e compatibilidade por jogo.
+4. Configurar na VPS os segredos reais, dominio, TLS, banco, backup, firewall e observabilidade. O preflight de producao deve falhar se algum segredo obrigatorio estiver ausente.
+
+## Decisao
+
+O sistema esta pronto para homologacao controlada e para preparar a VPS, mas nao deve ser anunciado como release publica antes das quatro pendencias acima.
