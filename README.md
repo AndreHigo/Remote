@@ -89,6 +89,8 @@ npm run operator:package:windows
 npm run smoke:local
 ```
 
+O `smoke:local` também abre um cliente realtime independente, autentica a sessão aprovada e exige o recebimento do primeiro frame capturado pelo FFmpeg. A evidência e os limites desse teste estão em [`docs/entregas/061-smoke-primeiro-frame.md`](docs/entregas/061-smoke-primeiro-frame.md).
+
 Durante uma sessao de jogo, o operador nativo exibe RTT atual/p95, tempo ate o primeiro frame e volume de video recebido. Esses numeros ajudam a registrar a homologacao, mas nao substituem o teste entre duas maquinas descrito em `docs/entregas/029-runbook-homologacao-jogo.md`.
 
 O inventario do agente consulta a capacidade real da build do FFmpeg: encoder H.264 escolhido, metodo de captura disponivel e fallback por CPU. Assim, hosts sem GPU dedicada continuam elegiveis quando possuem `libx264`, mas nao sao marcados como prontos quando falta captura de desktop ou encoder.
