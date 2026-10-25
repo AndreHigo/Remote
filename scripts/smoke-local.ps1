@@ -171,6 +171,19 @@ try {
   Invoke-Checked "Inventario do agente" "npm.cmd" @("run", "agent:inventory")
   Invoke-Checked "Comandos do agente" "npm.cmd" @("run", "agent:commands")
 
+  $device = Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:4100/devices/$($state.deviceId)" -Headers $headers
+  Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:4100/devices/$($state.deviceId)/archive" -Headers $headers | Out-Null
+  try {
+    Invoke-RestMethod -Method Delete -Uri "http://127.0.0.1:4100/customers/$($device.customerId)" -Headers $headers | Out-Null
+    throw "A exclusao aceitou um cliente que ainda possui dispositivo arquivado."
+  } catch {
+    $statusCode = 0
+    if ($_.Exception.Response) { $statusCode = [int]$_.Exception.Response.StatusCode.value__ }
+    if ($statusCode -ne 409) { throw }
+    Write-Host "Exclusao de cliente com dispositivo arquivado bloqueada corretamente (HTTP 409)." -ForegroundColor DarkGray
+  }
+  Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:4100/devices/$($state.deviceId)/restore" -Headers $headers | Out-Null
+
   $requested = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:4100/remote-sessions" -Headers $headers -ContentType "application/json" -Body $requestBody
   $sessionId = $requested.id
   $approved = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:4100/remote-sessions/$sessionId/approve" -Headers $headers
