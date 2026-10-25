@@ -3,6 +3,7 @@
 ## Entregue
 
 - Em producao, owner, admin e tecnico sem 2FA ficam limitados ao fluxo de configuracao do autenticador; rotas operacionais retornam `two_factor_required` ate a ativacao.
+- O bootstrap da conta permanece funcional: `/auth/me` e `/auth/logout` continuam disponiveis para que o usuario chegue ao painel e conclua a configuracao, sem liberar dados operacionais.
 - Tecnicos podem consultar, preparar e ativar o proprio TOTP, mas nao podem desativar a protecao.
 - O painel exibe a area de seguranca para tecnicos sem liberar clientes, usuarios, dispositivos arquivados ou chaves de agente.
 - O instalador PowerShell do servico rejeita `node.exe` fora de `Program Files`, `Program Files (x86)` ou `LocalAppData\Programs` antes de registrar o servico e a tarefa interativa.

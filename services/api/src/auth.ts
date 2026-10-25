@@ -103,7 +103,7 @@ export function shouldRequireOperationalMfa(input: {
 }) {
   if (!(input.enforced ?? OPERATIONAL_MFA_ENFORCED) || input.twoFactorEnabled) return false;
   if (!new Set(["owner", "admin", "technician"]).has(input.role.toLowerCase())) return false;
-  return !input.path.startsWith("/auth/2fa/");
+  return !input.path.startsWith("/auth/2fa/") && input.path !== "/auth/me" && input.path !== "/auth/logout";
 }
 
 export function isLoginRateLimited(keyOrKeys: string | string[]) {

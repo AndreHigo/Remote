@@ -80,6 +80,18 @@ interface LoginResponse {
   requiresTwoFactor?: boolean;
 }
 
+class ApiRequestError extends Error {
+  readonly status: number;
+  readonly code?: string;
+
+  constructor(message: string, status: number, code?: string) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
 interface TwoFactorStatus {
   enabled: boolean;
 }
@@ -270,8 +282,8 @@ async function getJson<T>(path: string, token: string): Promise<T> {
     credentials: "include",
     headers: token ? { Authorization: `Bearer ${token}` } : undefined
   });
-  const payload = (await response.json().catch(() => ({}))) as { message?: string };
-  if (!response.ok) throw new Error(payload.message ?? `Falha na API: ${response.status}`);
+  const payload = (await response.json().catch(() => ({}))) as { message?: string; code?: string };
+  if (!response.ok) throw new ApiRequestError(payload.message ?? `Falha na API: ${response.status}`, response.status, payload.code);
   return payload as T;
 }
 
@@ -286,8 +298,8 @@ async function postJson<T>(path: string, token: string, body?: unknown): Promise
     body: body ? JSON.stringify(body) : undefined
   });
 
-  const payload = (await response.json().catch(() => ({}))) as { message?: string } & T;
-  if (!response.ok) throw new Error(payload.message ?? `Falha na API: ${response.status}`);
+  const payload = (await response.json().catch(() => ({}))) as { message?: string; code?: string } & T;
+  if (!response.ok) throw new ApiRequestError(payload.message ?? `Falha na API: ${response.status}`, response.status, payload.code);
   return payload as T;
 }
 
@@ -299,8 +311,8 @@ async function patchJson<T>(path: string, token: string, body: unknown): Promise
     body: JSON.stringify(body)
   });
 
-  const payload = (await response.json().catch(() => ({}))) as { message?: string } & T;
-  if (!response.ok) throw new Error(payload.message ?? `Falha na API: ${response.status}`);
+  const payload = (await response.json().catch(() => ({}))) as { message?: string; code?: string } & T;
+  if (!response.ok) throw new ApiRequestError(payload.message ?? `Falha na API: ${response.status}`, response.status, payload.code);
   return payload as T;
 }
 
@@ -311,8 +323,8 @@ async function deleteJson<T>(path: string, token: string): Promise<T> {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined
   });
 
-  const payload = (await response.json().catch(() => ({}))) as { message?: string } & T;
-  if (!response.ok) throw new Error(payload.message ?? `Falha na API: ${response.status}`);
+  const payload = (await response.json().catch(() => ({}))) as { message?: string; code?: string } & T;
+  if (!response.ok) throw new ApiRequestError(payload.message ?? `Falha na API: ${response.status}`, response.status, payload.code);
   return payload as T;
 }
 
@@ -481,7 +493,12 @@ function App() {
       setStatusMessage("Painel atualizado");
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : "Erro ao carregar painel");
-      if (error instanceof Error && error.message.includes("401")) logout();
+      if (error instanceof ApiRequestError && error.code === "two_factor_required") {
+        setActiveSection("security");
+        setStatusMessage("Ative o 2FA para liberar as operacoes remotas.");
+      } else if (error instanceof ApiRequestError && error.status === 401) {
+        logout();
+      }
     } finally {
       setLoading(false);
     }
