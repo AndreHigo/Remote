@@ -90,6 +90,10 @@ export async function login(email: string, password: string, totpCode?: string) 
   };
 }
 
+export function isCompletedLogin(result: Awaited<ReturnType<typeof login>>): result is { user: AuthUser; token: string } {
+  return Boolean(result && "token" in result && result.token);
+}
+
 export function isLoginRateLimited(keyOrKeys: string | string[]) {
   return normalizeLoginKeys(keyOrKeys).some((key) => {
     const attempt = getLoginAttempt(key);

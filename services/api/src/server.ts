@@ -11,6 +11,7 @@ import {
   getTwoFactorStatus,
   isLoginRateLimited,
   login,
+  isCompletedLogin,
   prepareTwoFactor,
   recordLoginFailure,
   requireRole,
@@ -191,9 +192,11 @@ app.post("/auth/login", async (request, response) => {
     return;
   }
 
-  clearLoginFailures(loginKeys);
-  if ("token" in result && result.token) setSessionCookie(response, result.token);
-  if (nodeEnv === "production" && "token" in result) {
+  if (isCompletedLogin(result)) {
+    clearLoginFailures(loginKeys);
+    setSessionCookie(response, result.token);
+  }
+  if (nodeEnv === "production" && isCompletedLogin(result)) {
     response.json({ user: result.user });
     return;
   }
