@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readCaptureProfile } from "./capture-config.js";
+import { buildCaptureReadiness, readCaptureProfile } from "./capture-config.js";
 
 test("usa CPU e perfil auto como padrao acessivel", () => {
   assert.deepEqual(readCaptureProfile({}), { quality: "auto", encoder: "cpu", width: undefined, height: undefined, fps: undefined, bitrateKbps: undefined });
@@ -21,4 +21,20 @@ test("permite configurar perfil e limites pelo ambiente", () => {
 test("rejeita perfil e limites invalidos", () => {
   assert.throws(() => readCaptureProfile({ captureQuality: "ultra" }), /REMOTO_CAPTURE_QUALITY/);
   assert.throws(() => readCaptureProfile({}, { REMOTO_CAPTURE_FPS: "121" }), /REMOTO_CAPTURE_FPS/);
+});
+
+test("expõe prontidao do modo jogo sem esconder o fallback de CPU", () => {
+  const profile = readCaptureProfile({ captureQuality: "balanced", captureEncoder: "cpu", captureFps: "60" });
+  assert.deepEqual(buildCaptureReadiness(profile, true), {
+    gameModeReady: true,
+    ffmpegAvailable: true,
+    encoder: "cpu",
+    quality: "balanced",
+    width: undefined,
+    height: undefined,
+    fps: 60,
+    bitrateKbps: undefined,
+    cpuFallback: true
+  });
+  assert.equal(buildCaptureReadiness(profile, false).gameModeReady, false);
 });

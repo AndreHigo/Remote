@@ -11,8 +11,9 @@ Validar o caminho completo entre o painel, o agente Windows e o cliente operador
 3. Faca a instalacao usando a mesma conta Windows que mantera a sessao interativa. O servico roda protegido em segundo plano e o autostart do modo jogo fica restrito ao usuario que instalou o agente.
 4. Confirme no host que o servico `RemotoAgent` iniciou e que o processo interativo `RemotoAgent.exe sessions` esta ativo depois do login.
 5. Confirme que o host tem FFmpeg acessivel. O agente aceita CPU como padrao; GPU dedicada e aceleracao opcional.
-6. No painel, confirme o dispositivo online, solicite uma sessao `game` e aprove-a como owner ou admin.
-7. Abra o cliente operador com o descritor de uso unico gerado pelo painel. O descritor e consumido pela API e apagado localmente depois da leitura.
+6. Atualize o inventario e confirme no detalhe do dispositivo `Modo jogo: Pronto`, o encoder e o perfil de captura antes de iniciar a sessao.
+7. No painel, confirme o dispositivo online, solicite uma sessao `game` e aprove-a como owner ou admin.
+8. Abra o cliente operador com o descritor de uso unico gerado pelo painel. O descritor e consumido pela API e apagado localmente depois da leitura.
 
 ## Matriz minima
 

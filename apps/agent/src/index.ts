@@ -7,7 +7,7 @@ import { promisify } from "node:util";
 import { connectRemoteSession, type RealtimeConnection } from "@remoto/desktop-control/realtime";
 import { resolveFfmpegExecutable } from "@remoto/desktop-control/capture";
 import { validateEndpointUrl } from "./url-policy.js";
-import { readCaptureProfile } from "./capture-config.js";
+import { buildCaptureReadiness, readCaptureProfile } from "./capture-config.js";
 
 const execFileAsync = promisify(execFile);
 const packagedProcess = process as NodeJS.Process & { pkg?: unknown };
@@ -423,6 +423,7 @@ async function collectInventory() {
         agent: "remoto-agent-cli",
         agentVersion: "0.1.0"
       },
+      capture: buildCaptureReadiness(config.captureProfile, Boolean(resolveFfmpegExecutable(config.ffmpegPath))),
       installed: []
     }
   };

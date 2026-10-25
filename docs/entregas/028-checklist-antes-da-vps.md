@@ -3,7 +3,7 @@
 ## Estado validado
 
 - commit de referência publicado: `d9124f6`;
-- `npm test`: 28 testes passando;
+- `npm test`: 29 testes passando;
 - `npm run typecheck`: API, web, desktop-control, agent e realtime sem erros;
 - `npm run build`: build completo validado no estado atual do workspace;
 - `npm audit --audit-level=high`: 0 vulnerabilidades;
@@ -16,7 +16,7 @@
 - SHA256 do instalador: `3B541BCACC485EFAE73815AC18BE18CF9E8246C0A09CFCA166E01F5C6D661E52`.
 - instalador do agente Windows gerado localmente:
   `apps/agent/release/RemotoAgent-Setup.exe`;
-- SHA256 atual do instalador do agente: `246BB7E87355A53F4E41F612FEE0EEAAE2A4C9A019D465675DF87BAEE2010DAB`;
+- SHA256 atual do instalador do agente: `D3703E18B72DE2FEADB700E77536AB87AE9063000DD3E60898070D793C81B7A1`;
 - o instalador do agente encerra o serviço e o processo interativo antes da atualização para evitar arquivo bloqueado.
 
 ## Fechamento antes da producao

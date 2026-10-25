@@ -9,6 +9,18 @@ export interface CaptureConfigValues {
   captureBitrateKbps?: number | string;
 }
 
+export interface CaptureReadiness {
+  gameModeReady: boolean;
+  ffmpegAvailable: boolean;
+  encoder: VideoEncoder;
+  quality: VideoQuality;
+  width?: number;
+  height?: number;
+  fps?: number;
+  bitrateKbps?: number;
+  cpuFallback: boolean;
+}
+
 const qualities = new Set<VideoQuality>(["auto", "low", "balanced", "high"]);
 const encoders = new Set<VideoEncoder>(["cpu", "nvidia", "amd", "intel"]);
 
@@ -23,6 +35,20 @@ export function readCaptureProfile(fileConfig: CaptureConfigValues, environment:
     height: readOptionalPositive(environment.REMOTO_CAPTURE_HEIGHT ?? fileConfig.captureHeight, "REMOTO_CAPTURE_HEIGHT"),
     fps: readOptionalPositive(environment.REMOTO_CAPTURE_FPS ?? fileConfig.captureFps, "REMOTO_CAPTURE_FPS", 120),
     bitrateKbps: readOptionalPositive(environment.REMOTO_CAPTURE_BITRATE_KBPS ?? fileConfig.captureBitrateKbps, "REMOTO_CAPTURE_BITRATE_KBPS", 100_000)
+  };
+}
+
+export function buildCaptureReadiness(profile: CaptureProfile, ffmpegAvailable: boolean): CaptureReadiness {
+  return {
+    gameModeReady: ffmpegAvailable,
+    ffmpegAvailable,
+    encoder: profile.encoder,
+    quality: profile.quality,
+    width: profile.width,
+    height: profile.height,
+    fps: profile.fps,
+    bitrateKbps: profile.bitrateKbps,
+    cpuFallback: profile.encoder === "cpu" || profile.quality === "auto"
   };
 }
 
