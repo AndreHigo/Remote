@@ -459,9 +459,9 @@ export const repository = {
     if (!current) return { kind: "not_found" as const };
     if (current.role === "OWNER" && input.user.role !== "owner") return { kind: "forbidden" as const };
     await prisma.user.update({ where: { id: input.id }, data: { passwordHash: await hashPassword(input.password), sessionVersion: { increment: 1 } } });
-    await repository.revokeUserRemoteSessions({ userId: input.id, actor: input.user.name, reason: "password-reset" });
+    const sessionIds = await repository.revokeUserRemoteSessions({ userId: input.id, actor: input.user.name, reason: "password-reset" });
     await addAudit("user.password.reset", input.user.name, input.id, { email: current.email }, undefined, input.user.id);
-    return { kind: "reset" as const, ok: true };
+    return { kind: "reset" as const, ok: true, sessionIds };
   },
 
   async deleteCustomer(input: { id: string; user: AuthUser }) {
@@ -531,9 +531,13 @@ export const repository = {
   async archiveDevice(input: { id: string; user: AuthUser }) {
     const current = await prisma.device.findFirst({ where: { id: input.id, customer: { workspaceId: input.user.workspaceId } } });
     if (!current) return null;
-    if (current.archivedAt) return { id: current.id, displayName: current.displayName, archived: true as const };
+    if (current.archivedAt) return { id: current.id, displayName: current.displayName, archived: true as const, sessionIds: [] as string[] };
 
     const archivedAt = now();
+    const activeSessions = await prisma.remoteSession.findMany({
+      where: { deviceId: current.id, status: { not: "ENDED" } },
+      select: { id: true }
+    });
     const device = await prisma.device.update({
       where: { id: current.id },
       data: { archivedAt, lastSeenAt: null }
@@ -543,7 +547,7 @@ export const repository = {
       data: { status: "ENDED", endedAt: archivedAt, connectionTokenUsedAt: archivedAt }
     });
     await addAudit("device.archived", input.user.name, device.id, { customerId: device.customerId, displayName: device.displayName }, undefined, input.user.id);
-    return { id: device.id, displayName: device.displayName, archived: true as const };
+    return { id: device.id, displayName: device.displayName, archived: true as const, sessionIds: activeSessions.map((session) => session.id) };
   },
 
   async restoreDevice(input: { id: string; user: AuthUser }) {
@@ -583,6 +587,10 @@ export const repository = {
       data: { customerId: customer.id }
     });
     const endedAt = now();
+    const activeSessions = await prisma.remoteSession.findMany({
+      where: { deviceId: updated.id, status: { not: "ENDED" } },
+      select: { id: true }
+    });
     await prisma.remoteSession.updateMany({
       where: { deviceId: updated.id, status: { not: "ENDED" } },
       data: { status: "ENDED", endedAt, connectionTokenUsedAt: endedAt }
@@ -597,7 +605,7 @@ export const repository = {
       input.user.id
     );
 
-    return { kind: "moved" as const, device: toDeviceView(updated) };
+    return { kind: "moved" as const, device: toDeviceView(updated), sessionIds: activeSessions.map((session) => session.id) };
   },
 
   async updateDeviceTags(input: { id: string; tags: string[]; user: AuthUser }) {
@@ -627,6 +635,10 @@ export const repository = {
   async deleteDevice(input: { id: string; user: AuthUser }) {
     const device = await prisma.device.findFirst({ where: { id: input.id, customer: { workspaceId: input.user.workspaceId } } });
     if (!device) return null;
+    const activeSessions = await prisma.remoteSession.findMany({
+      where: { deviceId: device.id, status: { not: "ENDED" } },
+      select: { id: true }
+    });
 
     await prisma.$transaction(async (transaction) => {
       await transaction.agentEnrollmentKey.updateMany({
@@ -645,7 +657,7 @@ export const repository = {
       });
     });
 
-    return { id: device.id, displayName: device.displayName };
+    return { id: device.id, displayName: device.displayName, sessionIds: activeSessions.map((session) => session.id) };
   },
 
   async registerDevice(input: {

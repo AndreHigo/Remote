@@ -739,6 +739,7 @@ app.post("/users/:id/reset-password", requireRole(["owner", "admin"]), async (re
   const reset = await repository.resetUserPassword({ id: z.string().parse(request.params.id), password: parsed.data.password, user: (request as AuthenticatedRequest).user });
   if (reset.kind === "not_found") return void response.status(404).json({ message: "Usuario nao encontrado" });
   if (reset.kind === "forbidden") return void response.status(403).json({ message: "Somente o owner pode redefinir a senha de outro owner" });
+  void closeRealtimeSessions(reset.sessionIds);
   response.json({ ok: true });
 });
 
@@ -844,6 +845,7 @@ app.patch("/devices/:id/customer", requireRole(["owner", "admin"]), async (reque
     response.status(404).json({ message: "Cliente de destino nao encontrado" });
     return;
   }
+  if (result.kind === "moved") void closeRealtimeSessions(result.sessionIds);
   response.json(result.device);
 });
 
@@ -875,13 +877,17 @@ app.delete("/devices/:id", requireRole(["owner", "admin"]), async (request, resp
     response.status(404).json({ message: "Dispositivo nao encontrado" });
     return;
   }
-  response.json(deleted);
+  void closeRealtimeSessions(deleted.sessionIds);
+  const { sessionIds: _sessionIds, ...deletedView } = deleted;
+  response.json(deletedView);
 });
 
 app.post("/devices/:id/archive", requireRole(["owner", "admin"]), async (request, response) => {
   const archived = await repository.archiveDevice({ id: z.string().parse(request.params.id), user: (request as AuthenticatedRequest).user });
   if (!archived) return void response.status(404).json({ message: "Dispositivo nao encontrado" });
-  response.json(archived);
+  void closeRealtimeSessions(archived.sessionIds);
+  const { sessionIds: _sessionIds, ...archivedView } = archived;
+  response.json(archivedView);
 });
 
 app.post("/devices/:id/restore", requireRole(["owner", "admin"]), async (request, response) => {
@@ -1072,4 +1078,8 @@ async function closeRealtimeSession(sessionId: string) {
   } catch {
     // The agent polling loop remains the fallback if the relay is temporarily unavailable.
   }
+}
+
+async function closeRealtimeSessions(sessionIds: string[]) {
+  await Promise.all(sessionIds.map((sessionId) => closeRealtimeSession(sessionId)));
 }
