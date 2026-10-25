@@ -84,7 +84,7 @@ class SupportEngine implements DesktopEngine {
     const child = activeSupportProcesses.get(session.sessionId);
     if (!child) return { started: true, message: "Nenhum cliente de suporte local estava associado a sessao." };
     activeSupportProcesses.delete(session.sessionId);
-    try { child.kill(); } catch { /* o processo ja pode ter encerrado */ }
+    await terminateProcessTree(child);
     return { started: true, message: "Cliente de suporte encerrado." };
   }
 }
@@ -134,7 +134,7 @@ class GameEngine implements DesktopEngine {
     const entry = activeOperatorProcesses.get(session.sessionId);
     if (!entry) return { started: true, message: "Nenhum cliente operador local estava associado a sessao." };
     activeOperatorProcesses.delete(session.sessionId);
-    entry.child.kill();
+    await terminateProcessTree(entry.child);
     await fs.rm(entry.directory, { recursive: true, force: true });
     return { started: true, message: "Cliente operador nativo encerrado." };
   }
@@ -183,6 +183,29 @@ async function fileExists(candidate: string) {
   } catch {
     return false;
   }
+}
+
+async function terminateProcessTree(child: ReturnType<typeof spawn>) {
+  const pid = child.pid;
+  if (!pid) return;
+
+  if (process.platform === "win32") {
+    try {
+      await execFileAsync("taskkill.exe", ["/PID", String(pid), "/T", "/F"], { timeout: 5_000, windowsHide: true });
+      return;
+    } catch {
+      // The process may have exited between lookup and taskkill; fall back to the handle.
+    }
+  } else {
+    try {
+      process.kill(-pid, "SIGTERM");
+      return;
+    } catch {
+      // Detached process groups are not available on every platform.
+    }
+  }
+
+  try { child.kill(); } catch { /* o processo ja pode ter encerrado */ }
 }
 
 async function findRustDesk() {
