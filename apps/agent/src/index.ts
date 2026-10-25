@@ -69,7 +69,7 @@ interface InventoryResponse {
 interface CommandResponse {
   id: string;
   deviceId: string;
-  commandType: "ping" | "system-info" | "refresh-inventory";
+  commandType: "ping" | "system-info" | "refresh-inventory" | "list-processes" | "list-services" | "collect-diagnostics";
   status: "pending" | "running" | "succeeded" | "failed";
   payload: Record<string, unknown>;
 }
@@ -485,6 +485,39 @@ async function executeCommand(deviceId: string, pendingCommand: CommandResponse)
       };
     }
 
+    if (pendingCommand.commandType === "list-processes") {
+      return { status: "succeeded" as const, output: { processes: await collectProcessList() } };
+    }
+
+    if (pendingCommand.commandType === "list-services") {
+      return { status: "succeeded" as const, output: { services: await collectServiceList() } };
+    }
+
+    if (pendingCommand.commandType === "collect-diagnostics") {
+      const inventory = await collectInventory();
+      return {
+        status: "succeeded" as const,
+        output: {
+          collectedAt: new Date().toISOString(),
+          system: {
+            hostname: os.hostname(),
+            os: `${os.type()} ${os.release()}`,
+            arch: os.arch(),
+            uptimeSeconds: Math.round(os.uptime()),
+            memory: { totalBytes: os.totalmem(), freeBytes: os.freemem() },
+            localIp: getLocalIp()
+          },
+          hardware: {
+            graphics: inventory.hardware.graphics,
+            memory: inventory.hardware.memory,
+            disks: inventory.hardware.disks
+          },
+          capture: inventory.software.capture,
+          runtime: inventory.software.runtime
+        }
+      };
+    }
+
     return {
       status: "failed" as const,
       error: `Comando nao permitido: ${pendingCommand.commandType}`
@@ -495,6 +528,48 @@ async function executeCommand(deviceId: string, pendingCommand: CommandResponse)
       error: error instanceof Error ? error.message : String(error)
     };
   }
+}
+
+async function collectProcessList() {
+  if (process.platform === "win32") {
+    const { stdout } = await execFileAsync("powershell.exe", [
+      "-NoProfile",
+      "-Command",
+      "Get-Process | Sort-Object CPU -Descending | Select-Object -First 80 Id,ProcessName,CPU,WorkingSet64 | ConvertTo-Json -Compress"
+    ]);
+    return parsePowerShellRows(stdout).map((row) => ({
+      id: Number(row.Id ?? 0),
+      name: String(row.ProcessName ?? "desconhecido"),
+      cpuSeconds: Number(row.CPU ?? 0),
+      workingSetBytes: Number(row.WorkingSet64 ?? 0)
+    }));
+  }
+
+  const { stdout } = await execFileAsync("ps", ["-eo", "pid=,comm=,pcpu=,pmem=", "--sort=-pcpu"]);
+  return stdout.trim().split(/\r?\n/).slice(0, 80).map((line) => {
+    const [id, name, cpuPercent, memoryPercent] = line.trim().split(/\s+/, 4);
+    return { id: Number(id), name, cpuPercent: Number(cpuPercent), memoryPercent: Number(memoryPercent) };
+  }).filter((row) => Number.isFinite(row.id));
+}
+
+async function collectServiceList() {
+  if (process.platform !== "win32") return [];
+  const { stdout } = await execFileAsync("powershell.exe", [
+    "-NoProfile",
+    "-Command",
+    "Get-Service | Sort-Object Status,DisplayName | Select-Object -First 100 Name,DisplayName,Status,StartType | ConvertTo-Json -Compress"
+  ]);
+  return parsePowerShellRows(stdout).map((row) => ({
+    name: String(row.Name ?? "desconhecido"),
+    displayName: String(row.DisplayName ?? "desconhecido"),
+    status: String(row.Status ?? "unknown"),
+    startType: String(row.StartType ?? "unknown")
+  }));
+}
+
+function parsePowerShellRows(stdout: string) {
+  const parsed = JSON.parse(stdout.trim() || "[]");
+  return Array.isArray(parsed) ? parsed : [parsed];
 }
 
 async function processCommands(state: AgentState) {

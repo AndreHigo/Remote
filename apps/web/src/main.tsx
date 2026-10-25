@@ -188,7 +188,7 @@ interface InventorySnapshot {
 
 interface CommandExecution {
   id: string;
-  commandType: "ping" | "system-info" | "refresh-inventory";
+  commandType: "ping" | "system-info" | "refresh-inventory" | "list-processes" | "list-services" | "collect-diagnostics";
   status: "pending" | "running" | "succeeded" | "failed";
   requestedBy: string;
   requestedAt: string;
@@ -1592,6 +1592,9 @@ function OperationsConsole(props: OperationsConsoleProps) {
                         <button className="secondary compact" type="button" onClick={() => onRequestCommand(selectedDevice, "ping")}>ping</button>
                         <button className="secondary compact" type="button" onClick={() => onRequestCommand(selectedDevice, "system-info")}>system-info</button>
                         <button className="secondary compact" type="button" onClick={() => onRequestCommand(selectedDevice, "refresh-inventory")}>refresh</button>
+                        <button className="secondary compact" type="button" onClick={() => onRequestCommand(selectedDevice, "list-processes")}>processos</button>
+                        <button className="secondary compact" type="button" onClick={() => onRequestCommand(selectedDevice, "list-services")}>servicos</button>
+                        <button className="secondary compact" type="button" onClick={() => onRequestCommand(selectedDevice, "collect-diagnostics")}>diagnostico</button>
                       </div>
                       {commands.length ? <ul className="commandList">{commands.slice(0, 4).map((item) => <li key={item.id}><strong>{item.commandType}</strong><span className={`commandStatus ${item.status}`}>{item.status}</span><small>{new Date(item.requestedAt).toLocaleString("pt-BR")}</small></li>)}</ul> : <p className="empty">Nenhum comando recente.</p>}
                     </section>

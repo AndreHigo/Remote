@@ -111,7 +111,7 @@ const inventorySchema = z.object({
 });
 
 const commandSchema = z.object({
-  commandType: z.enum(["ping", "system-info", "refresh-inventory"]),
+  commandType: z.enum(["ping", "system-info", "refresh-inventory", "list-processes", "list-services", "collect-diagnostics"]),
   payload: z.record(z.string().max(80), z.unknown()).optional().refine(
     (value) => value === undefined || JSON.stringify(value).length <= 32_000,
     "payload de comando muito grande"

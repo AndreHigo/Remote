@@ -3,7 +3,7 @@ export type RemoteSessionStatus = "requested" | "approved" | "denied" | "ended";
 export type RemoteSessionMode = "support" | "game";
 export type UserRole = "owner" | "admin" | "technician" | "viewer";
 export type CommandExecutionStatus = "pending" | "running" | "succeeded" | "failed";
-export type CommandType = "ping" | "system-info" | "refresh-inventory";
+export type CommandType = "ping" | "system-info" | "refresh-inventory" | "list-processes" | "list-services" | "collect-diagnostics";
 
 export interface AuthUser {
   id: string;
