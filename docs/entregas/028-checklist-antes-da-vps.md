@@ -24,6 +24,7 @@
 - o CI validou o empacotamento Windows do Agent e do Operator no run `40209686463`, conforme `docs/entregas/038-ci-empacotamento-windows.md`.
 - a revisão de segurança do diff de descoberta/inicialização do RustDesk terminou com cobertura completa e zero achados reportáveis.
 - `npm run validate:release`: testes, typecheck, build, auditoria, sintaxe, hashes e gate de áudio executados no workspace local.
+- o bridge de entrada libera teclas e botões mantidos quando a sessão encerra, conforme `docs/entregas/039-liberacao-de-entrada.md`.
 
 ## Fechamento antes da producao
 

@@ -6,6 +6,34 @@ export type RemoteInputEvent =
   | { type: "mouse.wheel"; delta: number }
   | { type: "key"; scanCode: number; action: "down" | "up"; extended?: boolean };
 
+export function createInputReleaseTracker() {
+  const pressedKeys = new Map<number, boolean>();
+  const pressedButtons = new Set<"left" | "right" | "middle">();
+
+  return {
+    observe(event: RemoteInputEvent) {
+      if (event.type === "key") {
+        if (event.action === "down") pressedKeys.set(event.scanCode, event.extended === true);
+        else pressedKeys.delete(event.scanCode);
+      }
+      if (event.type === "mouse.button") {
+        if (event.action === "down") pressedButtons.add(event.button);
+        else pressedButtons.delete(event.button);
+      }
+    },
+    releaseEvents(): RemoteInputEvent[] {
+      const events: RemoteInputEvent[] = [];
+      for (const button of pressedButtons) events.push({ type: "mouse.button", button, action: "up" });
+      for (const [scanCode, extended] of pressedKeys) {
+        events.push({ type: "key", scanCode, action: "up", ...(extended ? { extended: true } : {}) });
+      }
+      pressedButtons.clear();
+      pressedKeys.clear();
+      return events;
+    }
+  };
+}
+
 export function validateInputEvent(value: unknown): RemoteInputEvent {
   if (!value || typeof value !== "object") throw new Error("Evento de entrada invalido");
   const event = value as Record<string, unknown>;
@@ -45,6 +73,8 @@ export function validateInputEvent(value: unknown): RemoteInputEvent {
 
 export class WindowsInputBridge {
   private readonly process: ChildProcessWithoutNullStreams;
+  private readonly releaseTracker = createInputReleaseTracker();
+  private closed = false;
 
   constructor() {
     if (process.platform !== "win32") throw new Error("A ponte de entrada esta disponivel apenas no Windows.");
@@ -58,11 +88,22 @@ export class WindowsInputBridge {
     const event = validateInputEvent(value);
     if (!this.process.stdin.writable) throw new Error("Ponte de entrada encerrada");
     this.process.stdin.write(`${JSON.stringify(event)}\n`);
+    this.releaseTracker.observe(event);
   }
 
   close() {
-    this.process.stdin.end();
-    this.process.kill();
+    if (this.closed) return;
+    this.closed = true;
+    try {
+      if (this.process.stdin.writable) {
+        for (const event of this.releaseTracker.releaseEvents()) {
+          this.process.stdin.write(`${JSON.stringify(event)}\n`);
+        }
+        this.process.stdin.end();
+      }
+    } finally {
+      this.process.kill();
+    }
   }
 }
 
