@@ -43,8 +43,9 @@ const defaultProfile: Required<Pick<CaptureProfile, "quality" | "encoder">> = {
 };
 
 export function buildWindowsCaptureArgs(profile: CaptureProfile = defaultProfile, captureMethod: Exclude<CaptureMethod, "auto"> = "gdigrab") {
-  const fps = profile.fps ?? qualityDefaults(profile.quality).fps;
-  const bitrateKbps = profile.bitrateKbps ?? qualityDefaults(profile.quality).bitrateKbps;
+  const defaults = qualityDefaults(profile.quality, profile.encoder);
+  const fps = profile.fps ?? defaults.fps;
+  const bitrateKbps = profile.bitrateKbps ?? defaults.bitrateKbps;
   const keyframeInterval = Math.max(15, Math.round(fps / 2));
   const args = ["-hide_banner", "-loglevel", "error", "-nostdin"];
   if (captureMethod === "ddagrab") {
@@ -310,7 +311,8 @@ function encoderName(encoder: VideoEncoder) {
   }
 }
 
-function qualityDefaults(quality: VideoQuality) {
+function qualityDefaults(quality: VideoQuality, encoder: VideoEncoder = "auto") {
+  if (quality === "auto" && encoder === "cpu") return { fps: 30, bitrateKbps: 3500 };
   switch (quality) {
     case "low": return { fps: 30, bitrateKbps: 3500 };
     case "high": return { fps: 60, bitrateKbps: 12000 };

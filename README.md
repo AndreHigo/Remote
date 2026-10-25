@@ -96,7 +96,7 @@ Para uma rodada entre duas máquinas, use `npm run measure:realtime` com os desc
 
 Durante uma sessao de jogo, o operador nativo exibe RTT atual/p95, tempo ate o primeiro frame e volume de video recebido. Esses numeros ajudam a registrar a homologacao, mas nao substituem o teste entre duas maquinas descrito em `docs/entregas/029-runbook-homologacao-jogo.md`.
 
-O inventario do agente consulta a capacidade real da build do FFmpeg: encoder H.264 escolhido, metodo de captura disponivel, fallback por CPU e WASAPI loopback opcional. Assim, hosts sem GPU dedicada continuam elegiveis quando possuem `libx264`; audio do sistema so entra na sessao quando `REMOTO_CAPTURE_AUDIO=system` e a build oferece `wasapi`.
+O inventario do agente consulta a capacidade real da build do FFmpeg: encoder H.264 escolhido, metodo de captura disponivel, fallback por CPU e WASAPI loopback opcional. Assim, hosts sem GPU dedicada continuam elegiveis quando possuem `libx264`; no perfil `auto`, o fallback por CPU inicia em 30 FPS e 3,5 Mbps para priorizar estabilidade, enquanto encoders acelerados preservam 60 FPS. Audio do sistema so entra na sessao quando `REMOTO_CAPTURE_AUDIO=system` e a build oferece `wasapi`.
 
 Para um pacote de homologacao sem depender de `PATH`, gere o instalador com `-FfmpegPath` apontando para um `ffmpeg.exe` validado. O procedimento e os limites de distribuicao estao em [`docs/entregas/068-pacote-homologacao-com-ffmpeg.md`](docs/entregas/068-pacote-homologacao-com-ffmpeg.md).
 

@@ -7,6 +7,7 @@
 - testes automatizados, typecheck, build, auditoria de dependencias, Compose, instaladores, diagnostico do host e smoke local do primeiro frame validados;
 - agente Windows, operador nativo, painel web, relay H.264 e modo jogo experimental estao versionados;
 - teclado/mouse funcionam no modo jogo; o gamepad possui mapa experimental para WASD, teclas comuns e mouse relativo.
+- o perfil `auto` reduz o fallback de CPU para 30 FPS e 3,5 Mbps, mantendo 60 FPS e 6 Mbps quando um encoder acelerado esta disponivel.
 
 ## Gates que ainda exigem ambiente externo
 

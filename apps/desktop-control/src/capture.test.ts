@@ -18,6 +18,23 @@ test("captura usa CPU e baixa latencia por padrao acessivel", () => {
   assert.ok(args.includes("15"));
 });
 
+test("perfil auto reduz a carga quando o host cai para CPU", () => {
+  const args = buildWindowsCaptureArgs({ quality: "auto", encoder: "cpu" });
+
+  assert.ok(args.includes("-framerate"));
+  assert.ok(args.includes("30"));
+  assert.ok(args.includes("3500k"));
+  assert.ok(args.includes("libx264"));
+});
+
+test("perfil auto preserva 60 FPS quando usa encoder acelerado", () => {
+  const args = buildWindowsCaptureArgs({ quality: "auto", encoder: "nvidia" });
+
+  assert.ok(args.includes("60"));
+  assert.ok(args.includes("6000k"));
+  assert.ok(args.includes("h264_nvenc"));
+});
+
 test("captura pode priorizar encoder de GPU sem quebrar fallback de perfil", () => {
   const args = buildWindowsCaptureArgs({ quality: "high", encoder: "nvidia", width: 1920, height: 1080 });
 
