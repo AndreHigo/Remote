@@ -27,6 +27,13 @@ export async function connectRemoteSession(
   let capture: CaptureProcess | undefined;
   let input: WindowsInputBridge | undefined;
   let detachCapture: (() => void) | undefined;
+  let closedNotified = false;
+
+  function notifyClosed(reason: string) {
+    if (closedNotified) return;
+    closedNotified = true;
+    options.onClosed?.(reason);
+  }
 
   await new Promise<void>((resolve, reject) => {
     let settled = false;
@@ -92,14 +99,14 @@ export async function connectRemoteSession(
       }
 
       if (message.type === "closed") {
-        options.onClosed?.(message.reason ?? "sessao-encerrada");
+        notifyClosed(message.reason ?? "sessao-encerrada");
         cleanup();
         socket.close(1000, "peer-closed");
       }
     });
 
     function closeWithReason(reason: string) {
-      options.onClosed?.(reason);
+      notifyClosed(reason);
       socket.close(1011, reason.slice(0, 120));
     }
 
@@ -110,7 +117,10 @@ export async function connectRemoteSession(
       input?.close();
     }
 
-    socket.once("close", cleanup);
+  socket.once("close", (_code, reason) => {
+    cleanup();
+    notifyClosed(reason.toString("utf8") || "sessao-realtime-encerrada");
+  });
   });
 
   return {

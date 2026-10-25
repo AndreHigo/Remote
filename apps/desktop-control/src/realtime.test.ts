@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
+import http from "node:http";
 import test from "node:test";
 import { PassThrough } from "node:stream";
-import WebSocket from "ws";
+import WebSocket, { WebSocketServer } from "ws";
 import { validateInputEvent } from "./input.js";
-import { forwardCaptureFrames } from "./realtime.js";
+import { connectRemoteSession, forwardCaptureFrames } from "./realtime.js";
 
 test("entrada realtime continua tipada antes do envio", () => {
   assert.deepEqual(validateInputEvent({ type: "mouse.relative", dx: 18, dy: -9 }), {
@@ -35,4 +36,30 @@ test("captura realtime encaminha bytes que chegam no stdout do FFmpeg", () => {
   stdout.write(Buffer.from("fragment-2"));
 
   assert.deepEqual(frames, [Buffer.from("fragment-1")]);
+});
+
+test("cliente realtime notifica uma desconexao de socket e libera o agente para reconectar", async (t) => {
+  const server = http.createServer();
+  const wss = new WebSocketServer({ server });
+  t.after(async () => {
+    wss.close();
+    if (server.listening) await new Promise<void>((resolve) => server.close(() => resolve()));
+  });
+
+  wss.on("connection", (socket) => {
+    socket.send(JSON.stringify({ type: "ready", sessionId: "session-test", mode: "game", peerConnected: true }));
+    setTimeout(() => socket.close(1011, "network-down"), 20);
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+
+  const reasons: string[] = [];
+  await connectRemoteSession(
+    { sessionId: "session-test", deviceId: "device-test", mode: "game", role: "client", accessToken: "session-token" },
+    { url: `ws://127.0.0.1:${address.port}/sessions/session-test`, onClosed: (reason) => reasons.push(reason) }
+  );
+  await new Promise((resolve) => setTimeout(resolve, 80));
+
+  assert.deepEqual(reasons, ["network-down"]);
 });
