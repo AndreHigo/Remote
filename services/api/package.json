@@ -7,7 +7,7 @@
     "dev": "tsx watch src/server.ts",
     "build": "prisma generate && tsc -p tsconfig.json",
     "start": "node dist/server.js",
-    "test:security": "tsx --test src/*.test.ts",
+    "test:security": "prisma generate && tsx --test src/*.test.ts",
     "typecheck": "prisma generate && tsc -p tsconfig.json --noEmit",
     "prisma:generate": "prisma generate",
     "db:push": "prisma db push",
