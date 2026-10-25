@@ -10,4 +10,4 @@ Esses controles reduzem abuso de uma chave comprometida e crescimento indefinido
 
 ## Limite restante
 
-O rate limit continua em memoria por instancia. Em uma VPS com varias replicas, a proxima etapa e usar um store compartilhado e adicionar quotas de frequencia por dispositivo. A politica de MFA obrigatorio para tecnicos e administradores tambem precisa ser aplicada no fluxo de onboarding antes da liberacao publica.
+O rate limit continua em memoria por instancia. Em uma VPS com varias replicas, a proxima etapa e usar um store compartilhado e adicionar quotas de frequencia por dispositivo. O MFA operacional foi aplicado em producao; ainda falta validar o onboarding completo e a recuperacao de conta em ambiente real.
