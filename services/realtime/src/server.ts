@@ -20,6 +20,7 @@ interface Peer {
 interface Room {
   host?: Peer;
   client?: Peer;
+  expiryTimer?: NodeJS.Timeout;
 }
 
 export function createRealtimeServer() {
@@ -60,6 +61,15 @@ export function createRealtimeServer() {
         if (room[payload.role]) return close(socket, "role-already-connected");
         peer = { socket, payload, role: payload.role };
         room[payload.role] = peer;
+        if (!room.expiryTimer) {
+          room.expiryTimer = setTimeout(() => {
+            for (const connectedPeer of [room.host, room.client]) {
+              if (!connectedPeer) continue;
+              send(connectedPeer.socket, { type: "closed", reason: "session-expired" });
+              connectedPeer.socket.close(1008, "session-expired");
+            }
+          }, Math.max(1, payload.exp - Date.now()));
+        }
         rooms.set(payload.sessionId, room);
         clearTimeout(helloTimeout);
         send(socket, { type: "ready", sessionId: payload.sessionId, mode: payload.mode, peerConnected: Boolean(room.host && room.client) });
@@ -97,7 +107,10 @@ export function createRealtimeServer() {
       if (room[peer.role]?.socket === socket) delete room[peer.role];
       const other = peer.role === "host" ? room.client : room.host;
       if (other?.socket.readyState === WebSocket.OPEN) send(other.socket, { type: "closed", reason: "peer-disconnected" });
-      if (!room.host && !room.client) rooms.delete(peer.payload.sessionId);
+      if (!room.host && !room.client) {
+        if (room.expiryTimer) clearTimeout(room.expiryTimer);
+        rooms.delete(peer.payload.sessionId);
+      }
     });
   });
 

@@ -28,10 +28,14 @@ test("relay autentica os dois papeis e encaminha video e entrada", async (t) => 
   let host: WebSocket | undefined;
   let client: WebSocket | undefined;
   let duplicate: WebSocket | undefined;
+  let expiringHost: WebSocket | undefined;
+  let expiringClient: WebSocket | undefined;
   t.after(async () => {
     host?.terminate();
     client?.terminate();
     duplicate?.terminate();
+    expiringHost?.terminate();
+    expiringClient?.terminate();
     if (relay) await relay.close();
     if (api.listening) await closeServer(api);
   });
@@ -84,14 +88,27 @@ test("relay autentica os dois papeis e encaminha video e entrada", async (t) => 
   const closed = await nextJson(hostMessages);
   assert.deepEqual(closed, { type: "closed", reason: "peer-disconnected" });
 
-  function token(role: "host" | "client") {
+  expiringHost = await connect(url.replace("session-1", "session-expiring"));
+  expiringClient = await connect(url.replace("session-1", "session-expiring"));
+  const expiringHostMessages = createMessageQueue(expiringHost);
+  const expiringClientMessages = createMessageQueue(expiringClient);
+  expiringHost.send(JSON.stringify({ type: "hello", accessToken: token("host", "session-expiring", Date.now() + 750) }));
+  expiringClient.send(JSON.stringify({ type: "hello", accessToken: token("client", "session-expiring", Date.now() + 750) }));
+  const expiringHostReady = await nextJson(expiringHostMessages);
+  assert.equal(expiringHostReady.type, "ready");
+  if (!expiringHostReady.peerConnected) assert.equal((await nextJson(expiringHostMessages)).peerConnected, true);
+  assert.equal((await nextJson(expiringClientMessages)).type, "ready");
+  assert.equal((await nextJson(expiringHostMessages)).reason, "session-expired");
+  assert.equal((await nextJson(expiringClientMessages)).reason, "session-expired");
+
+  function token(role: "host" | "client", targetSessionId = "session-1", expiresAt = Date.now() + 60_000) {
     const body = Buffer.from(JSON.stringify({
-      sessionId: "session-1",
+      sessionId: targetSessionId,
       deviceId: "device-1",
       mode: "game",
       role,
       nonce: `${role}-nonce`,
-      exp: Date.now() + 60_000
+      exp: expiresAt
     })).toString("base64url");
     return `${body}.${crypto.createHmac("sha256", secret).update(body).digest("base64url")}`;
   }
