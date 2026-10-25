@@ -28,6 +28,13 @@ while ((Get-Process -Name "RemotoAgentService", "RemotoAgent" -ErrorAction Silen
 }
 
 & sc.exe delete $ServiceName | Out-Host
+$deadline = (Get-Date).AddSeconds(15)
+while ((Get-Service -Name $ServiceName -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) {
+  Start-Sleep -Milliseconds 250
+}
+if (Get-Service -Name $ServiceName -ErrorAction SilentlyContinue) {
+  throw "O servico $ServiceName ainda esta sendo removido pelo Windows. Tente novamente em alguns segundos."
+}
 $scheduledTask = Get-Command Unregister-ScheduledTask -ErrorAction SilentlyContinue
 if ($scheduledTask) {
   Unregister-ScheduledTask -TaskName $interactiveTaskName -Confirm:$false -ErrorAction SilentlyContinue

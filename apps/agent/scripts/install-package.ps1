@@ -27,6 +27,31 @@ function Invoke-Sc {
   }
 }
 
+function Stop-ExistingAgentProcesses {
+  param([string]$TaskName)
+
+  & schtasks.exe /End /TN $TaskName 2>$null | Out-Null
+  Get-Process -Name "RemotoAgentService", "RemotoAgent" -ErrorAction SilentlyContinue |
+    Stop-Process -Force -ErrorAction SilentlyContinue
+
+  $deadline = (Get-Date).AddSeconds(10)
+  while ((Get-Process -Name "RemotoAgentService", "RemotoAgent" -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) {
+    Start-Sleep -Milliseconds 250
+  }
+}
+
+function Wait-ServiceRemoved {
+  param([string]$Name)
+
+  $deadline = (Get-Date).AddSeconds(15)
+  while ((Get-Service -Name $Name -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) {
+    Start-Sleep -Milliseconds 250
+  }
+  if (Get-Service -Name $Name -ErrorAction SilentlyContinue) {
+    throw "O servico $Name ainda esta sendo removido pelo Windows. Aguarde alguns segundos e tente novamente."
+  }
+}
+
 function Assert-SecureEndpoint {
   param([string]$Value, [ValidateSet("api", "realtime")][string]$Kind)
   try { $uri = [Uri]$Value } catch { throw "URL $Kind invalida." }
@@ -189,12 +214,13 @@ if ($LASTEXITCODE -ne 0) { throw "Nao foi possivel proteger a configuracao do ag
 if ($LASTEXITCODE -ne 0) { throw "Nao foi possivel proteger o estado operacional do agente." }
 
 $existingService = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+Stop-ExistingAgentProcesses -TaskName $InteractiveTaskName
 if ($existingService) {
   if ($existingService.Status -ne "Stopped") {
     Stop-Service -Name $ServiceName -Force -ErrorAction SilentlyContinue
   }
   & sc.exe delete $ServiceName | Out-Host
-  Start-Sleep -Milliseconds 500
+  Wait-ServiceRemoved -Name $ServiceName
 }
 
 $binPath = '"{0}"' -f $ServiceExe

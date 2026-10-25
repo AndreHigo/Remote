@@ -24,6 +24,31 @@ function Invoke-Sc {
   }
 }
 
+function Stop-ExistingAgentProcesses {
+  param([string]$TaskName)
+
+  & schtasks.exe /End /TN $TaskName 2>$null | Out-Null
+  Get-Process -Name "RemotoAgentService", "RemotoAgent" -ErrorAction SilentlyContinue |
+    Stop-Process -Force -ErrorAction SilentlyContinue
+
+  $deadline = (Get-Date).AddSeconds(10)
+  while ((Get-Process -Name "RemotoAgentService", "RemotoAgent" -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) {
+    Start-Sleep -Milliseconds 250
+  }
+}
+
+function Wait-ServiceRemoved {
+  param([string]$Name)
+
+  $deadline = (Get-Date).AddSeconds(15)
+  while ((Get-Service -Name $Name -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) {
+    Start-Sleep -Milliseconds 250
+  }
+  if (Get-Service -Name $Name -ErrorAction SilentlyContinue) {
+    throw "O servico $Name ainda esta sendo removido pelo Windows. Aguarde alguns segundos e tente novamente."
+  }
+}
+
 function Assert-ProtectedAgentRoot {
   param([string]$Path)
   $resolved = [System.IO.Path]::GetFullPath($Path).TrimEnd('\')
@@ -110,8 +135,10 @@ if ([string]::IsNullOrWhiteSpace([string]$config.agentKey)) {
 if ($LASTEXITCODE -ne 0) { throw "Nao foi possivel proteger a configuracao do agente." }
 
 $binPath = '"{0}" "{1}"' -f $NodePath, $runner
+Stop-ExistingAgentProcesses -TaskName $InteractiveTaskName
 try { Invoke-Sc @("stop", $ServiceName) } catch { }
 try { Invoke-Sc @("delete", $ServiceName) } catch { }
+Wait-ServiceRemoved -Name $ServiceName
 Invoke-Sc @("create", $ServiceName, "binPath=", $binPath, "start=", "auto", "DisplayName=", "Remoto Agent")
 Invoke-Sc @("description", $ServiceName, "Agente Remoto para inventario, heartbeat e comandos autorizados.")
 Invoke-Sc @("failure", $ServiceName, "reset=", "86400", "actions=", "restart/5000/restart/15000/restart/60000")
