@@ -5,7 +5,36 @@ import { PassThrough } from "node:stream";
 import WebSocket, { WebSocketServer } from "ws";
 import type { CaptureProcess } from "./capture.js";
 import { validateInputEvent } from "./input.js";
+import { summarizeRealtimeMeasurement } from "./measurement.js";
 import { buildRealtimeSessionUrl, connectRemoteSession, forwardCaptureFrames, type RealtimeInputBridge } from "./realtime.js";
+
+test("medicao realtime resume primeiro frame, FPS, bitrate e p95", () => {
+  assert.deepEqual(
+    summarizeRealtimeMeasurement({
+      durationMs: 10_000,
+      firstFrameMs: 420,
+      framesReceived: 600,
+      bytesReceived: 2_000_000,
+      latencySamplesMs: [10, 20, 30, 40],
+      firstFrameValid: true
+    }),
+    {
+      schemaVersion: 1,
+      durationMs: 10_000,
+      firstFrameMs: 420,
+      framesReceived: 600,
+      fpsReceived: 60,
+      bytesReceived: 2_000_000,
+      bitrateKbps: 1600,
+      latencySamples: 4,
+      latencyAvgMs: 25,
+      latencyP95Ms: 40,
+      firstFrameValid: true,
+      closedReason: null,
+      result: "pass"
+    }
+  );
+});
 
 test("monta o caminho da sessao quando o agente recebe apenas a base do relay", () => {
   assert.equal(buildRealtimeSessionUrl("wss://remoto.example/realtime", "session-1"), "wss://remoto.example/realtime/sessions/session-1");
