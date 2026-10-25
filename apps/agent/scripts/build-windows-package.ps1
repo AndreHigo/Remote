@@ -44,6 +44,7 @@ if ($LASTEXITCODE -ne 0) {
 
 Copy-Item (Join-Path $AgentRoot "scripts\install-package.ps1") $OutputRoot
 Copy-Item (Join-Path $AgentRoot "scripts\uninstall-package.ps1") $OutputRoot
+Copy-Item (Join-Path $RepoRoot "scripts\homologate-host.ps1") $OutputRoot
 
 @'
 @echo off
@@ -63,6 +64,7 @@ Remoto Agent - pacote Windows de teste
 2. Execute install.cmd; ele pedira elevacao administrativa.
 3. Informe a URL publica da API e a chave criada no painel.
 4. O servico RemotoAgent sera iniciado automaticamente.
+5. Para coletar diagnostico da maquina, execute: powershell -ExecutionPolicy Bypass -File .\homologate-host.ps1 -OutputPath .\remoto-host-report.json
 
 Este pacote ainda e uma release de teste. O instalador oficial assinado e a atualizacao automatica permanecem pendentes.
 '@ | Set-Content -Path (Join-Path $OutputRoot "README.txt") -Encoding UTF8

@@ -43,6 +43,7 @@ Source: "{#StagingDir}\RemotoAgent.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#StagingDir}\RemotoAgentService.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#StagingDir}\install-package.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#StagingDir}\uninstall-package.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#StagingDir}\homologate-host.ps1"; DestDir: "{app}"; Flags: ignoreversion
 
 [UninstallRun]
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\uninstall-package.ps1"""; Flags: runhidden waituntilterminated; RunOnceId: "RemoveRemotoAgentService"

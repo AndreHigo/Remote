@@ -2,7 +2,7 @@
 
 ## O que foi entregue
 
-O script `scripts/homologate-host.ps1` coleta um retrato tecnico da maquina Windows sem ler a chave do agente, tokens ou URLs privadas. Ele registra:
+O script `scripts/homologate-host.ps1` coleta um retrato tecnico da maquina Windows sem ler a chave do agente, tokens ou URLs privadas. Ele acompanha o pacote Windows do agente e registra:
 
 - sistema operacional, CPU, memoria e adaptadores de video;
 - caminho e disponibilidade do FFmpeg;
