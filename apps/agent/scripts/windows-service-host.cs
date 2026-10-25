@@ -6,6 +6,7 @@ using System.Threading;
 
 public sealed class RemotoAgentService : ServiceBase
 {
+    private const long MaxLogBytes = 5 * 1024 * 1024;
     private readonly object sync = new object();
     private readonly string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
     private Process child;
@@ -116,7 +117,17 @@ public sealed class RemotoAgentService : ServiceBase
     private static void AppendLog(string path, string message)
     {
         if (String.IsNullOrEmpty(message)) return;
-        try { File.AppendAllText(path, DateTime.UtcNow.ToString("o") + " " + message + Environment.NewLine); }
+        try
+        {
+            if (File.Exists(path) && new FileInfo(path).Length >= MaxLogBytes)
+            {
+                string rotatedPath = path + ".1";
+                if (File.Exists(rotatedPath)) File.Delete(rotatedPath);
+                File.Move(path, rotatedPath);
+            }
+
+            File.AppendAllText(path, DateTime.UtcNow.ToString("o") + " " + message + Environment.NewLine);
+        }
         catch { }
     }
 
