@@ -594,6 +594,18 @@ function App() {
     }
   }
 
+  async function closeGameSession() {
+    if (!gameSession) return;
+    try {
+      await postJson(`/remote-sessions/${gameSession.sessionId}/end`, token);
+      setGameSession(null);
+      await refresh();
+      setStatusMessage("Sessao de jogo encerrada");
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "Nao foi possivel encerrar a sessao de jogo");
+    }
+  }
+
   async function requestCommand(device: Device, commandType: CommandExecution["commandType"]) {
     setStatusMessage(`Criando comando ${commandType}...`);
     await postJson(`/devices/${device.id}/commands`, token, { commandType });
@@ -980,7 +992,7 @@ function App() {
     onCreateOnboardingKey={() => void createOnboardingKey()}
     onCopyOnboardingKey={() => void copyOnboardingKey()}
     gameSession={gameSession}
-    onCloseGameSession={() => setGameSession(null)}
+    onCloseGameSession={() => void closeGameSession()}
   />;
 }
 

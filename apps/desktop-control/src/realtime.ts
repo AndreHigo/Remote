@@ -89,6 +89,7 @@ export async function connectRemoteSession(
       if (message.type === "closed") {
         options.onClosed?.(message.reason ?? "sessao-encerrada");
         cleanup();
+        socket.close(1000, "peer-closed");
       }
     });
 
