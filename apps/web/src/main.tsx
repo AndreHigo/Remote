@@ -1539,8 +1539,10 @@ function GameSessionPanel({ session, realtimeUrl, onClose }: { session: GameSess
   const socketRef = React.useRef<WebSocket | null>(null);
   const sourceBufferRef = React.useRef<SourceBuffer | null>(null);
   const mediaQueueRef = React.useRef<Uint8Array[]>([]);
+  const pingTimerRef = React.useRef<number | null>(null);
   const [status, setStatus] = React.useState("Conectando ao computador...");
   const [error, setError] = React.useState<string | null>(null);
+  const [latencyMs, setLatencyMs] = React.useState<number | null>(null);
 
   React.useEffect(() => {
     const video = videoRef.current;
@@ -1589,12 +1591,16 @@ function GameSessionPanel({ session, realtimeUrl, onClose }: { session: GameSess
     socket.addEventListener("open", () => {
       socket.send(JSON.stringify({ type: "hello", accessToken: session.accessToken }));
       setStatus("Aguardando video do computador...");
+      pingTimerRef.current = window.setInterval(() => {
+        if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: "ping", sentAt: performance.now() }));
+      }, 2000);
     });
     socket.addEventListener("message", (event) => {
       if (typeof event.data === "string") {
-        const message = JSON.parse(event.data) as { type?: string; reason?: string; peerConnected?: boolean };
+        const message = JSON.parse(event.data) as { type?: string; reason?: string; peerConnected?: boolean; sentAt?: number };
         if (message.type === "ready") setStatus(message.peerConnected ? "Conectado. Clique no video para capturar o mouse." : "Conectado. Aguardando o agente do computador...");
         if (message.type === "closed") setStatus(message.reason === "peer-disconnected" ? "O computador remoto desconectou." : message.reason ?? "Sessao encerrada.");
+        if (message.type === "pong" && typeof message.sentAt === "number") setLatencyMs(Math.max(0, Math.round(performance.now() - message.sentAt)));
         return;
       }
       const frame = new Uint8Array(event.data as ArrayBuffer);
@@ -1606,6 +1612,8 @@ function GameSessionPanel({ session, realtimeUrl, onClose }: { session: GameSess
 
     return () => {
       socket.close();
+      if (pingTimerRef.current !== null) window.clearInterval(pingTimerRef.current);
+      pingTimerRef.current = null;
       socketRef.current = null;
       sourceBufferRef.current = null;
       mediaQueueRef.current = [];
@@ -1649,7 +1657,7 @@ function GameSessionPanel({ session, realtimeUrl, onClose }: { session: GameSess
           onKeyDown={(event) => sendKey(event, "down")}
           onKeyUp={(event) => sendKey(event, "up")}
         />
-        <footer className="gameSessionFooter"><span>Video H.264 / relay autenticado</span><button className="danger" type="button" onClick={onClose}>Encerrar sessao</button></footer>
+        <footer className="gameSessionFooter"><span>Video H.264 / relay autenticado{latencyMs === null ? "" : ` / RTT ${latencyMs} ms`}</span><button className="danger" type="button" onClick={onClose}>Encerrar sessao</button></footer>
       </section>
     </div>
   );

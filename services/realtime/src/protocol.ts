@@ -16,11 +16,11 @@ export interface ChannelTokenPayload {
 export type ClientMessage =
   | { type: "hello"; accessToken: string }
   | { type: "input"; event: Record<string, unknown> }
-  | { type: "ping" };
+  | { type: "ping"; sentAt?: number };
 
 export type ServerMessage =
   | { type: "ready"; sessionId: string; mode: SessionMode; peerConnected: boolean }
-  | { type: "pong" }
+  | { type: "pong"; sentAt?: number }
   | { type: "closed"; reason: string };
 
 const TOKEN_SECRET = process.env.DESKTOP_SESSION_SECRET ?? process.env.JWT_SECRET ?? "remoto-local-desktop-secret-change-me";
@@ -53,7 +53,7 @@ export function parseControlMessage(data: Buffer | string): ClientMessage | null
     if (value.type === "hello" && typeof value.accessToken === "string") {
       return { type: "hello", accessToken: value.accessToken };
     }
-    if (value.type === "ping") return { type: "ping" };
+    if (value.type === "ping") return typeof value.sentAt === "number" ? { type: "ping", sentAt: value.sentAt } : { type: "ping" };
     if (value.type === "input" && value.event && typeof value.event === "object" && !Array.isArray(value.event)) {
       return { type: "input", event: value.event as Record<string, unknown> };
     }

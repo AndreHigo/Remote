@@ -79,7 +79,7 @@ export function createRealtimeServer() {
     const message = parseControlMessage(toBuffer(data));
     if (!message) return close(socket, "invalid-control-message");
     if (message.type === "ping") {
-      send(socket, { type: "pong" });
+      send(socket, { type: "pong", ...(message.sentAt === undefined ? {} : { sentAt: message.sentAt }) });
       return;
     }
     if (message.type === "input") {
