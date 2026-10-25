@@ -2,10 +2,10 @@
 
 ## Estado validado
 
-- commit de referência publicado: `0594ac9`;
+- commit de referência publicado: `d9219f2`;
 - `npm test`: 28 testes passando;
 - `npm run typecheck`: API, web, desktop-control, agent e realtime sem erros;
-- `npm run build`: build completo validado antes do escopo de workspace;
+- `npm run build`: build completo validado no estado atual do workspace;
 - `npm audit --audit-level=high`: 0 vulnerabilidades;
 - `docker compose config`: configuracao local valida, com imagens de producao fixadas por digest;
 - relay revalida salas a cada 10 segundos e fecha sessoes revogadas;
