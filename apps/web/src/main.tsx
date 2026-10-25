@@ -1580,9 +1580,11 @@ function GameSessionPanel({ session, realtimeUrl, onClose }: { session: GameSess
     const realtimeBase = realtimeUrl.startsWith("/")
       ? `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}${realtimeUrl}`
       : realtimeUrl;
-    const socket = new WebSocket(`${realtimeBase.replace(/\/$/, "")}/sessions/${encodeURIComponent(session.sessionId)}`);
-    socket.binaryType = "arraybuffer";
-    socketRef.current = socket;
+    let disposed = false;
+    let reconnectTimer: number | null = null;
+    let reconnectAttempt = 0;
+    let reconnectAllowed = true;
+    const socketUrl = `${realtimeBase.replace(/\/$/, "")}/sessions/${encodeURIComponent(session.sessionId)}`;
 
     const pump = () => {
       const sourceBuffer = sourceBufferRef.current;
@@ -1616,47 +1618,90 @@ function GameSessionPanel({ session, realtimeUrl, onClose }: { session: GameSess
     };
 
     mediaSource.addEventListener("sourceopen", onSourceOpen, { once: true });
-    socket.addEventListener("open", () => {
-      socket.send(JSON.stringify({ type: "hello", accessToken: session.accessToken }));
-      setStatus("Aguardando video do computador...");
-      pingTimerRef.current = window.setInterval(() => {
-        if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: "ping", sentAt: performance.now() }));
-      }, 2000);
-    });
-    socket.addEventListener("message", (event) => {
-      if (typeof event.data === "string") {
-        let message: { type?: string; reason?: string; peerConnected?: boolean; sentAt?: number };
-        try {
-          message = JSON.parse(event.data) as typeof message;
-        } catch {
-          setError("O relay enviou um controle invalido.");
-          return;
-        }
-        if (message.type === "ready") setStatus(message.peerConnected ? "Conectado. Clique no video para capturar o mouse." : "Conectado. Aguardando o agente do computador...");
-        if (message.type === "closed") setStatus(message.reason === "peer-disconnected" ? "O computador remoto desconectou." : message.reason ?? "Sessao encerrada.");
-        if (message.type === "pong" && typeof message.sentAt === "number") setLatencyMs(Math.max(0, Math.round(performance.now() - message.sentAt)));
-        return;
-      }
-      const frame = new Uint8Array(event.data as ArrayBuffer);
-      if (frame.byteLength > 8 * 1024 * 1024) {
-        setError("O frame recebido excede o limite permitido.");
-        return;
-      }
-      mediaQueueRef.current.push(frame);
-      mediaQueueBytesRef.current += frame.byteLength;
-      while (mediaQueueBytesRef.current > 16 * 1024 * 1024 && mediaQueueRef.current.length > 1) {
-        const dropped = mediaQueueRef.current.shift();
-        mediaQueueBytesRef.current -= dropped?.byteLength ?? 0;
-      }
-      pump();
-    });
-    socket.addEventListener("error", () => setError("Nao foi possivel conectar ao relay realtime."));
-    socket.addEventListener("close", () => setStatus("Sessao realtime encerrada."));
 
-    return () => {
-      socket.close();
+    const clearPing = () => {
       if (pingTimerRef.current !== null) window.clearInterval(pingTimerRef.current);
       pingTimerRef.current = null;
+    };
+
+    const scheduleReconnect = () => {
+      if (disposed || !reconnectAllowed || reconnectTimer !== null) return;
+      if (reconnectAttempt >= 8) {
+        setStatus("Nao foi possivel reconectar ao computador.");
+        return;
+      }
+      const delay = Math.min(15_000, 500 * 2 ** reconnectAttempt);
+      reconnectAttempt += 1;
+      setStatus(`Reconectando ao computador em ${Math.ceil(delay / 1000)}s...`);
+      reconnectTimer = window.setTimeout(() => {
+        reconnectTimer = null;
+        connect();
+      }, delay);
+    };
+
+    function connect() {
+      if (disposed || !reconnectAllowed) return;
+      const socket = new WebSocket(socketUrl);
+      socket.binaryType = "arraybuffer";
+      socketRef.current = socket;
+      socket.addEventListener("open", () => {
+        reconnectAttempt = 0;
+        socket.send(JSON.stringify({ type: "hello", accessToken: session.accessToken }));
+        setError(null);
+        setStatus("Aguardando video do computador...");
+        clearPing();
+        pingTimerRef.current = window.setInterval(() => {
+          if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: "ping", sentAt: performance.now() }));
+        }, 2000);
+      });
+      socket.addEventListener("message", (event) => {
+        if (typeof event.data === "string") {
+          let message: { type?: string; reason?: string; peerConnected?: boolean; sentAt?: number };
+          try {
+            message = JSON.parse(event.data) as typeof message;
+          } catch {
+            setError("O relay enviou um controle invalido.");
+            return;
+          }
+          if (message.type === "ready") setStatus(message.peerConnected ? "Conectado. Clique no video para capturar o mouse." : "Conectado. Aguardando o agente do computador...");
+          if (message.type === "closed") {
+            if (message.reason === "session-expired" || message.reason === "session-ended") reconnectAllowed = false;
+            setStatus(message.reason === "peer-disconnected" ? "O computador remoto desconectou. Reconectando..." : message.reason ?? "Sessao encerrada.");
+          }
+          if (message.type === "pong" && typeof message.sentAt === "number") setLatencyMs(Math.max(0, Math.round(performance.now() - message.sentAt)));
+          return;
+        }
+        const frame = new Uint8Array(event.data as ArrayBuffer);
+        if (frame.byteLength > 8 * 1024 * 1024) {
+          setError("O frame recebido excede o limite permitido.");
+          return;
+        }
+        mediaQueueRef.current.push(frame);
+        mediaQueueBytesRef.current += frame.byteLength;
+        while (mediaQueueBytesRef.current > 16 * 1024 * 1024 && mediaQueueRef.current.length > 1) {
+          const dropped = mediaQueueRef.current.shift();
+          mediaQueueBytesRef.current -= dropped?.byteLength ?? 0;
+        }
+        pump();
+      });
+      socket.addEventListener("error", () => setError("Nao foi possivel conectar ao relay realtime."));
+      socket.addEventListener("close", () => {
+        clearPing();
+        if (socketRef.current === socket) socketRef.current = null;
+        if (!disposed && reconnectAllowed) scheduleReconnect();
+        else if (!disposed) setStatus("Sessao realtime encerrada.");
+      });
+    }
+
+    connect();
+
+    return () => {
+      disposed = true;
+      reconnectAllowed = false;
+      if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+      clearPing();
+      socketRef.current?.close();
       socketRef.current = null;
       sourceBufferRef.current = null;
       mediaQueueRef.current = [];
