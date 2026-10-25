@@ -7,7 +7,7 @@
 - cada unidade `moof` + `mdat` e enviada como um segmento de media completo;
 - o controle de congestionamento descarta somente segmentos de media inteiros, nunca um pedaço de caixa;
 - o relay continua recebendo frames abaixo do limite de 8 MiB;
-- o teste cobre chunks divididos em limites arbitrarios e a integracao host/cliente.
+- os testes cobrem chunks divididos em limites arbitrarios, caixas malformadas, congestionamento e a integracao host/cliente.
 
 ## Validacao
 

@@ -67,6 +67,26 @@ test("captura realtime reseta uma caixa malformada sem bloquear o proximo segmen
   assert.deepEqual(frames, [initialization]);
 });
 
+test("captura realtime preserva a inicializacao e descarta media sob congestionamento", () => {
+  const stdout = new PassThrough();
+  const frames: Buffer[] = [];
+  const socket = {
+    readyState: WebSocket.OPEN,
+    bufferedAmount: 5 * 1024 * 1024,
+    send(chunk: Buffer) {
+      frames.push(chunk);
+    }
+  } as unknown as WebSocket;
+
+  const initialization = Buffer.concat([mp4Box("ftyp", Buffer.from("init")), mp4Box("moov", Buffer.from("meta"))]);
+  const media = Buffer.concat([mp4Box("moof", Buffer.from("header")), mp4Box("mdat", Buffer.from("payload"))]);
+  const detach = forwardCaptureFrames(stdout, socket);
+  stdout.write(Buffer.concat([initialization, media]));
+  detach();
+
+  assert.deepEqual(frames, [initialization]);
+});
+
 test("transporte realtime integra host e cliente com captura e entrada tipadas", async (t) => {
   const server = http.createServer();
   const wss = new WebSocketServer({ server });
