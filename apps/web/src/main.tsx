@@ -533,6 +533,8 @@ function App() {
       return;
     }
 
+    setInventorySnapshots([]);
+    setCommands([]);
     let active = true;
 
     Promise.all([
@@ -564,6 +566,7 @@ function App() {
   }
 
   function requestSession(device: Device) {
+    setSelectedDeviceId(device.id);
     setConnectDevice(device);
     setConnectReason("Atendimento tecnico");
     setConnectMode("support");
@@ -1270,6 +1273,14 @@ function OperationsConsole(props: OperationsConsoleProps) {
   } = props;
 
   const [moveCustomerId, setMoveCustomerId] = React.useState(selectedDevice?.customerId ?? "");
+  const connectCapture = connectDevice?.id === selectedDevice?.id ? latestInventory?.software.capture : undefined;
+  const connectCapabilityMessage = !gameModeEnabled
+    ? "O modo jogo esta desabilitado neste ambiente."
+    : connectCapture?.gameModeReady === true
+      ? `Captura pronta (${connectCapture.resolvedEncoder ?? connectCapture.encoder ?? "CPU"} / ${connectCapture.resolvedCaptureMethod ?? connectCapture.captureMethod ?? "auto"}).`
+      : latestInventory
+        ? "Captura ainda nao esta pronta. Atualize o inventario depois de corrigir FFmpeg/encoder."
+        : "Capacidade ainda nao foi avaliada; o inventario sera exigido na aprovacao.";
   React.useEffect(() => {
     setMoveCustomerId(selectedDevice?.customerId ?? "");
   }, [selectedDevice?.customerId, selectedDevice?.id]);
@@ -1551,7 +1562,7 @@ function OperationsConsole(props: OperationsConsoleProps) {
               <div className="connectionTarget"><span className={`deviceIcon ${connectDevice.status}`}><Monitor size={19} /></span><div><strong>{connectDevice.displayName}</strong><span>{connectDevice.customerName} / ID {connectDevice.remoteId}</span></div><span className={`status ${connectDevice.status}`}>{connectDevice.status === "online" ? "Online" : "Offline"}</span></div>
               <label className="reasonField"><span>Modo de acesso</span><select value={connectMode} onChange={(event) => onConnectModeChange(event.target.value as "support" | "game")}><option value="support">Suporte tecnico (RustDesk)</option><option value="game" disabled={!gameModeEnabled}>Jogo (experimental{gameModeEnabled ? "" : " - desabilitado"})</option></select></label>
               <label className="reasonField"><span>Motivo do acesso</span><textarea value={connectReason} onChange={(event) => onConnectReasonChange(event.target.value)} rows={3} placeholder="Ex.: validar falha no caixa" autoFocus /></label>
-              <p className="modalNote">A solicitacao sera registrada na atividade. O suporte abre RustDesk; o modo jogo experimental exige relay e captura ativos{gameModeEnabled ? "." : " e esta desabilitado neste ambiente."}</p>
+              <p className="modalNote">A solicitacao sera registrada na atividade. O suporte abre RustDesk; o modo jogo experimental exige relay e captura ativos. {connectCapabilityMessage}</p>
               <div className="modalActions"><button className="secondary" type="button" onClick={onCloseConnection}>Cancelar</button><button className="primary" type="button" onClick={onConfirmConnection} disabled={connectionLoading || connectReason.trim().length < 4}><Play size={16} />{connectionLoading ? "Registrando..." : "Solicitar acesso"}</button></div>
             </section>
           </div>
