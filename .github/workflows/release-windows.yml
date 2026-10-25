@@ -1,0 +1,86 @@
+name: Remoto Windows Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: windows-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Ensure Inno Setup
+        shell: powershell
+        run: |
+          $paths = @(
+            "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
+            "C:\Program Files\Inno Setup 6\ISCC.exe"
+          )
+          if (-not ($paths | Where-Object { Test-Path -LiteralPath $_ })) {
+            choco install innosetup --no-progress -y
+          }
+
+      - name: Package agent
+        run: npm run agent:package:windows
+
+      - name: Package native operator
+        run: npm run operator:package:windows
+
+      - name: Generate checksums
+        shell: powershell
+        run: |
+          $files = @(
+            "apps/agent/release/RemotoAgent-Setup.exe",
+            "apps/agent/release/RemotoAgent-Windows.zip",
+            "apps/operator/release/Remoto-Operator-Setup-0.1.0.exe"
+          )
+          $lines = foreach ($file in $files) {
+            if (-not (Test-Path -LiteralPath $file)) { throw "Artefato ausente: $file" }
+            $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $file).Hash
+            "$hash  $file"
+          }
+          $lines | Set-Content -LiteralPath release-manifest.txt -Encoding utf8
+          Get-Content -LiteralPath release-manifest.txt
+
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: remoto-windows-${{ github.ref_name }}
+          path: |
+            apps/agent/release/RemotoAgent-Setup.exe
+            apps/agent/release/RemotoAgent-Windows.zip
+            apps/operator/release/Remoto-Operator-Setup-0.1.0.exe
+            release-manifest.txt
+          if-no-files-found: error
+
+      - name: Publish tagged release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create $env:GITHUB_REF_NAME `
+            apps/agent/release/RemotoAgent-Setup.exe `
+            apps/agent/release/RemotoAgent-Windows.zip `
+            apps/operator/release/Remoto-Operator-Setup-0.1.0.exe `
+            release-manifest.txt `
+            --title "Remoto $env:GITHUB_REF_NAME" `
+            --generate-notes
