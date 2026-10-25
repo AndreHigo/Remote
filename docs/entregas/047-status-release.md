@@ -2,8 +2,8 @@
 
 ## Estado atual
 
-- commit de referencia: `58fd347`;
-- CI remoto verde no GitHub Actions: [Remoto CI 40214830403](https://github.com/AndreHigo/Remote/actions/runs/40214830403);
+- commit de referencia: `c47f249`;
+- CI remoto verde no GitHub Actions: [Remoto CI 40215118059](https://github.com/AndreHigo/Remote/actions/runs/40215118059);
 - o CI passou nos testes de seguranca, agente, desktop-control e realtime;
 - typecheck, build, preflight dos Compose e empacotamento Windows do Agent e do Operator passaram;
 - a ultima entrega vinculou cada chave de cadastro ao primeiro `remoteId` que a utiliza;

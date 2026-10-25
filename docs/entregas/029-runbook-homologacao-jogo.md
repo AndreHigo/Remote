@@ -34,7 +34,7 @@ Para cada rodada, guardar data, versao/commit, sistema operacional, CPU, GPU, re
 
 ## Limites conhecidos
 
-- A captura atual usa FFmpeg com `gdigrab` e H.264; a qualidade depende do encoder e da rede.
+- A captura atual usa FFmpeg com Desktop Duplication (`ddagrab`) quando disponivel e cai para `gdigrab`; o video usa H.264 e a qualidade depende do encoder e da rede.
 - O fallback de CPU permite operar sem placa dedicada, mas nao promete 60 FPS em qualquer maquina.
 - Jogos com anti-cheat, desktop seguro, UAC ou protecoes de baixo nivel podem bloquear captura ou entrada.
 - O modo suporte RustDesk e o modo jogo nativo sao adaptadores diferentes; a aprovacao da sessao continua sendo comum, mas a compatibilidade de jogo nao deve ser inferida a partir de uma sessao de suporte.

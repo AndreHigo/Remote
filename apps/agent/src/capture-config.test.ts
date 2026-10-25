@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { buildCaptureReadiness, readCaptureProfile } from "./capture-config.js";
 
-test("usa CPU e perfil auto como padrao acessivel", () => {
-  assert.deepEqual(readCaptureProfile({}), { quality: "auto", encoder: "cpu", captureMethod: "auto", width: undefined, height: undefined, fps: undefined, bitrateKbps: undefined });
+test("usa encoder automatico e perfil acessivel como padrao", () => {
+  assert.deepEqual(readCaptureProfile({}), { quality: "auto", encoder: "auto", captureMethod: "auto", width: undefined, height: undefined, fps: undefined, bitrateKbps: undefined });
 });
 
 test("permite configurar perfil e limites pelo ambiente", () => {
@@ -42,6 +42,11 @@ test("expõe prontidao do modo jogo sem esconder o fallback de CPU", () => {
     cpuFallback: true
   });
   assert.equal(buildCaptureReadiness(profile, false).gameModeReady, false);
+});
+
+test("nao marca qualidade auto como fallback de CPU antes da deteccao do encoder", () => {
+  const profile = readCaptureProfile({});
+  assert.equal(buildCaptureReadiness(profile, true).cpuFallback, false);
 });
 
 test("permite escolher o metodo de captura pelo ambiente", () => {

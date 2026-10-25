@@ -24,7 +24,7 @@ export interface CaptureProcess {
 
 const defaultProfile: Required<Pick<CaptureProfile, "quality" | "encoder">> = {
   quality: "auto",
-  encoder: "cpu"
+  encoder: "auto"
 };
 
 export function buildWindowsCaptureArgs(profile: CaptureProfile = defaultProfile, captureMethod: Exclude<CaptureMethod, "auto"> = "gdigrab") {

@@ -29,7 +29,7 @@ const captureMethods = new Set<CaptureMethod>(["auto", "gdigrab", "ddagrab"]);
 
 export function readCaptureProfile(fileConfig: CaptureConfigValues, environment: NodeJS.ProcessEnv = process.env): CaptureProfile {
   const quality = readEnum(environment.REMOTO_CAPTURE_QUALITY ?? fileConfig.captureQuality, qualities, "auto", "REMOTO_CAPTURE_QUALITY");
-  const encoder = readEnum(environment.REMOTO_CAPTURE_ENCODER ?? fileConfig.captureEncoder, encoders, "cpu", "REMOTO_CAPTURE_ENCODER");
+  const encoder = readEnum(environment.REMOTO_CAPTURE_ENCODER ?? fileConfig.captureEncoder, encoders, "auto", "REMOTO_CAPTURE_ENCODER");
   const captureMethod = readEnum(environment.REMOTO_CAPTURE_METHOD ?? fileConfig.captureMethod, captureMethods, "auto", "REMOTO_CAPTURE_METHOD");
 
   return {
@@ -54,7 +54,7 @@ export function buildCaptureReadiness(profile: CaptureProfile, ffmpegAvailable: 
     height: profile.height,
     fps: profile.fps,
     bitrateKbps: profile.bitrateKbps,
-    cpuFallback: profile.encoder === "cpu" || profile.quality === "auto"
+    cpuFallback: profile.encoder === "cpu"
   };
 }
 

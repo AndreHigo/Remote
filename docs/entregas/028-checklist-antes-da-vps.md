@@ -18,7 +18,7 @@
   `apps/agent/release/RemotoAgent-Setup.exe`;
 - SHA256 atual do instalador do agente: `DA705B9562BA85B9B4DA9EB28A737DAD437B84A9B61A108D357A7475B9DCD254`;
 - o instalador do agente encerra o serviço, o host do serviço e o processo interativo antes da atualização para evitar arquivo bloqueado.
-- o operador nativo agora exibe RTT e tenta reconectar após queda transitória, conforme `docs/entregas/030-reconexao-e-rtt-operador-nativo.md`.
+- o operador nativo agora exibe RTT e tenta reconectar após queda transitória, conforme `docs/entregas/030-reconexao-e-rtt-operador.md`.
 - o transporte do host preserva segmentos fMP4 completos antes de enviá-los ao relay, conforme `docs/entregas/032-segmentacao-fmp4-baixa-latencia.md`.
 - o CI também executa os testes do agente e valida a sintaxe dos scripts do operador nativo, conforme `docs/entregas/033-ci-agente-e-operador.md`.
 - o CI validou o empacotamento Windows do Agent e do Operator no run `40209686463`, conforme `docs/entregas/038-ci-empacotamento-windows.md`.
