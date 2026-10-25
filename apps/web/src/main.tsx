@@ -593,6 +593,7 @@ function App() {
   React.useEffect(() => {
     if (!user || !selectedDevice?.id) {
       setInventorySnapshots([]);
+      setCommands([]);
       return;
     }
 
@@ -600,25 +601,36 @@ function App() {
     setCommands([]);
     let active = true;
 
-    Promise.all([
-      getJson<InventorySnapshot[]>(`/devices/${selectedDevice.id}/inventory`, token),
-      getJson<CommandExecution[]>(`/devices/${selectedDevice.id}/commands`, token)
-    ])
-      .then(([snapshots, nextCommands]) => {
-        if (active) {
-          setInventorySnapshots(snapshots);
-          setCommands(nextCommands);
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setInventorySnapshots([]);
-          setCommands([]);
-        }
-      });
+    const loadSelectedDeviceData = async () => {
+      const [snapshots, nextCommands] = await Promise.all([
+        getJson<InventorySnapshot[]>(`/devices/${selectedDevice.id}/inventory`, token),
+        getJson<CommandExecution[]>(`/devices/${selectedDevice.id}/commands`, token)
+      ]);
+      if (!active) return nextCommands;
+      setInventorySnapshots(snapshots);
+      setCommands(nextCommands);
+      return nextCommands;
+    };
+
+    void loadSelectedDeviceData().catch(() => {
+      if (active) {
+        setInventorySnapshots([]);
+        setCommands([]);
+      }
+    });
+
+    const commandRefreshTimer = window.setInterval(async () => {
+      try {
+        const nextCommands = await getJson<CommandExecution[]>(`/devices/${selectedDevice.id}/commands`, token);
+        if (active) setCommands(nextCommands);
+      } catch {
+        // A transient refresh failure should not erase the last visible result.
+      }
+    }, 4000);
 
     return () => {
       active = false;
+      window.clearInterval(commandRefreshTimer);
     };
   }, [selectedDevice?.id, token, user?.id]);
 
