@@ -43,6 +43,7 @@ function Test-UnderTrustedRoot {
 
 function Find-ProtectedFfmpeg {
   $candidates = @(
+    (Join-Path $env:ProgramFiles "Remoto Agent\ffmpeg\ffmpeg.exe"),
     (Join-Path $env:ProgramFiles "ffmpeg\bin\ffmpeg.exe"),
     (Join-Path $env:ProgramFiles "FFmpeg\bin\ffmpeg.exe"),
     (Join-Path $env:ProgramData "chocolatey\bin\ffmpeg.exe")
