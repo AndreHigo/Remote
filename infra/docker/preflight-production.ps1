@@ -48,6 +48,10 @@ if ($values["BOOTSTRAP_ADMIN_PASSWORD"].Length -lt 12) { throw "BOOTSTRAP_ADMIN_
 if ($values["BOOTSTRAP_ADMIN_EMAIL"] -notmatch "^[^@\s]+@[^@\s]+\.[^@\s]+$") { throw "BOOTSTRAP_ADMIN_EMAIL invalido" }
 if ($values["WEB_DOMAIN"] -match "^https?://") { throw "WEB_DOMAIN deve ser somente o hostname, sem http:// ou https://" }
 
+if ($values["DESKTOP_SESSION_SECRET"] -eq $values["JWT_SECRET"]) { throw "DESKTOP_SESSION_SECRET deve ser diferente de JWT_SECRET" }
+if ($values["TOTP_ENCRYPTION_KEY"] -eq $values["JWT_SECRET"]) { throw "TOTP_ENCRYPTION_KEY deve ser diferente de JWT_SECRET" }
+if ($values["REALTIME_INTERNAL_SECRET"] -eq $values["DESKTOP_SESSION_SECRET"]) { throw "REALTIME_INTERNAL_SECRET deve ser diferente de DESKTOP_SESSION_SECRET" }
+
 $unsafeValues = @("example.com", "troque", "change-this", "localhost", "127.0.0.1")
 foreach ($name in $required) {
   foreach ($unsafe in $unsafeValues) {
