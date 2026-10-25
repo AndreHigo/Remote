@@ -5,8 +5,9 @@
 - o Inno Setup fecha aplicacoes conhecidas antes de copiar os arquivos;
 - `PrepareToInstall` para o servico antes da fase de substituicao;
 - o instalador aguarda o servico, encerra o host do servico e o processo interativo;
+- a desinstalacao usa a mesma ordem e aguarda os processos antes de remover o servico;
 - o pacote Windows foi recompilado e validado pelo compilador do Inno Setup;
-- SHA256 atual: `E9AD4BCF604978474552869829F15BAB1F70145F2BE3745B1364350F64C90B21`.
+- SHA256 atual: `DA705B9562BA85B9B4DA9EB28A737DAD437B84A9B61A108D357A7475B9DCD254`.
 
 ## Limite
 
