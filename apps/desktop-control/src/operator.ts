@@ -1,4 +1,4 @@
-import { connectRemoteSession, type RealtimeClientOptions, type RealtimeConnection } from "./realtime.js";
+import { connectRemoteSession, type RealtimeClientOptions, type RealtimeConnection, type RealtimeMetrics } from "./realtime.js";
 import type { DesktopSessionDescriptor } from "./engine.js";
 
 export interface NativeOperatorOptions {
@@ -6,6 +6,7 @@ export interface NativeOperatorOptions {
   onFrame?: (frame: Buffer) => void;
   onReady?: (peerConnected: boolean) => void;
   onLatencyMs?: (latencyMs: number) => void;
+  onMetrics?: (metrics: RealtimeMetrics) => void;
   onClosed?: (reason: string) => void;
 }
 
@@ -32,6 +33,7 @@ export async function openNativeOperatorSession(
     onFrame: options.onFrame,
     onReady: options.onReady,
     onLatencyMs: options.onLatencyMs,
+    onMetrics: options.onMetrics,
     onClosed: options.onClosed
   };
   const connection = await connectRemoteSession(descriptor, connectionOptions);

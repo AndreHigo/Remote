@@ -8,6 +8,8 @@ const statusText = document.getElementById("status");
 const statusDot = document.getElementById("status-dot");
 const fpsText = document.getElementById("fps");
 const latencyText = document.getElementById("latency");
+const firstFrameText = document.getElementById("first-frame");
+const receivedText = document.getElementById("received");
 const frameQueue = [];
 let frameCount = 0;
 let fpsTimer;
@@ -125,8 +127,10 @@ window.remotoOperator.onStatus(({ status, detail: message }) => {
   else if (status === "closed") showDetail("Sessao encerrada", message);
   else detail.textContent = message || detail.textContent;
 });
-window.remotoOperator.onMetrics(({ latencyMs }) => {
+window.remotoOperator.onMetrics(({ latencyMs, firstFrameMs, bytesReceived }) => {
   if (Number.isFinite(latencyMs)) latencyText.textContent = `RTT ${Math.round(latencyMs)} ms`;
+  if (Number.isFinite(firstFrameMs)) firstFrameText.textContent = `1o frame ${Math.round(firstFrameMs)} ms`;
+  if (Number.isFinite(bytesReceived)) receivedText.textContent = `${(bytesReceived / 1024 / 1024).toFixed(1)} MB`;
 });
 window.remotoOperator.onFrame(receiveFrame);
 try { startMedia(); } catch (error) { fail(error); }

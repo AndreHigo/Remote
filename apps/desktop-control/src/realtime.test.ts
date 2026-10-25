@@ -94,6 +94,7 @@ test("transporte realtime integra host e cliente com captura e entrada tipadas",
   const receivedInputs: unknown[] = [];
   const frames: Buffer[] = [];
   const latencies: number[] = [];
+  const metrics: Array<{ framesReceived: number; bytesReceived: number; firstFrameMs?: number }> = [];
   const inputBridge: RealtimeInputBridge = {
     send(value) {
       receivedInputs.push(value);
@@ -157,7 +158,8 @@ test("transporte realtime integra host e cliente com captura e entrada tipadas",
     {
       url: `ws://127.0.0.1:${address.port}/sessions/session-test`,
       onFrame: (frame) => frames.push(frame),
-      onLatencyMs: (latencyMs) => latencies.push(latencyMs)
+      onLatencyMs: (latencyMs) => latencies.push(latencyMs),
+      onMetrics: (value) => metrics.push(value)
     }
   );
 
@@ -169,6 +171,12 @@ test("transporte realtime integra host e cliente com captura e entrada tipadas",
   stdout.write(Buffer.concat([initialization, media]));
   await waitFor(() => frames.length === 2);
   assert.deepEqual(frames, [initialization, media]);
+  await waitFor(() => metrics.some((value) => value.framesReceived === 2));
+  const latestMetrics = metrics.at(-1);
+  assert.ok(latestMetrics);
+  assert.equal(latestMetrics.framesReceived, 2);
+  assert.equal(latestMetrics.bytesReceived, initialization.byteLength + media.byteLength);
+  assert.ok((latestMetrics.firstFrameMs ?? -1) >= 0);
 
   client.sendInput({ type: "key", scanCode: 30, action: "down" });
   await waitFor(() => receivedInputs.length === 1);

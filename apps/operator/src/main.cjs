@@ -146,6 +146,9 @@ async function connectNativeSession(descriptor, realtimeUrl) {
       onLatencyMs(latencyMs) {
         sendMetrics({ latencyMs });
       },
+      onMetrics(metrics) {
+        sendMetrics(metrics);
+      },
       onClosed(reason) {
         if (closingSession || activeDescriptor?.sessionId !== descriptor.sessionId) return;
         nativeSession = undefined;

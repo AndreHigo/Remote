@@ -12,7 +12,15 @@ export interface RealtimeClientOptions {
   onFrame?: (frame: Buffer) => void;
   onReady?: (peerConnected: boolean) => void;
   onLatencyMs?: (latencyMs: number) => void;
+  onMetrics?: (metrics: RealtimeMetrics) => void;
   onClosed?: (reason: string) => void;
+}
+
+export interface RealtimeMetrics {
+  framesReceived: number;
+  bytesReceived: number;
+  firstFrameMs?: number;
+  latencyMs?: number;
 }
 
 export interface RealtimeInputBridge {
@@ -37,7 +45,21 @@ export async function connectRemoteSession(
   let input: RealtimeInputBridge | undefined;
   let detachCapture: (() => void) | undefined;
   let pingTimer: NodeJS.Timeout | undefined;
+  let metricsTimer: NodeJS.Timeout | undefined;
   let closedNotified = false;
+  const startedAt = Date.now();
+  let framesReceived = 0;
+  let bytesReceived = 0;
+  let firstFrameMs: number | undefined;
+  let latencyMs: number | undefined;
+  let lastMetricsAt = 0;
+
+  function publishMetrics(force = false) {
+    const now = Date.now();
+    if (!force && now - lastMetricsAt < 1_000) return;
+    lastMetricsAt = now;
+    options.onMetrics?.({ framesReceived, bytesReceived, firstFrameMs, latencyMs });
+  }
 
   function notifyClosed(reason: string) {
     if (closedNotified) return;
@@ -63,7 +85,15 @@ export async function connectRemoteSession(
     });
     socket.on("message", (data, isBinary) => {
       if (isBinary) {
-        if (session.role === "client") options.onFrame?.(toBuffer(data));
+        if (session.role === "client") {
+          const frame = toBuffer(data);
+          framesReceived += 1;
+          bytesReceived += frame.byteLength;
+          const isFirstFrame = firstFrameMs === undefined;
+          if (isFirstFrame) firstFrameMs = Math.max(0, Date.now() - startedAt);
+          options.onFrame?.(frame);
+          publishMetrics(isFirstFrame);
+        }
         return;
       }
 
@@ -82,6 +112,9 @@ export async function connectRemoteSession(
         pingTimer = setInterval(() => {
           if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: "ping", sentAt: Date.now() }));
         }, 2000);
+        if (session.role === "client" && options.onMetrics) {
+          metricsTimer = setInterval(() => publishMetrics(true), 1000);
+        }
         if (session.role === "host") {
           try {
             input = options.inputFactory?.() ?? new WindowsInputBridge();
@@ -107,7 +140,9 @@ export async function connectRemoteSession(
       }
 
       if (message.type === "pong" && typeof message.sentAt === "number") {
-        options.onLatencyMs?.(Math.max(0, Date.now() - message.sentAt));
+        latencyMs = Math.max(0, Date.now() - message.sentAt);
+        options.onLatencyMs?.(latencyMs);
+        publishMetrics();
         return;
       }
 
@@ -135,6 +170,8 @@ export async function connectRemoteSession(
     function cleanup() {
       if (pingTimer) clearInterval(pingTimer);
       pingTimer = undefined;
+      if (metricsTimer) clearInterval(metricsTimer);
+      metricsTimer = undefined;
       detachCapture?.();
       detachCapture = undefined;
       capture?.stop();
