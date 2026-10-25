@@ -134,6 +134,12 @@ async function main() {
     return;
   }
 
+  if (command === "sessions") {
+    const state = (await loadState()) ?? (await registerAndSave());
+    await runSessionLoop(state);
+    return;
+  }
+
   throw new Error(`Comando desconhecido: ${command}`);
 }
 
@@ -232,9 +238,11 @@ async function get<T>(route: string) {
 }
 
 async function runLoop(state: AgentState) {
+  const sessionsEnabled = process.env.REMOTO_AGENT_MANAGEMENT_ONLY !== "1";
   console.log(
     `Agente Remoto ativo para ${state.displayName}. ` +
-    `heartbeat=${config.heartbeatIntervalSeconds}s comandos=${config.commandIntervalSeconds}s inventario=${config.inventoryIntervalSeconds}s sessoes=${config.remoteSessionIntervalSeconds}s.`
+    `heartbeat=${config.heartbeatIntervalSeconds}s comandos=${config.commandIntervalSeconds}s inventario=${config.inventoryIntervalSeconds}s ` +
+    `sessoes=${sessionsEnabled ? `${config.remoteSessionIntervalSeconds}s` : "desativadas (management-only)"}.`
   );
 
   await runSafely("heartbeat", async () => {
@@ -248,9 +256,11 @@ async function runLoop(state: AgentState) {
   await runSafely("inventory", async () => {
     await collectAndSendInventory(state);
   });
-  await runSafely("sessoes-remotas", async () => {
-    await reportRemoteSessions(state);
-  });
+  if (sessionsEnabled) {
+    await runSafely("sessoes-remotas", async () => {
+      await reportRemoteSessions(state);
+    });
+  }
 
   const timers = [
     setInterval(() => {
@@ -270,16 +280,36 @@ async function runLoop(state: AgentState) {
         await collectAndSendInventory(state);
       });
     }, config.inventoryIntervalSeconds * 1000),
-    setInterval(() => {
+    ...(sessionsEnabled ? [setInterval(() => {
       void runSafely("sessoes-remotas", async () => {
         await reportRemoteSessions(state);
       });
-    }, config.remoteSessionIntervalSeconds * 1000)
+    }, config.remoteSessionIntervalSeconds * 1000)] : [])
   ];
 
   process.on("SIGINT", () => {
     timers.forEach((timer) => clearInterval(timer));
     console.log("Agente Remoto encerrado.");
+    process.exit(0);
+  });
+}
+
+async function runSessionLoop(state: AgentState) {
+  console.log(`Agente Remoto desktop ativo para ${state.displayName}. sessoes=${config.remoteSessionIntervalSeconds}s.`);
+  await runSafely("sessoes-remotas", async () => {
+    await reportRemoteSessions(state);
+  });
+
+  const timer = setInterval(() => {
+    void runSafely("sessoes-remotas", async () => {
+      await reportRemoteSessions(state);
+    });
+  }, config.remoteSessionIntervalSeconds * 1000);
+
+  process.on("SIGINT", () => {
+    clearInterval(timer);
+    for (const connection of activeRemoteSessions.values()) connection.close();
+    console.log("Agente Remoto desktop encerrado.");
     process.exit(0);
   });
 }

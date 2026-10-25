@@ -177,7 +177,7 @@ Regras:
 
 ### Pendencias de producao que continuam explicitas
 
-- testar captura e entrada em duas maquinas reais, inclusive quando o agente roda em Session 0 do servico Windows;
+- testar captura e entrada em duas maquinas reais, incluindo login, bloqueio/desbloqueio e troca de usuario; o servico fica em Session 0 apenas para gestao e o processo `sessions` deve rodar na sessao interativa;
 - assinar o instalador e definir atualizacao assinada;
 - trocar rate limit em memoria por Redis e validar rotacao/armazenamento de segredos;
 - pinar imagens Docker por digest e proteger backups com criptografia operacional;

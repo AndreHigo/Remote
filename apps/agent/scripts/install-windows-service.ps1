@@ -33,6 +33,7 @@ $AgentRoot = (Resolve-Path $AgentRoot).Path
 if ($Uninstall) {
   try { Invoke-Sc @("stop", $ServiceName) } catch { }
   Invoke-Sc @("delete", $ServiceName)
+  Remove-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "RemotoAgentDesktop" -ErrorAction SilentlyContinue
   Write-Output "Servico removido: $ServiceName"
   exit 0
 }
@@ -69,6 +70,11 @@ Invoke-Sc @("create", $ServiceName, "binPath=", $binPath, "start=", "auto", "Dis
 Invoke-Sc @("description", $ServiceName, "Agente Remoto para inventario, heartbeat e comandos autorizados.")
 Invoke-Sc @("failure", $ServiceName, "reset=", "86400", "actions=", "restart/5000/restart/15000/restart/60000")
 Invoke-Sc @("start", $ServiceName)
+
+$runKey = "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run"
+$desktopCommand = '"{0}" "{1}" sessions' -f $NodePath, $runner
+New-Item -Path $runKey -Force | Out-Null
+New-ItemProperty -Path $runKey -Name "RemotoAgentDesktop" -PropertyType String -Value $desktopCommand -Force | Out-Null
 
 Write-Output "Servico instalado e iniciado: $ServiceName"
 Write-Output "Root: $AgentRoot"

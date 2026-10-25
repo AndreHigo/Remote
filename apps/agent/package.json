@@ -10,6 +10,7 @@
     "inventory": "tsx src/index.ts inventory",
     "commands": "tsx src/index.ts commands",
     "loop": "tsx src/index.ts loop",
+    "sessions": "tsx src/index.ts sessions",
     "config:init": "tsx src/index.ts config:init",
     "status": "tsx src/index.ts status",
     "build": "tsc -p tsconfig.json",

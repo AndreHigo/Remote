@@ -22,6 +22,7 @@
     "agent:inventory": "npm run inventory -w apps/agent",
     "agent:commands": "npm run commands -w apps/agent",
     "agent:loop": "npm run loop -w apps/agent",
+    "agent:sessions": "npm run sessions -w apps/agent",
     "agent:config:init": "npm run config:init -w apps/agent",
     "agent:status": "npm run status -w apps/agent",
     "agent:service:install": "powershell -NoProfile -ExecutionPolicy Bypass -File apps/agent/scripts/install-windows-service.ps1",

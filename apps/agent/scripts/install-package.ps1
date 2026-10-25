@@ -43,6 +43,8 @@ $AgentRoot = (Resolve-Path $PSScriptRoot).Path
 $AgentExe = Join-Path $AgentRoot "RemotoAgent.exe"
 $ServiceExe = Join-Path $AgentRoot "RemotoAgentService.exe"
 $ConfigPath = Join-Path $AgentRoot ".remoto-agent.config.json"
+$StateDirectory = Join-Path $env:ProgramData "Remoto\state"
+$StatePath = Join-Path $StateDirectory "agent.state.json"
 
 if (-not (Test-Path $AgentExe) -or -not (Test-Path $ServiceExe)) {
   throw "Arquivos do Remoto Agent nao encontrados em $AgentRoot."
@@ -67,7 +69,7 @@ $configJson = @{
   apiUrl = $ApiUrl.TrimEnd("/")
   realtimeUrl = $RealtimeUrl.TrimEnd("/")
   agentKey = $AgentKey.Trim()
-  stateFile = ".remoto-agent.state.json"
+  stateFile = $StatePath
   ffmpegPath = $(
     if ($env:REMOTO_FFMPEG_PATH) { $env:REMOTO_FFMPEG_PATH }
     else {
@@ -76,9 +78,13 @@ $configJson = @{
     }
   )
 } | ConvertTo-Json
+[System.IO.Directory]::CreateDirectory($StateDirectory) | Out-Null
 [System.IO.File]::WriteAllText($ConfigPath, $configJson, [System.Text.UTF8Encoding]::new($false))
-& icacls.exe $ConfigPath /inheritance:r /grant:r "*S-1-5-18:(F)" "*S-1-5-32-544:(F)" | Out-Host
+if (-not (Test-Path -LiteralPath $StatePath)) { [System.IO.File]::WriteAllText($StatePath, "{}", [System.Text.UTF8Encoding]::new($false)) }
+& icacls.exe $ConfigPath /inheritance:r /grant:r "*S-1-5-18:(F)" "*S-1-5-32-544:(F)" "*S-1-5-32-545:(R)" | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "Nao foi possivel proteger a configuracao do agente." }
+& icacls.exe $StateDirectory /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)(F)" "*S-1-5-32-544:(OI)(CI)(F)" "*S-1-5-32-545:(OI)(CI)(M)" | Out-Host
+if ($LASTEXITCODE -ne 0) { throw "Nao foi possivel proteger o estado operacional do agente." }
 
 $existingService = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
 if ($existingService) {

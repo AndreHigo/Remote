@@ -7,6 +7,7 @@
 - instalacao exige PowerShell elevado, build pronto e `agentKey` preenchido;
 - servico inicia automaticamente com o Windows;
 - falhas acionam reinicio progressivo pelo Service Control Manager;
+- o instalador registra tambem o processo `sessions` no login do usuario para que captura e entrada nao dependam da Session 0;
 - desinstalacao exige comando explicito `npm run agent:service:uninstall`.
 
 ## Uso
@@ -16,6 +17,12 @@ npm run build
 npm run agent:config:init
 # preencher apps/agent/.remoto-agent.config.json
 npm run agent:service:install
+```
+
+Para executar apenas o processo desktop durante um teste local:
+
+```powershell
+npm run agent:sessions
 ```
 
 Para remover:

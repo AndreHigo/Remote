@@ -98,6 +98,9 @@ export function resolveFfmpegExecutable(preferredPath?: string) {
   const roots = process.env.ProgramData
     ? [path.join(process.env.ProgramData, "Microsoft", "WinGet", "Packages")]
     : [];
+  if (process.env.REMOTO_AGENT_SERVICE !== "1" && process.env.LOCALAPPDATA) {
+    roots.push(path.join(process.env.LOCALAPPDATA, "Microsoft", "WinGet", "Packages"));
+  }
   for (const root of roots) {
     const discovered = findFfmpegInWinGet(root);
     if (discovered) return discovered;

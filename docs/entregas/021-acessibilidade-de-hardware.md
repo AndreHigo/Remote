@@ -17,7 +17,7 @@ O Remoto sera apresentado como um unico aplicativo. O usuario nao precisa conhec
 - O painel exibe o hardware de video e informa se existe fallback de CPU.
 - A documentacao do desktop-control fixa a regra de um unico aplicativo e instalador.
 - A captura Windows usa `gdigrab` com `libx264` por CPU como padrao e encoders NVIDIA/AMD/Intel como aceleracao opcional.
-- O instalador e o agente descobrem FFmpeg em caminhos comuns do Windows, incluindo WinGet, sem exigir placa de video dedicada.
+- O instalador e o agente descobrem FFmpeg em caminhos comuns do Windows, incluindo WinGet; o processo desktop pode usar o WinGet do usuario, enquanto o servico nunca executa binarios de uma pasta de perfil mutavel.
 - O transporte local foi exercido com FFmpeg/CPU e os bytes enviados ao relay possuem teste automatizado.
 - O agente aceita perfil de qualidade, encoder, dimensao, FPS e bitrate por arquivo de configuracao ou variavel de ambiente, mantendo CPU/auto como padrao.
 

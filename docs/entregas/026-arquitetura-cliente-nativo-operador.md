@@ -69,6 +69,8 @@ Isso nao exige Sunshine nem placa de video dedicada. A captura CPU e o fallback 
 - cliente nativo operador ainda nao possui janela/decodificador final;
 - gamepad, audio, clipboard e teste entre duas maquinas ainda nao estao concluidos.
 
+O instalador Windows agora separa o processo de gestao do processo desktop: o servico permanece em modo management-only e o mesmo agente inicia `sessions` no login do usuario. Isso evita depender da Session 0 para captura e `SendInput`; a validacao final ainda precisa ser feita em Windows com usuario logado, bloqueio/desbloqueio e troca de sessao.
+
 ## Proxima implementacao do cliente nativo
 
 1. criar a janela Windows/Tauri e carregar o descritor de sessao sem expor token na URL;

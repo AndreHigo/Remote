@@ -67,6 +67,7 @@ public sealed class RemotoAgentService : ServiceBase
                 WindowStyle = ProcessWindowStyle.Hidden
             };
             startInfo.EnvironmentVariables["REMOTO_AGENT_SERVICE"] = "1";
+            startInfo.EnvironmentVariables["REMOTO_AGENT_MANAGEMENT_ONLY"] = "1";
 
             child = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
             child.OutputDataReceived += (sender, eventArgs) => AppendLog(stdoutPath, eventArgs.Data);

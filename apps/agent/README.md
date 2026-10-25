@@ -21,7 +21,7 @@ Stack candidata:
 
 ## Agente local e instalador Windows
 
-O workspace oferece o agente local em Node/TypeScript e um instalador Windows que o registra como servico. O agente realiza registro, heartbeat, inventario, comandos permitidos e consulta sessoes remotas aprovadas. O transporte de captura do host usa o modulo realtime do desktop-control.
+O workspace oferece o agente local em Node/TypeScript e um instalador Windows que o registra como servico. O servico faz registro, heartbeat, inventario e comandos permitidos; um processo desktop do mesmo agente inicia no login do usuario e consulta sessoes de jogo aprovadas na sessao interativa, onde captura e `SendInput` podem acessar a area de trabalho correta. O transporte de captura do host usa o modulo realtime do desktop-control.
 
 O instalador pede tres valores: URL da API, URL publica do relay (`wss://dominio/realtime`) e chave de cadastro. Em uma instalacao local, use `http://localhost:4100` e `ws://localhost:4200`; fora de loopback, o agente exige `https://` na API e `wss://` no relay e rejeita credenciais embutidas. Em producao, nunca deixe o relay apontando para `localhost`.
 
@@ -31,7 +31,11 @@ npm run agent:heartbeat
 npm run agent:inventory
 npm run agent:commands
 npm run agent:loop
+npm run agent:service:install
+npm run agent:service:uninstall
 ```
+
+Em desenvolvimento, `agent:service:install` tambem registra o processo `sessions` no login do usuario. O servico nao abre captura de jogo em Session 0.
 
 Para preparar uma configuracao local ignorada pelo Git:
 
@@ -41,6 +45,8 @@ npm run agent:status
 ```
 
 O arquivo `.remoto-agent.config.json` fica local ao agente e nunca deve ser versionado. A chave tambem pode continuar sendo fornecida por `REMOTO_AGENT_KEY`, que tem prioridade sobre o arquivo.
+
+No instalador Windows, a configuracao e somente leitura para usuarios locais e o estado operacional fica em `C:\ProgramData\Remoto\state`. A credencial do agente continua sendo um segredo local que deve ser revogado no painel quando o computador for desativado.
 
 Variaveis opcionais:
 
