@@ -6,7 +6,10 @@ const detail = document.getElementById("detail");
 const errorBox = document.getElementById("error");
 const statusText = document.getElementById("status");
 const statusDot = document.getElementById("status-dot");
+const fpsText = document.getElementById("fps");
 const frameQueue = [];
+let frameCount = 0;
+let fpsTimer;
 let sourceBuffer;
 let mediaSource;
 let queuedBytes = 0;
@@ -67,12 +70,18 @@ function pumpFrames() {
 function receiveFrame(value) {
   const frame = value instanceof Uint8Array ? value : new Uint8Array(value);
   if (!frame.byteLength) return;
+  frameCount += 1;
   frameQueue.push(frame);
   queuedBytes += frame.byteLength;
   while (queuedBytes > 16 * 1024 * 1024 && frameQueue.length > 1) queuedBytes -= frameQueue.shift().byteLength;
   empty.classList.add("hidden");
   pumpFrames();
 }
+
+fpsTimer = window.setInterval(() => {
+  fpsText.textContent = `${frameCount} FPS`;
+  frameCount = 0;
+}, 1000);
 
 function send(event) { window.remotoOperator.sendInput(event); }
 function sendKey(event, action) {
@@ -107,6 +116,10 @@ document.addEventListener("visibilitychange", releaseKeys);
 document.getElementById("close").addEventListener("click", () => window.remotoOperator.closeSession());
 window.remotoOperator.onStatus(({ status, detail: message }) => {
   setStatus(status);
+  if (status === "closed") {
+    window.clearInterval(fpsTimer);
+    fpsText.textContent = "0 FPS";
+  }
   if (status === "error") showDetail("Sessao indisponivel", message, true);
   else if (status === "closed") showDetail("Sessao encerrada", message);
   else detail.textContent = message || detail.textContent;

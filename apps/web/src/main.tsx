@@ -1580,9 +1580,23 @@ function GameSessionPanel({ session, realtimeUrl, onClose }: { session: GameSess
   const mediaQueueBytesRef = React.useRef(0);
   const pressedKeysRef = React.useRef(new Set<string>());
   const pingTimerRef = React.useRef<number | null>(null);
+  const frameCountRef = React.useRef(0);
+  const fpsTimerRef = React.useRef<number | null>(null);
   const [status, setStatus] = React.useState("Conectando ao computador...");
   const [error, setError] = React.useState<string | null>(null);
   const [latencyMs, setLatencyMs] = React.useState<number | null>(null);
+  const [fps, setFps] = React.useState<number | null>(null);
+
+  React.useEffect(() => {
+    fpsTimerRef.current = window.setInterval(() => {
+      setFps(frameCountRef.current);
+      frameCountRef.current = 0;
+    }, 1000);
+    return () => {
+      if (fpsTimerRef.current !== null) window.clearInterval(fpsTimerRef.current);
+      fpsTimerRef.current = null;
+    };
+  }, []);
 
   React.useEffect(() => {
     const video = videoRef.current;
@@ -1692,6 +1706,7 @@ function GameSessionPanel({ session, realtimeUrl, onClose }: { session: GameSess
           setError("O frame recebido excede o limite permitido.");
           return;
         }
+        frameCountRef.current += 1;
         mediaQueueRef.current.push(frame);
         mediaQueueBytesRef.current += frame.byteLength;
         while (mediaQueueBytesRef.current > 16 * 1024 * 1024 && mediaQueueRef.current.length > 1) {
@@ -1723,6 +1738,8 @@ function GameSessionPanel({ session, realtimeUrl, onClose }: { session: GameSess
       sourceBufferRef.current = null;
       mediaQueueRef.current = [];
       mediaQueueBytesRef.current = 0;
+      frameCountRef.current = 0;
+      setFps(null);
       URL.revokeObjectURL(video.src);
     };
   }, [realtimeUrl, session.accessToken, session.sessionId]);
@@ -1804,7 +1821,7 @@ function GameSessionPanel({ session, realtimeUrl, onClose }: { session: GameSess
           onKeyDown={(event) => sendKey(event, "down")}
           onKeyUp={(event) => sendKey(event, "up")}
         />
-        <footer className="gameSessionFooter"><span>Video H.264 / relay autenticado{latencyMs === null ? "" : ` / RTT ${latencyMs} ms`}</span><div className="gameSessionFooterActions"><button className="secondary" type="button" onClick={downloadNativeDescriptor} title="Baixar descritor para abrir no cliente nativo"><Download size={14} />Cliente nativo</button><button className="danger" type="button" onClick={onClose}>Encerrar sessao</button></div></footer>
+        <footer className="gameSessionFooter"><span>Video H.264 / relay autenticado{latencyMs === null ? "" : ` / RTT ${latencyMs} ms`}{fps === null ? "" : ` / FPS ${fps}`}</span><div className="gameSessionFooterActions"><button className="secondary" type="button" onClick={downloadNativeDescriptor} title="Baixar descritor para abrir no cliente nativo"><Download size={14} />Cliente nativo</button><button className="danger" type="button" onClick={onClose}>Encerrar sessao</button></div></footer>
       </section>
     </div>
   );

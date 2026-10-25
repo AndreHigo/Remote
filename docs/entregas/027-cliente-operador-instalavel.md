@@ -22,7 +22,7 @@ npm test
 npm audit --audit-level=high
 ```
 
-O instalador foi gerado localmente com sucesso. SHA256 do artefato desta entrega: `3B541BCACC485EFAE73815AC18BE18CF9E8246C0A09CFCA166E01F5C6D661E52`.
+O instalador foi gerado localmente com sucesso. SHA256 do artefato desta entrega: `CE0218B812AF548367D1DE5AF1FFC96543AC61240AAB62C77B40749BC62DDDAA`.
 
 ## Ainda falta
 
