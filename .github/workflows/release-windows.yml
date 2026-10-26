@@ -95,6 +95,16 @@ jobs:
           if ($env:REMOTO_REQUIRE_BUNDLED_FFMPEG -eq "true" -and $packageManifest.ffmpegBundled -ne $true) {
             throw "O manifesto do agente nao confirmou FFmpeg embutido nesta release."
           }
+          if ($env:REMOTO_REQUIRE_BUNDLED_FFMPEG -eq "true") {
+            if ([string]::IsNullOrWhiteSpace([string]$packageManifest.ffmpegLicenseFile)) {
+              throw "A release com FFmpeg embutido precisa apontar para o arquivo de licenca no manifesto."
+            }
+            $licenseRelativePath = ([string]$packageManifest.ffmpegLicenseFile).Replace('/', [IO.Path]::DirectorySeparatorChar)
+            $licenseFile = Join-Path "apps/agent/release/RemotoAgent-Windows" $licenseRelativePath
+            if (-not (Test-Path -LiteralPath $licenseFile -PathType Leaf)) {
+              throw "Arquivo de licenca do FFmpeg ausente no pacote: $licenseFile"
+            }
+          }
 
       - name: Package native operator
         shell: powershell
