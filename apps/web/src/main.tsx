@@ -1886,6 +1886,10 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
   const pingTimerRef = React.useRef<number | null>(null);
   const frameCountRef = React.useRef(0);
   const latencySamplesRef = React.useRef<number[]>([]);
+  const qualityStartedAtRef = React.useRef<number | null>(null);
+  const qualityLatencyHistoryRef = React.useRef<Array<{ elapsedMs: number; rttMs: number }>>([]);
+  const qualityFpsHistoryRef = React.useRef<Array<{ elapsedMs: number; fps: number }>>([]);
+  const reconnectCountRef = React.useRef(0);
   const firstFrameAtRef = React.useRef<number | null>(null);
   const droppedFramesRef = React.useRef(0);
   const fpsTimerRef = React.useRef<number | null>(null);
@@ -1900,15 +1904,23 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
   const [gamepadConnected, setGamepadConnected] = React.useState(false);
 
   React.useEffect(() => {
+    if (started && qualityStartedAtRef.current === null) qualityStartedAtRef.current = performance.now();
     fpsTimerRef.current = window.setInterval(() => {
-      setFps(frameCountRef.current);
+      const nextFps = frameCountRef.current;
+      setFps(nextFps);
+      if (qualityStartedAtRef.current !== null) {
+        qualityFpsHistoryRef.current = [
+          ...qualityFpsHistoryRef.current,
+          { elapsedMs: Math.max(0, Math.round(performance.now() - qualityStartedAtRef.current)), fps: nextFps }
+        ].slice(-600);
+      }
       frameCountRef.current = 0;
     }, 1000);
     return () => {
       if (fpsTimerRef.current !== null) window.clearInterval(fpsTimerRef.current);
       fpsTimerRef.current = null;
     };
-  }, []);
+  }, [started]);
 
   React.useEffect(() => {
     if (!started) return;
@@ -2044,6 +2056,12 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
           if (message.type === "pong" && typeof message.sentAt === "number") {
             const sample = Math.max(0, Math.round(performance.now() - message.sentAt));
             latencySamplesRef.current = [...latencySamplesRef.current, sample].slice(-60);
+            if (qualityStartedAtRef.current !== null) {
+              qualityLatencyHistoryRef.current = [
+                ...qualityLatencyHistoryRef.current,
+                { elapsedMs: Math.max(0, Math.round(performance.now() - qualityStartedAtRef.current)), rttMs: sample }
+              ].slice(-600);
+            }
             setLatencyMs(sample);
             setLatencyP95Ms(percentile(latencySamplesRef.current, 0.95));
           }
@@ -2077,7 +2095,10 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
         clearFirstFrameTimer();
         if (socketRef.current === socket) socketRef.current = null;
         if (event.code === 1008) reconnectAllowed = false;
-        if (!disposed && reconnectAllowed) scheduleReconnect();
+        if (!disposed && reconnectAllowed) {
+          reconnectCountRef.current += 1;
+          scheduleReconnect();
+        }
         else if (!disposed) setStatus("Sessao realtime encerrada.");
       });
     }
@@ -2098,6 +2119,10 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
       mediaQueueBytesRef.current = 0;
       frameCountRef.current = 0;
       latencySamplesRef.current = [];
+      qualityLatencyHistoryRef.current = [];
+      qualityFpsHistoryRef.current = [];
+      reconnectCountRef.current = 0;
+      qualityStartedAtRef.current = null;
       firstFrameAtRef.current = null;
       droppedFramesRef.current = 0;
       setLatencyMs(null);
@@ -2222,6 +2247,39 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
     setStatus("Descritor baixado. Abra-o no Remoto Operator para iniciar a sessao.");
   }
 
+  function downloadQualityReport() {
+    const startedAt = qualityStartedAtRef.current;
+    const durationMs = startedAt === null ? 0 : Math.max(0, Math.round(performance.now() - startedAt));
+    const safeDeviceId = session.deviceId.replace(/[^a-z0-9_-]/gi, "-");
+    const report = {
+      schemaVersion: 1,
+      generatedAt: new Date().toISOString(),
+      sessionId: session.sessionId,
+      deviceId: session.deviceId,
+      mode: session.mode,
+      durationMs,
+      metrics: {
+        firstFrameMs,
+        latestRttMs: latencyMs,
+        latencyP95Ms,
+        currentFps: fps,
+        droppedFrames,
+        reconnects: reconnectCountRef.current,
+        latencySamples: qualityLatencyHistoryRef.current,
+        fpsSamples: qualityFpsHistoryRef.current
+      }
+    };
+    const url = URL.createObjectURL(new Blob([`${JSON.stringify(report, null, 2)}\n`], { type: "application/json" }));
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `remoto-game-quality-${safeDeviceId}.json`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    setStatus("Relatorio de qualidade baixado.");
+  }
+
   function sendKey(event: React.KeyboardEvent<HTMLVideoElement>, action: "down" | "up") {
     const scanCode = scanCodes[event.code];
     if (!scanCode) return;
@@ -2271,7 +2329,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
             onKeyUp={(event) => sendKey(event, "up")}
           />
         )}
-        <footer className="gameSessionFooter"><span>{started ? <>Video H.264 / relay autenticado / Entrada: teclado + mouse / Gamepad: {gamepadConnected ? "mapa experimental" : "conecte um controle"}{latencyMs === null ? "" : ` / RTT ${latencyMs} ms`}{latencyP95Ms === null ? "" : ` / p95 ${latencyP95Ms} ms`}{firstFrameMs === null ? "" : ` / 1o frame ${firstFrameMs} ms`}{fps === null ? "" : ` / FPS ${fps}`}{droppedFrames > 0 ? ` / fila descartada ${droppedFrames}` : ""}</> : "Sessao aprovada e aguardando sua escolha"}</span><div className="gameSessionFooterActions"><button className="danger" type="button" onClick={onClose}>Encerrar sessao</button></div></footer>
+        <footer className="gameSessionFooter"><span>{started ? <>Video H.264 / relay autenticado / Entrada: teclado + mouse / Gamepad: {gamepadConnected ? "mapa experimental" : "conecte um controle"}{latencyMs === null ? "" : ` / RTT ${latencyMs} ms`}{latencyP95Ms === null ? "" : ` / p95 ${latencyP95Ms} ms`}{firstFrameMs === null ? "" : ` / 1o frame ${firstFrameMs} ms`}{fps === null ? "" : ` / FPS ${fps}`}{droppedFrames > 0 ? ` / fila descartada ${droppedFrames}` : ""}</> : "Sessao aprovada e aguardando sua escolha"}</span><div className="gameSessionFooterActions"><button className="secondary compact" type="button" onClick={downloadQualityReport} disabled={!started} title="Baixar relatorio JSON da sessao"><Download size={14} />Relatorio</button><button className="danger" type="button" onClick={onClose}>Encerrar sessao</button></div></footer>
       </section>
     </div>
   );
