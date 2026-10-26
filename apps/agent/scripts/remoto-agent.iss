@@ -234,22 +234,29 @@ begin
   end;
 end;
 
-procedure StopExistingService;
+function StopExistingService: Boolean;
 var
   ScPath: string;
   TaskKillPath: string;
   PowerShellPath: string;
   Parameters: string;
   ResultCode: Integer;
+  ExecResult: Boolean;
 begin
+  Result := True;
   ScPath := ExpandConstant('{sys}\sc.exe');
   Exec(ScPath, 'stop RemotoAgent', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 
   PowerShellPath := ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe');
   Parameters := '-NoProfile -Command "$svc=Get-Service -Name ''RemotoAgent'' -ErrorAction SilentlyContinue; ' +
     '$deadline=(Get-Date).AddSeconds(10); while ($svc -and $svc.Status -ne ''Stopped'' -and (Get-Date) -lt $deadline) ' +
-    '{ Start-Sleep -Milliseconds 250; $svc=Get-Service -Name ''RemotoAgent'' -ErrorAction SilentlyContinue }"';
-  Exec(PowerShellPath, Parameters, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    '{ Start-Sleep -Milliseconds 250; $svc=Get-Service -Name ''RemotoAgent'' -ErrorAction SilentlyContinue }; ' +
+    'if ($svc -and $svc.Status -ne ''Stopped'') { exit 1 }"';
+  ExecResult := Exec(PowerShellPath, Parameters, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  if (not ExecResult) or (ResultCode <> 0) then begin
+    Result := False;
+    Exit;
+  end;
 
   Parameters := '-NoProfile -Command "$p=Get-Process -Name ''RemotoAgent'' -ErrorAction SilentlyContinue; ' +
     'if ($p) { $p | Stop-Process -Force }; $deadline=(Get-Date).AddSeconds(10); ' +
@@ -264,13 +271,17 @@ begin
   Exec(TaskKillPath, '/F /T /IM RemotoAgentService.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Exec(TaskKillPath, '/F /T /IM RemotoAgent.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 
-  Parameters := '-NoProfile -Command "$deadline=(Get-Date).AddSeconds(10); while ((Get-Process -Name ''RemotoAgentService'', ''RemotoAgent'' -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 250 }"';
-  Exec(PowerShellPath, Parameters, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Parameters := '-NoProfile -Command "$deadline=(Get-Date).AddSeconds(10); while ((Get-Process -Name ''RemotoAgentService'', ''RemotoAgent'' -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 250 }; if (Get-Process -Name ''RemotoAgentService'', ''RemotoAgent'' -ErrorAction SilentlyContinue) { exit 1 }"';
+  ExecResult := Exec(PowerShellPath, Parameters, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Result := ExecResult and (ResultCode = 0);
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
-  StopExistingService;
+  if not StopExistingService then begin
+    Result := 'Nao foi possivel encerrar o Remoto Agent. Feche sessoes remotas, execute Reparar Remoto Agent como administrador e tente novamente.';
+    Exit;
+  end;
   Result := '';
 end;
 
