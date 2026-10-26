@@ -2,7 +2,8 @@
 param(
   [string]$OutputRoot = "",
   [string]$FfmpegPath = "",
-  [string]$Version = ""
+  [string]$Version = "",
+  [switch]$RequireBundledFfmpeg
 )
 
 $ErrorActionPreference = "Stop"
@@ -12,12 +13,29 @@ if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
   $OutputRoot = if ($env:REMOTO_AGENT_OUTPUT_ROOT) { $env:REMOTO_AGENT_OUTPUT_ROOT } else { Join-Path $AgentRoot "release\RemotoAgent-Windows" }
 }
 $FfmpegPath = if ([string]::IsNullOrWhiteSpace($FfmpegPath)) { $env:REMOTO_BUNDLE_FFMPEG_PATH } else { $FfmpegPath }
+$RequireBundledFfmpeg = $RequireBundledFfmpeg -or $env:REMOTO_REQUIRE_BUNDLED_FFMPEG -eq "true"
 $Version = if ([string]::IsNullOrWhiteSpace($Version)) { if ($env:REMOTO_RELEASE_VERSION) { $env:REMOTO_RELEASE_VERSION } else { "0.1.0" } } else { $Version }
 if ($Version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$') {
   throw "Version precisa seguir SemVer, por exemplo 0.1.0 ou 1.2.3-rc.1."
 }
 $OutputRoot = [System.IO.Path]::GetFullPath($OutputRoot)
 $ReleaseRoot = Split-Path $OutputRoot -Parent
+
+if ($RequireBundledFfmpeg -and [string]::IsNullOrWhiteSpace($FfmpegPath)) {
+  throw "Esta release exige FFmpeg embutido. Informe -FfmpegPath ou REMOTO_BUNDLE_FFMPEG_PATH com um ffmpeg.exe validado."
+}
+
+$resolvedFfmpegPath = $null
+$ffmpegSha256 = $null
+$ffmpegVersion = $null
+if (-not [string]::IsNullOrWhiteSpace($FfmpegPath)) {
+  $resolvedFfmpegPath = [System.IO.Path]::GetFullPath($FfmpegPath)
+  if ([System.IO.Path]::GetFileName($resolvedFfmpegPath) -ine "ffmpeg.exe" -or -not (Test-Path -LiteralPath $resolvedFfmpegPath -PathType Leaf)) {
+    throw "FfmpegPath precisa apontar para um arquivo ffmpeg.exe existente."
+  }
+  $ffmpegSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $resolvedFfmpegPath).Hash.ToLowerInvariant()
+  $ffmpegVersion = (& $resolvedFfmpegPath -hide_banner -version 2>&1 | Select-Object -First 1).ToString().Trim()
+}
 
 if (Test-Path $OutputRoot) {
   Remove-Item -LiteralPath $OutputRoot -Recurse -Force
@@ -56,11 +74,7 @@ Copy-Item (Join-Path $AgentRoot "scripts\repair-installed-agent.ps1") $OutputRoo
 Copy-Item (Join-Path $AgentRoot "scripts\uninstall-package.ps1") $OutputRoot
 Copy-Item (Join-Path $RepoRoot "scripts\homologate-host.ps1") $OutputRoot
 
-if (-not [string]::IsNullOrWhiteSpace($FfmpegPath)) {
-  $resolvedFfmpegPath = [System.IO.Path]::GetFullPath($FfmpegPath)
-  if ([System.IO.Path]::GetFileName($resolvedFfmpegPath) -ine "ffmpeg.exe" -or -not (Test-Path -LiteralPath $resolvedFfmpegPath -PathType Leaf)) {
-    throw "FfmpegPath precisa apontar para um arquivo ffmpeg.exe existente."
-  }
+if ($resolvedFfmpegPath) {
   $bundledFfmpegDirectory = Join-Path $OutputRoot "ffmpeg"
   New-Item -ItemType Directory -Path $bundledFfmpegDirectory -Force | Out-Null
   Copy-Item -LiteralPath $resolvedFfmpegPath -Destination (Join-Path $bundledFfmpegDirectory "ffmpeg.exe") -Force
@@ -87,8 +101,27 @@ Remoto Agent - pacote Windows de teste
 4. O servico RemotoAgent sera iniciado automaticamente.
 5. Para coletar diagnostico da maquina, execute: powershell -ExecutionPolicy Bypass -File .\homologate-host.ps1 -OutputPath .\remoto-host-report.json
 
+Modo jogo: o manifesto RemotoAgent-package.json informa se o FFmpeg foi embutido. Quando nao foi, o instalador continua apto para suporte e exige um ffmpeg.exe validado no passo de configuracao do modo jogo.
+
 Este pacote ainda e uma release de teste. O instalador oficial assinado e a atualizacao automatica permanecem pendentes.
 '@ | Set-Content -Path (Join-Path $OutputRoot "README.txt") -Encoding UTF8
+
+$packageManifest = [ordered]@{
+  schemaVersion = 1
+  product = "Remoto Agent"
+  version = $Version
+  ffmpegBundled = [bool]$resolvedFfmpegPath
+  ffmpegSha256 = $ffmpegSha256
+  ffmpegVersion = $ffmpegVersion
+  gameMode = [ordered]@{
+    videoCapture = "ffmpeg"
+    cpuFallback = $true
+    systemAudio = "optional-and-hardware-dependent"
+    virtualGamepad = $false
+  }
+  generatedAtUtc = (Get-Date).ToUniversalTime().ToString("o")
+}
+$packageManifest | ConvertTo-Json -Depth 6 | Set-Content -Path (Join-Path $OutputRoot "RemotoAgent-package.json") -Encoding UTF8
 
 Write-Output "Pacote criado: $OutputRoot"
 $isccCandidates = @(

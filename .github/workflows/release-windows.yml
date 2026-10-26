@@ -67,7 +67,25 @@ jobs:
           }
 
       - name: Package agent
-        run: npm run agent:package:windows
+        shell: powershell
+        env:
+          REMOTO_REQUIRE_BUNDLED_FFMPEG: ${{ startsWith(github.ref, 'refs/tags/') && 'true' || 'false' }}
+          REMOTO_FFMPEG_URL: ${{ vars.REMOTO_FFMPEG_URL }}
+          REMOTO_FFMPEG_SHA256: ${{ vars.REMOTO_FFMPEG_SHA256 }}
+        run: |
+          if ($env:REMOTO_REQUIRE_BUNDLED_FFMPEG -eq "true") {
+            if ([string]::IsNullOrWhiteSpace($env:REMOTO_FFMPEG_URL) -or [string]::IsNullOrWhiteSpace($env:REMOTO_FFMPEG_SHA256)) {
+              throw "Release com tag exige as variaveis de repositorio REMOTO_FFMPEG_URL e REMOTO_FFMPEG_SHA256. Configure uma distribuicao validada e mantenha a licenca/origem junto dos artefatos."
+            }
+            $downloadPath = Join-Path $env:RUNNER_TEMP "ffmpeg.exe"
+            Invoke-WebRequest -Uri $env:REMOTO_FFMPEG_URL -OutFile $downloadPath
+            $actualSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $downloadPath).Hash.ToLowerInvariant()
+            if ($actualSha256 -ne $env:REMOTO_FFMPEG_SHA256.ToLowerInvariant()) {
+              throw "SHA-256 do FFmpeg nao confere. Esperado $($env:REMOTO_FFMPEG_SHA256), recebido $actualSha256."
+            }
+            $env:REMOTO_BUNDLE_FFMPEG_PATH = $downloadPath
+          }
+          npm run agent:package:windows
 
       - name: Package native operator
         shell: powershell
