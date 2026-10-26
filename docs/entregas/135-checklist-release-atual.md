@@ -13,9 +13,10 @@
 
 1. Definir segredos reais e exclusivos em `infra/docker/production.env`.
 2. Configurar DNS para o dominio do painel e do relay, com portas 80/443 acessiveis para o Caddy.
-3. Colocar o instalador Windows assinado em `infra/docker/release/RemotoAgent-Setup.exe`.
-4. Executar `npm run deploy:preflight` na VPS e somente entao subir a stack.
-5. Instalar o agente em uma segunda maquina Windows usando `https://DOMINIO/api` e `wss://DOMINIO/realtime`.
-6. Medir FPS, RTT, perda, reconexao, audio, UAC, tela bloqueada, gamepad e pelo menos um jogo real.
+3. Definir `ENABLE_GAME_MODE=true` somente quando a homologacao controlada estiver autorizada; com `false`, o suporte continua disponivel e o modo jogo fica bloqueado.
+4. Colocar o instalador Windows assinado em `infra/docker/release/RemotoAgent-Setup.exe`.
+5. Executar `npm run deploy:preflight` na VPS e somente entao subir a stack.
+6. Instalar o agente em uma segunda maquina Windows usando `https://DOMINIO/api` e `wss://DOMINIO/realtime`.
+7. Medir FPS, RTT, perda, reconexao, audio, UAC, tela bloqueada, gamepad e pelo menos um jogo real.
 
 O produto esta pronto para uma homologacao controlada, nao para declarar compatibilidade universal com jogos ou desempenho de internet sem esses gates.

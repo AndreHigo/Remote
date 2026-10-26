@@ -53,6 +53,8 @@ if ($values["TOTP_ENCRYPTION_KEY"].Length -lt 32) { throw "TOTP_ENCRYPTION_KEY d
 if ($values["REDIS_URL"] -notmatch "^rediss://") { throw "REDIS_URL deve usar rediss:// (Redis com TLS)" }
 if ($values["REALTIME_INTERNAL_SECRET"].Length -lt 32) { throw "REALTIME_INTERNAL_SECRET deve ter pelo menos 32 caracteres" }
 if ($values["BOOTSTRAP_ADMIN_PASSWORD"].Length -lt 12) { throw "BOOTSTRAP_ADMIN_PASSWORD deve ter pelo menos 12 caracteres" }
+if ($values.ContainsKey("ENABLE_GAME_MODE") -and $values["ENABLE_GAME_MODE"] -notin @("true", "false")) { throw "ENABLE_GAME_MODE deve ser true ou false" }
+if ($values["ENABLE_GAME_MODE"] -ne "true") { Write-Warning "ENABLE_GAME_MODE nao esta como true; o acesso remoto de suporte continua disponivel, mas o modo jogo sera bloqueado." }
 if ($values["ACME_EMAIL"] -notmatch "^[^@\s]+@[^@\s]+\.[^@\s]+$") { throw "ACME_EMAIL invalido" }
 if ($values["BOOTSTRAP_ADMIN_EMAIL"] -notmatch "^[^@\s]+@[^@\s]+\.[^@\s]+$") { throw "BOOTSTRAP_ADMIN_EMAIL invalido" }
 if ($values["WEB_DOMAIN"] -notmatch "^(?=.{1,253}$)[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?$") { throw "WEB_DOMAIN deve ser um hostname valido, sem protocolo, porta ou caminho" }
