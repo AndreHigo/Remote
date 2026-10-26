@@ -9,4 +9,6 @@ O caminho de teclado e mouse do host Windows agora usa um protocolo textual tipa
 
 A validação de domínio continua acontecendo antes do envio e a ponte não interpreta comandos arbitrários. A mudança remove o `ConvertFrom-Json` por evento do PowerShell, reduzindo trabalho no caminho sensível à latência sem alterar os limites de segurança ou a liberação automática de entradas quando a sessão termina.
 
+Os clientes web e nativo também acumulam o movimento relativo do mouse até o próximo frame de renderização. Isso evita uma mensagem por evento físico em mouses de alta taxa e no analogo direito do controle, preservando a soma do deslocamento e mantendo botoes, roda e teclado como eventos imediatos.
+
 O ganho final de atraso ainda precisa ser medido em duas máquinas Windows e em jogos reais. O protocolo não transforma `SendInput` em XInput/DirectInput e não contorna anti-cheat.

@@ -43,6 +43,8 @@ let qualityState = {
 const pressedKeys = new Set();
 const pressedButtons = new Set();
 const pressedGamepadKeys = new Set();
+let pendingMouseMotion = { dx: 0, dy: 0 };
+let mouseMotionFrame;
 
 const mouseButtons = ["left", "middle", "right"];
 const scanCodes = {
@@ -135,6 +137,20 @@ fpsTimer = window.setInterval(() => {
 }, 1000);
 
 function send(event) { window.remotoOperator.sendInput(event); }
+function queueMouseMotion(dx, dy) {
+  if (!Number.isFinite(dx) || !Number.isFinite(dy)) return;
+  pendingMouseMotion.dx += dx;
+  pendingMouseMotion.dy += dy;
+  if (mouseMotionFrame !== undefined) return;
+  mouseMotionFrame = window.requestAnimationFrame(() => {
+    mouseMotionFrame = undefined;
+    const motion = pendingMouseMotion;
+    pendingMouseMotion = { dx: 0, dy: 0 };
+    const nextDx = Math.round(motion.dx);
+    const nextDy = Math.round(motion.dy);
+    if (nextDx !== 0 || nextDy !== 0) send({ type: "mouse.relative", dx: nextDx, dy: nextDy });
+  });
+}
 function sendKey(event, action) {
   const scanCode = scanCodes[event.code];
   if (!scanCode) return;
@@ -148,6 +164,9 @@ function sendKey(event, action) {
   }
 }
 function releaseInputs() {
+  if (mouseMotionFrame !== undefined) window.cancelAnimationFrame(mouseMotionFrame);
+  mouseMotionFrame = undefined;
+  pendingMouseMotion = { dx: 0, dy: 0 };
   for (const button of pressedButtons) send({ type: "mouse.button", button, action: "up" });
   pressedButtons.clear();
   for (const code of new Set([...pressedKeys, ...pressedGamepadKeys])) {
@@ -191,7 +210,7 @@ function pollGamepad() {
   setGamepadKey("KeyS", leftY > deadZone);
   const rightX = pad.axes[2] || 0;
   const rightY = pad.axes[3] || 0;
-  if (Math.abs(rightX) > deadZone || Math.abs(rightY) > deadZone) send({ type: "mouse.relative", dx: Math.round(rightX * 18), dy: Math.round(rightY * 18) });
+  if (Math.abs(rightX) > deadZone || Math.abs(rightY) > deadZone) queueMouseMotion(rightX * 18, rightY * 18);
   for (const [index, code] of gamepadButtonScanCodes) setGamepadKey(code, pad.buttons[index]?.pressed === true);
 }
 const gamepadTimer = window.setInterval(pollGamepad, 33);
@@ -204,7 +223,7 @@ function fail(error) {
 
 video.addEventListener("click", () => { video.focus(); video.requestPointerLock?.(); });
 video.addEventListener("contextmenu", (event) => event.preventDefault());
-video.addEventListener("mousemove", (event) => send({ type: "mouse.relative", dx: event.movementX, dy: event.movementY }));
+video.addEventListener("mousemove", (event) => queueMouseMotion(event.movementX, event.movementY));
 video.addEventListener("mousedown", (event) => { const button = mouseButtons[event.button] || "left"; pressedButtons.add(button); send({ type: "mouse.button", button, action: "down" }); });
 video.addEventListener("mouseup", (event) => { const button = mouseButtons[event.button] || "left"; pressedButtons.delete(button); send({ type: "mouse.button", button, action: "up" }); });
 video.addEventListener("wheel", (event) => { event.preventDefault(); send({ type: "mouse.wheel", delta: Math.round(event.deltaY * -1) }); }, { passive: false });
@@ -213,7 +232,12 @@ video.addEventListener("keyup", (event) => sendKey(event, "up"));
 window.addEventListener("blur", releaseInputs);
 document.addEventListener("visibilitychange", releaseInputs);
 document.addEventListener("pointerlockchange", () => { if (document.pointerLockElement !== video) releaseInputs(); });
-window.addEventListener("beforeunload", () => window.clearInterval(gamepadTimer));
+window.addEventListener("beforeunload", () => {
+  window.clearInterval(gamepadTimer);
+  if (mouseMotionFrame !== undefined) window.cancelAnimationFrame(mouseMotionFrame);
+  mouseMotionFrame = undefined;
+  pendingMouseMotion = { dx: 0, dy: 0 };
+});
 document.getElementById("close").addEventListener("click", () => window.remotoOperator.closeSession());
 window.remotoOperator.onStatus(({ status, detail: message }) => {
   if (status === "connecting" && qualityState.connectedOnce) qualityState.reconnects += 1;

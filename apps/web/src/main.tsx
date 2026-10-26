@@ -1915,6 +1915,8 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
   const firstFrameAtRef = React.useRef<number | null>(null);
   const droppedFramesRef = React.useRef(0);
   const fpsTimerRef = React.useRef<number | null>(null);
+  const pendingMouseMotionRef = React.useRef({ dx: 0, dy: 0 });
+  const mouseMotionFrameRef = React.useRef<number | null>(null);
   const [status, setStatus] = React.useState("Conectando ao computador...");
   const [error, setError] = React.useState<string | null>(null);
   const [latencyMs, setLatencyMs] = React.useState<number | null>(null);
@@ -2153,6 +2155,9 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
       qualityStartedAtRef.current = null;
       firstFrameAtRef.current = null;
       droppedFramesRef.current = 0;
+      if (mouseMotionFrameRef.current !== null) window.cancelAnimationFrame(mouseMotionFrameRef.current);
+      mouseMotionFrameRef.current = null;
+      pendingMouseMotionRef.current = { dx: 0, dy: 0 };
       setLatencyMs(null);
       setLatencyP95Ms(null);
       setRelayDroppedFrames(0);
@@ -2207,7 +2212,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
       const rightX = pad.axes[2] ?? 0;
       const rightY = pad.axes[3] ?? 0;
       if (Math.abs(rightX) > deadZone || Math.abs(rightY) > deadZone) {
-        sendInput({ type: "mouse.relative", dx: Math.round(rightX * 18), dy: Math.round(rightY * 18) });
+        queueMouseMotion(rightX * 18, rightY * 18);
       }
       for (const [index, code] of gamepadButtonScanCodes) setGamepadKey(code, pad.buttons[index]?.pressed === true);
     };
@@ -2223,6 +2228,9 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
 
   React.useEffect(() => {
     const releasePressedInputs = () => {
+      if (mouseMotionFrameRef.current !== null) window.cancelAnimationFrame(mouseMotionFrameRef.current);
+      mouseMotionFrameRef.current = null;
+      pendingMouseMotionRef.current = { dx: 0, dy: 0 };
       for (const button of pressedButtonsRef.current) {
         sendInput({ type: "mouse.button", button, action: "up" });
       }
@@ -2254,6 +2262,21 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
   function sendInput(event: Record<string, unknown>) {
     const socket = socketRef.current;
     if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: "input", event }));
+  }
+
+  function queueMouseMotion(dx: number, dy: number) {
+    if (!Number.isFinite(dx) || !Number.isFinite(dy)) return;
+    pendingMouseMotionRef.current.dx += dx;
+    pendingMouseMotionRef.current.dy += dy;
+    if (mouseMotionFrameRef.current !== null) return;
+    mouseMotionFrameRef.current = window.requestAnimationFrame(() => {
+      mouseMotionFrameRef.current = null;
+      const motion = pendingMouseMotionRef.current;
+      pendingMouseMotionRef.current = { dx: 0, dy: 0 };
+      const nextDx = Math.round(motion.dx);
+      const nextDy = Math.round(motion.dy);
+      if (nextDx !== 0 || nextDy !== 0) sendInput({ type: "mouse.relative", dx: nextDx, dy: nextDy });
+    });
   }
 
   function downloadNativeDescriptor() {
@@ -2353,7 +2376,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
             tabIndex={0}
             onClick={(event) => void event.currentTarget.requestPointerLock?.()}
             onContextMenu={(event) => event.preventDefault()}
-            onMouseMove={(event) => sendInput({ type: "mouse.relative", dx: event.movementX, dy: event.movementY })}
+            onMouseMove={(event) => queueMouseMotion(event.movementX, event.movementY)}
             onMouseDown={(event) => { const button = mouseButtons[event.button] ?? "left"; pressedButtonsRef.current.add(button); sendInput({ type: "mouse.button", button, action: "down" }); }}
             onMouseUp={(event) => { const button = mouseButtons[event.button] ?? "left"; pressedButtonsRef.current.delete(button); sendInput({ type: "mouse.button", button, action: "up" }); }}
             onWheel={(event) => sendInput({ type: "mouse.wheel", delta: Math.round(event.deltaY * -1) })}
