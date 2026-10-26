@@ -31,6 +31,9 @@ video { width: 100%; height: 100%; display: block; object-fit: contain; outline:
 .error-state { position: absolute; left: 24px; right: 24px; bottom: 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 14px; border: 1px solid #6b3b3d; background: #321b1f; color: #ffc5c2; font-size: 13px; }
 .error-state button { flex: 0 0 auto; border: 1px solid #8be0c6; border-radius: 6px; padding: 8px 12px; background: #8be0c6; color: #08222a; cursor: pointer; font-weight: 700; }
 .error-state button:hover { background: #b2f0db; }
-.footer { display: flex; justify-content: space-between; gap: 20px; padding: 0 24px; color: #789397; font-size: 11px; white-space: nowrap; overflow: hidden; }
-.footer > span:last-child { overflow: hidden; text-overflow: ellipsis; }
+.footer { display: flex; align-items: center; gap: 16px; padding: 0 24px; color: #789397; font-size: 11px; white-space: nowrap; overflow: hidden; }
+.footer-info { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.report-button { flex: 0 0 auto; border: 1px solid #315057; border-radius: 6px; padding: 5px 9px; background: #10272d; color: #d8e7e7; cursor: pointer; font-size: 11px; }
+.report-button:hover:not(:disabled) { background: #163038; }
+.report-button:disabled { cursor: not-allowed; opacity: .45; }
 @keyframes spin { to { transform: rotate(360deg); } }

@@ -29,5 +29,8 @@ contextBridge.exposeInMainWorld("remotoOperator", {
   },
   closeSession() {
     ipcRenderer.send("close-session");
+  },
+  saveQualityReport(report) {
+    return ipcRenderer.invoke("save-quality-report", report);
   }
 });

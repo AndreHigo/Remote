@@ -1,8 +1,9 @@
-const { app, BrowserWindow, ipcMain } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain } = require("electron");
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 const { MAX_RECONNECT_ATTEMPTS, getReconnectDelay } = require("./reconnect-policy.cjs");
+const { reportFileStem, serializeQualityReport } = require("./quality-report.cjs");
 
 let mainWindow;
 let nativeSession;
@@ -125,7 +126,12 @@ function sendMetrics(metrics) {
 
 function sendSession(session) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
-  mainWindow.webContents.send("session", { audio: session.audio === "system" ? "system" : "off" });
+  mainWindow.webContents.send("session", {
+    audio: session.audio === "system" ? "system" : "off",
+    sessionId: session.sessionId,
+    deviceId: session.deviceId,
+    mode: session.mode
+  });
 }
 
 function clearFirstFrameTimer() {
@@ -328,6 +334,18 @@ async function createWindow() {
     } catch (error) {
       sendStatus("error", error instanceof Error ? error.message : String(error));
     }
+  });
+  ipcMain.handle("save-quality-report", async (_event, report) => {
+    const payload = serializeQualityReport(report);
+    const deviceId = report && typeof report === "object" ? report.deviceId : "";
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: "Salvar relatorio de qualidade",
+      defaultPath: path.join(app.getPath("documents"), `remoto-game-quality-${reportFileStem(deviceId)}.json`),
+      filters: [{ name: "Relatorio JSON", extensions: ["json"] }]
+    });
+    if (result.canceled || !result.filePath) return { saved: false };
+    await fs.writeFile(result.filePath, payload, "utf8");
+    return { saved: true, filePath: result.filePath };
   });
   ipcMain.on("retry-session", () => void retrySession());
   ipcMain.on("close-session", () => void closeSession());

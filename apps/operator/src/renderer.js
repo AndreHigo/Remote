@@ -14,6 +14,7 @@ const firstFrameText = document.getElementById("first-frame");
 const receivedText = document.getElementById("received");
 const dropsText = document.getElementById("drops");
 const gamepadStatus = document.getElementById("gamepad-status");
+const reportButton = document.getElementById("report");
 const frameQueue = [];
 let mediaStarted = false;
 let frameCount = 0;
@@ -22,6 +23,23 @@ let sourceBuffer;
 let mediaSource;
 let queuedBytes = 0;
 let droppedFrames = 0;
+let currentFps = 0;
+let qualityState = {
+  sessionId: null,
+  deviceId: null,
+  mode: null,
+  startedAt: 0,
+  firstFrameMs: null,
+  latestRttMs: null,
+  latencyP95Ms: null,
+  latencySamplesMs: [],
+  framesReceived: 0,
+  bytesReceived: 0,
+  relayDroppedFrames: 0,
+  relayDroppedBytes: 0,
+  reconnects: 0,
+  connectedOnce: false
+};
 const pressedKeys = new Set();
 const pressedButtons = new Set();
 const pressedGamepadKeys = new Set();
@@ -110,7 +128,8 @@ function receiveFrame(value) {
 }
 
 fpsTimer = window.setInterval(() => {
-  fpsText.textContent = `${frameCount} FPS`;
+  currentFps = frameCount;
+  fpsText.textContent = `${currentFps} FPS`;
   frameCount = 0;
   dropsText.textContent = `fila ${droppedFrames}`;
 }, 1000);
@@ -197,6 +216,8 @@ document.addEventListener("pointerlockchange", () => { if (document.pointerLockE
 window.addEventListener("beforeunload", () => window.clearInterval(gamepadTimer));
 document.getElementById("close").addEventListener("click", () => window.remotoOperator.closeSession());
 window.remotoOperator.onStatus(({ status, detail: message }) => {
+  if (status === "connecting" && qualityState.connectedOnce) qualityState.reconnects += 1;
+  if (status === "connected") qualityState.connectedOnce = true;
   setStatus(status);
   if (status === "closed") {
     window.clearInterval(fpsTimer);
@@ -209,16 +230,29 @@ window.remotoOperator.onStatus(({ status, detail: message }) => {
     detail.textContent = message || detail.textContent;
   }
 });
-window.remotoOperator.onMetrics(({ latencyMs, latencyP95Ms, firstFrameMs, bytesReceived, relayDroppedFrames }) => {
+window.remotoOperator.onMetrics(({ latencyMs, latencyP95Ms, firstFrameMs, framesReceived, bytesReceived, relayDroppedFrames, relayDroppedBytes }) => {
+  if (Number.isFinite(framesReceived)) qualityState.framesReceived = Math.max(0, Math.floor(framesReceived));
+  if (Number.isFinite(bytesReceived)) qualityState.bytesReceived = Math.max(0, Math.floor(bytesReceived));
   if (Number.isFinite(latencyMs)) {
+    qualityState.latestRttMs = Math.max(0, latencyMs);
+    qualityState.latencySamplesMs.push(Math.max(0, latencyMs));
+    qualityState.latencySamplesMs = qualityState.latencySamplesMs.slice(-120);
     const p95 = Number.isFinite(latencyP95Ms) ? ` / p95 ${Math.round(latencyP95Ms)} ms` : "";
     latencyText.textContent = `RTT ${Math.round(latencyMs)} ms${p95}`;
   }
-  if (Number.isFinite(firstFrameMs)) firstFrameText.textContent = `1o frame ${Math.round(firstFrameMs)} ms`;
+  if (Number.isFinite(latencyP95Ms)) qualityState.latencyP95Ms = Math.max(0, latencyP95Ms);
+  if (Number.isFinite(firstFrameMs)) {
+    qualityState.firstFrameMs = Math.max(0, firstFrameMs);
+    firstFrameText.textContent = `1o frame ${Math.round(firstFrameMs)} ms`;
+  }
   if (Number.isFinite(bytesReceived)) receivedText.textContent = `${(bytesReceived / 1024 / 1024).toFixed(1)} MB`;
+  if (Number.isFinite(relayDroppedFrames)) qualityState.relayDroppedFrames = Math.max(0, Math.floor(relayDroppedFrames));
+  if (Number.isFinite(relayDroppedBytes)) qualityState.relayDroppedBytes = Math.max(0, Math.floor(relayDroppedBytes));
   if (Number.isFinite(relayDroppedFrames)) dropsText.textContent = `fila ${droppedFrames} / relay ${Math.round(relayDroppedFrames)}`;
 });
-window.remotoOperator.onSession(({ audio }) => {
+window.remotoOperator.onSession(({ audio, sessionId, deviceId, mode }) => {
+  qualityState = { ...qualityState, sessionId, deviceId, mode, startedAt: Date.now(), connectedOnce: false };
+  reportButton.disabled = false;
   if (mediaStarted) return;
   mediaStarted = true;
   try { startMedia(audio === "system"); } catch (error) { fail(error); }
@@ -228,4 +262,22 @@ retryButton.addEventListener("click", () => {
   retryButton.hidden = true;
   showDetail("Reconectando", "Tentando restabelecer o canal com o computador remoto.");
   window.remotoOperator.retrySession();
+});
+reportButton.addEventListener("click", async () => {
+  if (!qualityState.startedAt) return;
+  reportButton.disabled = true;
+  try {
+    const result = await window.remotoOperator.saveQualityReport({
+      ...qualityState,
+      generatedAt: new Date().toISOString(),
+      durationMs: Math.max(0, Date.now() - qualityState.startedAt),
+      currentFps,
+      droppedLocalFrames: droppedFrames
+    });
+    if (result?.saved) detail.textContent = `Relatorio salvo em ${result.filePath}`;
+  } catch (error) {
+    detail.textContent = error instanceof Error ? error.message : String(error);
+  } finally {
+    reportButton.disabled = false;
+  }
 });

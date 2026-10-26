@@ -54,4 +54,4 @@ O arquivo sai em `apps/operator/release/Remoto-Operator-Setup-${versao}.exe`; se
 
 ## Limites desta entrega
 
-O cliente nativo agora possui janela, decodificacao MSE, pointer lock, teclado, mouse, mapa experimental de gamepad para teclado/mouse, encerramento e tratamento de fila de frames. Esse mapa nao cria um dispositivo XInput no host. Ainda falta o teste de duas maquinas Windows, instalador assinado e medicao real de FPS/RTT/perda em redes diferentes; por isso o modo jogo continua experimental e desativado por padrao na API.
+O cliente nativo agora possui janela, decodificacao MSE, pointer lock, teclado, mouse, mapa experimental de gamepad para teclado/mouse, encerramento, tratamento de fila de frames e exportacao local do relatorio JSON de qualidade. O relatorio nao inclui o token da sessao. Esse mapa nao cria um dispositivo XInput no host. Ainda falta o teste de duas maquinas Windows, instalador assinado e medicao real de FPS/RTT/perda em redes diferentes; por isso o modo jogo continua experimental e desativado por padrao na API.
