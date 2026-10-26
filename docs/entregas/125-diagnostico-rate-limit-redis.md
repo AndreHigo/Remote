@@ -3,6 +3,7 @@
 ## Entregue
 
 - O endpoint autenticado `/admin/rate-limit/diagnostics` mostra se a API usa Redis, memoria local ou esta indisponivel.
+- A area `Seguranca` do painel exibe essa leitura para owner/admin, com estados de carregamento, fallback local e indisponibilidade.
 - Quando Redis esta ativo, a resposta informa `usedMemoryBytes`, `maxMemoryBytes` e `keys`.
 - A URL do Redis, os nomes dos buckets e os valores das chaves nunca sao retornados.
 - O endpoint fica restrito a owner/admin e responde `503` quando o store distribuido nao pode ser consultado.

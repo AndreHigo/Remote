@@ -1014,6 +1014,16 @@ h3 { color: #24343b; font-size: 13px; }
 .twoFactorReveal { display: grid; grid-template-columns: 1fr; align-items: start; }
 .twoFactorReveal small { color: var(--muted); word-break: break-all; font-size: 10px; line-height: 1.4; }
 .securityMessage { display: block; margin-top: 12px; color: var(--accent-dark); font-size: 11px; }
+.diagnosticsPanel { grid-column: 1 / -1; }
+.diagnosticsGrid { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 10px; }
+.diagnosticsGrid div { display: grid; gap: 6px; min-height: 64px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-soft); }
+.diagnosticsGrid span { color: #708087; font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.diagnosticsGrid strong { font-size: 15px; }
+.diagnosticGood { color: var(--accent-dark); }
+.diagnosticBad { color: #a4433d; }
+.diagnosticNotice { margin-top: 12px; color: #61717a; font-size: 11px; line-height: 1.45; }
+.diagnosticNotice.warning { color: #a4433d; }
+.diagnosticRefresh { margin-top: 12px; }
 
 .activityView { min-height: 360px; }
 .auditList { margin: 0; }
@@ -1128,6 +1138,7 @@ h3 { color: #24343b; font-size: 13px; }
   .sidebarFoot { justify-content: center; margin: auto 0 0; padding-left: 0; padding-right: 0; border-top: 0; }
   .sidebarFoot > div { display: none; }
   .contentGrid, .securityView { grid-template-columns: 1fr; }
+  .diagnosticsGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .detailPanel { position: static; }
 }
 

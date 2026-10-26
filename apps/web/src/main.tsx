@@ -56,6 +56,16 @@ interface HealthResponse {
   agentInstaller: "available" | "not-configured";
 }
 
+interface RateLimitDiagnostics {
+  store: "redis" | "memory" | "unavailable";
+  checkedAt: string;
+  redis?: {
+    usedMemoryBytes: number | null;
+    maxMemoryBytes: number | null;
+    keys: number | null;
+  };
+}
+
 interface AuthUser {
   id: string;
   name: string;
@@ -405,6 +415,8 @@ function App() {
   const [twoFactorSetup, setTwoFactorSetup] = React.useState<TwoFactorSetup | null>(null);
   const [twoFactorCode, setTwoFactorCode] = React.useState("");
   const [twoFactorMessage, setTwoFactorMessage] = React.useState("");
+  const [rateLimitDiagnostics, setRateLimitDiagnostics] = React.useState<RateLimitDiagnostics | null>(null);
+  const [rateLimitDiagnosticsLoading, setRateLimitDiagnosticsLoading] = React.useState(false);
   const [loginNotice, setLoginNotice] = React.useState("");
   const [inventorySnapshots, setInventorySnapshots] = React.useState<InventorySnapshot[]>([]);
   const [commands, setCommands] = React.useState<CommandExecution[]>([]);
@@ -522,6 +534,8 @@ function App() {
     setTwoFactorSetup(null);
     setTwoFactorCode("");
     setTwoFactorMessage("");
+    setRateLimitDiagnostics(null);
+    setRateLimitDiagnosticsLoading(false);
     setSelectedDeviceId(null);
     setActiveSection("overview");
     setDeviceQuery("");
@@ -575,10 +589,23 @@ function App() {
   const canManageKeys = user?.role === "owner" || user?.role === "admin";
   const canManageOwnSecurity = user?.role === "owner" || user?.role === "admin" || user?.role === "technician";
 
+  async function refreshRateLimitDiagnostics() {
+    if (!canManageKeys) return;
+    setRateLimitDiagnosticsLoading(true);
+    try {
+      setRateLimitDiagnostics(await getJson<RateLimitDiagnostics>("/admin/rate-limit/diagnostics", token));
+    } catch {
+      setRateLimitDiagnostics({ store: "unavailable", checkedAt: new Date().toISOString() });
+    } finally {
+      setRateLimitDiagnosticsLoading(false);
+    }
+  }
+
   React.useEffect(() => {
     if (!user || !canManageOwnSecurity) {
       setCustomers([]);
       setAgentKeys([]);
+      setRateLimitDiagnostics(null);
       return;
     }
 
@@ -592,10 +619,14 @@ function App() {
           getJson<Device[]>("/devices/archived", token)
         ])
       : Promise.resolve(null);
-    Promise.all([twoFactorRequest, adminRequest])
-      .then(([nextTwoFactorStatus, adminData]) => {
+    const diagnosticsRequest = canManageKeys
+      ? getJson<RateLimitDiagnostics>("/admin/rate-limit/diagnostics", token).catch(() => ({ store: "unavailable" as const, checkedAt: new Date().toISOString() }))
+      : Promise.resolve(null);
+    Promise.all([twoFactorRequest, adminRequest, diagnosticsRequest])
+      .then(([nextTwoFactorStatus, adminData, nextRateLimitDiagnostics]) => {
         if (!active) return;
         setTwoFactorStatus(nextTwoFactorStatus);
+        setRateLimitDiagnostics(nextRateLimitDiagnostics);
         if (adminData) {
           const [nextCustomers, nextKeys, nextUsers, nextArchivedDevices] = adminData;
           setCustomers(nextCustomers);
@@ -1185,6 +1216,9 @@ function App() {
     twoFactorMessage={twoFactorMessage}
     canManageKeys={canManageKeys}
     canManageOwnSecurity={canManageOwnSecurity}
+    rateLimitDiagnostics={rateLimitDiagnostics}
+    rateLimitDiagnosticsLoading={rateLimitDiagnosticsLoading}
+    onRefreshRateLimitDiagnostics={() => void refreshRateLimitDiagnostics()}
     connectDevice={connectDevice}
     connectReason={connectReason}
     gameModeEnabled={gameModeEnabled}
@@ -1306,6 +1340,9 @@ interface OperationsConsoleProps {
   twoFactorMessage: string;
   canManageKeys: boolean;
   canManageOwnSecurity: boolean;
+  rateLimitDiagnostics: RateLimitDiagnostics | null;
+  rateLimitDiagnosticsLoading: boolean;
+  onRefreshRateLimitDiagnostics: () => void;
   connectDevice: Device | null;
   connectReason: string;
   connectMode: "support" | "game";
@@ -1427,6 +1464,9 @@ function OperationsConsole(props: OperationsConsoleProps) {
     twoFactorMessage,
     canManageKeys,
     canManageOwnSecurity,
+    rateLimitDiagnostics,
+    rateLimitDiagnosticsLoading,
+    onRefreshRateLimitDiagnostics,
     loading,
     statusMessage,
     onSectionChange,
@@ -1815,6 +1855,17 @@ function OperationsConsole(props: OperationsConsoleProps) {
               <div className="keyForm twoFactorForm"><label><span>Codigo do autenticador</span><input value={twoFactorCode} onChange={(event) => onTwoFactorCodeChange(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="000000" /></label>{!twoFactorStatus.enabled ? <><button className="secondary compact" type="button" onClick={onPrepareTwoFactor}><ShieldCheck size={15} />Preparar 2FA</button><button className="primary compact" type="button" onClick={onEnableTwoFactor} disabled={!twoFactorSetup}>Ativar 2FA</button></> : <button className="secondary compact" type="button" onClick={onDisableTwoFactor}><Ban size={15} />Desativar 2FA</button>}</div>
               {twoFactorMessage ? <small className="securityMessage">{twoFactorMessage}</small> : null}
             </section>
+            {canManageKeys ? <section className="panel diagnosticsPanel">
+              <div className="panelHeader"><div><p className="eyebrow">Operacao da plataforma</p><h2>Protecao do rate limit</h2><p>Estado do Redis usado para proteger login, agentes e sessoes.</p></div><RefreshCcw size={20} /></div>
+              <div className="diagnosticsGrid">
+                <div><span>Store</span><strong className={rateLimitDiagnostics?.store === "redis" ? "diagnosticGood" : rateLimitDiagnostics?.store === "unavailable" ? "diagnosticBad" : ""}>{rateLimitDiagnostics?.store === "redis" ? "Redis distribuido" : rateLimitDiagnostics?.store === "memory" ? "Memoria local" : "Indisponivel"}</strong></div>
+                <div><span>Memoria usada</span><strong>{formatBytes(rateLimitDiagnostics?.redis?.usedMemoryBytes ?? undefined)}</strong></div>
+                <div><span>Limite configurado</span><strong>{formatBytes(rateLimitDiagnostics?.redis?.maxMemoryBytes ?? undefined)}</strong></div>
+                <div><span>Chaves no Redis</span><strong>{rateLimitDiagnostics?.redis?.keys ?? "n/a"}</strong></div>
+              </div>
+              <div className={`diagnosticNotice ${rateLimitDiagnostics?.store === "unavailable" ? "warning" : ""}`}>{rateLimitDiagnostics?.store === "unavailable" ? "O Redis nao respondeu. Em producao, o rate limit deve permanecer fechado ate a recuperacao." : rateLimitDiagnostics?.store === "memory" ? "Ambiente local usando memoria; a producao exige Redis compartilhado." : rateLimitDiagnostics ? `Leitura feita em ${new Date(rateLimitDiagnostics.checkedAt).toLocaleString("pt-BR")}.` : "Carregando diagnostico..."}</div>
+              <button className="secondary compact diagnosticRefresh" type="button" onClick={onRefreshRateLimitDiagnostics} disabled={rateLimitDiagnosticsLoading}><RefreshCcw size={14} />{rateLimitDiagnosticsLoading ? "Atualizando..." : "Atualizar diagnostico"}</button>
+            </section> : null}
           </section>
         ) : null}
 
