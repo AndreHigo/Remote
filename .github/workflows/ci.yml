@@ -129,6 +129,13 @@ jobs:
             $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $file).Hash
             Write-Host "$hash  $file"
           }
+          $packageManifestPath = "apps/agent/release/RemotoAgent-Windows/RemotoAgent-package.json"
+          if (-not (Test-Path -LiteralPath $packageManifestPath)) { throw "Manifesto do pacote do agente ausente: $packageManifestPath" }
+          $packageManifest = Get-Content -LiteralPath $packageManifestPath -Raw | ConvertFrom-Json
+          if ($packageManifest.schemaVersion -ne 1 -or [string]::IsNullOrWhiteSpace([string]$packageManifest.version)) {
+            throw "Manifesto do pacote do agente invalido."
+          }
+          Write-Host "Pacote do agente: versao $($packageManifest.version), FFmpeg embutido: $($packageManifest.ffmpegBundled)"
           $manifest = Join-Path $env:RUNNER_TEMP "Remoto-Windows-SHA256SUMS.txt"
           $files | ForEach-Object {
             $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $_).Hash

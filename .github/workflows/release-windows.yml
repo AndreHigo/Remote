@@ -86,6 +86,10 @@ jobs:
             $env:REMOTO_BUNDLE_FFMPEG_PATH = $downloadPath
           }
           npm run agent:package:windows
+          $packageManifest = Get-Content -LiteralPath "apps/agent/release/RemotoAgent-Windows/RemotoAgent-package.json" -Raw | ConvertFrom-Json
+          if ($env:REMOTO_REQUIRE_BUNDLED_FFMPEG -eq "true" -and $packageManifest.ffmpegBundled -ne $true) {
+            throw "O manifesto do agente nao confirmou FFmpeg embutido nesta release."
+          }
 
       - name: Package native operator
         shell: powershell
