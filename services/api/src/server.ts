@@ -289,6 +289,18 @@ app.use(
   })
 );
 
+const agentDeviceRateLimit = createRateLimiter({
+  name: "AgentDevice",
+  windowMs: 60 * 1000,
+  max: 120,
+  maxEntries: 20_000,
+  key: (request) => {
+    const agent = (request as AuthenticatedAgentRequest).agent;
+    const deviceId = typeof request.params.id === "string" ? request.params.id : "unknown";
+    return `agent:${agent?.id ?? "unknown"}:device:${deviceId}`;
+  }
+});
+
 app.post("/agent/devices/register", authenticateAgent, async (request, response) => {
   const parsed = agentRegisterDeviceSchema.safeParse(request.body);
   if (!parsed.success) {
@@ -388,7 +400,7 @@ app.post("/agent/devices/register", authenticateAgent, async (request, response)
   response.status(201).json(device);
 });
 
-app.post("/agent/devices/:id/heartbeat", authenticateAgent, authorizeAgentDevice, async (request, response) => {
+app.post("/agent/devices/:id/heartbeat", authenticateAgent, authorizeAgentDevice, agentDeviceRateLimit, async (request, response) => {
   const deviceId = z.string().parse(request.params.id);
   const agent = (request as AuthenticatedAgentRequest).agent;
   const device = await repository.heartbeat({ deviceId, customerId: agent.customerId });
@@ -400,7 +412,7 @@ app.post("/agent/devices/:id/heartbeat", authenticateAgent, authorizeAgentDevice
   response.json(device);
 });
 
-app.get("/agent/devices/:id/status", authenticateAgent, authorizeAgentDevice, async (request, response) => {
+app.get("/agent/devices/:id/status", authenticateAgent, authorizeAgentDevice, agentDeviceRateLimit, async (request, response) => {
   const deviceId = z.string().parse(request.params.id);
   const agent = (request as AuthenticatedAgentRequest).agent;
   const device = await repository.getAgentDevice({ deviceId, customerId: agent.customerId });
@@ -412,7 +424,7 @@ app.get("/agent/devices/:id/status", authenticateAgent, authorizeAgentDevice, as
   response.json(device);
 });
 
-app.post("/agent/devices/:id/inventory", authenticateAgent, authorizeAgentDevice, async (request, response) => {
+app.post("/agent/devices/:id/inventory", authenticateAgent, authorizeAgentDevice, agentDeviceRateLimit, async (request, response) => {
   const deviceId = z.string().parse(request.params.id);
   const parsed = inventorySchema.safeParse(request.body);
   if (!parsed.success) {
@@ -437,7 +449,7 @@ app.post("/agent/devices/:id/inventory", authenticateAgent, authorizeAgentDevice
   response.status(201).json(snapshot);
 });
 
-app.get("/agent/devices/:id/commands", authenticateAgent, authorizeAgentDevice, async (request, response) => {
+app.get("/agent/devices/:id/commands", authenticateAgent, authorizeAgentDevice, agentDeviceRateLimit, async (request, response) => {
   const deviceId = z.string().parse(request.params.id);
   const agent = (request as AuthenticatedAgentRequest).agent;
   const commands = await repository.claimPendingCommands({ deviceId, customerId: agent.customerId });
@@ -450,7 +462,7 @@ app.get("/agent/devices/:id/commands", authenticateAgent, authorizeAgentDevice, 
   response.json(commands);
 });
 
-app.get("/agent/devices/:id/remote-sessions", authenticateAgent, authorizeAgentDevice, async (request, response) => {
+app.get("/agent/devices/:id/remote-sessions", authenticateAgent, authorizeAgentDevice, agentDeviceRateLimit, async (request, response) => {
   const deviceId = z.string().parse(request.params.id);
   const agent = (request as AuthenticatedAgentRequest).agent;
   const sessions = await repository.listAgentRemoteSessions({ deviceId, customerId: agent.customerId });
