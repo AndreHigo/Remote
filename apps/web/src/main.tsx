@@ -1137,6 +1137,21 @@ function App() {
     setStatusMessage("Perfil de instalacao baixado");
   }
 
+  function downloadAgentBundle() {
+    downloadAgentProfile();
+    if (!agentInstallerAvailable) return;
+
+    const anchor = document.createElement("a");
+    anchor.href = AGENT_INSTALLER_URL;
+    anchor.download = "RemotoAgent-Setup.exe";
+    anchor.target = "_blank";
+    anchor.rel = "noreferrer";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setStatusMessage("Perfil e instalador baixados; abra o instalador na pasta Downloads");
+  }
+
   async function revokeAgentKey(key: AgentKey) {
     const revoked = await postJson<AgentKey>(`/agent-keys/${key.id}/revoke`, token);
     setAgentKeys((current) => current.map((item) => (item.id === revoked.id ? revoked : item)));
@@ -1304,6 +1319,7 @@ function App() {
     onCreateOnboardingKey={() => void createOnboardingKey()}
     onCopyOnboardingKey={() => void copyOnboardingKey()}
     onDownloadAgentProfile={downloadAgentProfile}
+    onDownloadAgentBundle={downloadAgentBundle}
     gameSession={gameSession}
     gameSessionStarted={gameSessionStarted}
     onLaunchGameInBrowser={() => void launchGameInBrowser()}
@@ -1428,6 +1444,7 @@ interface OperationsConsoleProps {
   onCreateOnboardingKey: () => void;
   onCopyOnboardingKey: () => void;
   onDownloadAgentProfile: () => void;
+  onDownloadAgentBundle: () => void;
   gameSession: GameSessionDescriptor | null;
   gameSessionStarted: boolean;
   onLaunchGameInBrowser: () => void;
@@ -1552,6 +1569,7 @@ function OperationsConsole(props: OperationsConsoleProps) {
     onCreateOnboardingKey,
     onCopyOnboardingKey,
     onDownloadAgentProfile,
+    onDownloadAgentBundle,
     gameSession,
     gameSessionStarted,
     onLaunchGameInBrowser,
@@ -1915,6 +1933,7 @@ function OperationsConsole(props: OperationsConsoleProps) {
                   <div className="onboardingSuccess"><span className="successMark">✓</span><div><strong>Chave criada para {onboardingKey.customerName}</strong><span>Copie agora. Por segurança, ela não será exibida novamente.</span></div></div>
                   <div className="onboardingKeyBox"><code>{onboardingKey.key}</code><button className="iconButton compact" type="button" onClick={onCopyOnboardingKey} aria-label="Copiar chave de cadastro" title="Copiar chave"><Copy size={15} /></button></div>
                   <div className="modalInfo"><strong>Próximo passo</strong><span>Baixe o perfil e o instalador para a mesma pasta no computador que será cadastrado. Ao abrir o instalador, API, relay e chave serão preenchidos automaticamente. Não é necessário usar o terminal.</span></div>
+                  {agentInstallerAvailable ? <button className="primary installerDownload" type="button" onClick={onDownloadAgentBundle}><Download size={16} />Baixar pacote de instalação</button> : null}
                   <button className="secondary installerDownload" type="button" onClick={onDownloadAgentProfile}><Download size={16} />Baixar perfil de instalação</button>
                   {agentInstallerAvailable ? <a className="primary installerDownload" href={AGENT_INSTALLER_URL} target="_blank" rel="noreferrer" download><Download size={16} />Baixar instalador do agente <ArrowUpRight size={14} /></a> : <div className="installerUnavailable"><strong>Instalador ainda não publicado</strong><span>Configure `REMOTO_AGENT_INSTALLER_PATH` na API ou `VITE_AGENT_INSTALLER_URL` no painel para liberar o download desta implantação.</span></div>}
                   <details className="advancedSetup"><summary>Instalação avançada para desenvolvimento</summary><pre className="setupCommand">{[`$env:REMOTO_API_URL="${API_URL}"`, `$env:REMOTO_AGENT_KEY="${onboardingKey.key}"`, "npm run agent:register"].join("\n")}</pre><a className="agentSourceLink" href="https://github.com/AndreHigo/Remote/tree/main/apps/agent" target="_blank" rel="noreferrer">Abrir código do agente <ArrowUpRight size={14} /></a></details>
