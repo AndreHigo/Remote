@@ -133,6 +133,8 @@ O painel, a experiencia comercial, as permissoes, a auditoria e as automacoes fi
 4. Assinar o instalador Windows e definir atualizacao automatica.
 5. Validar o cliente nativo visual em duas maquinas, assinar o instalador e medir a matriz de jogos suportados.
 
+Para uma release Windows com modo jogo, configure no repositorio as variaveis `REMOTO_FFMPEG_URL` e `REMOTO_FFMPEG_SHA256`. O workflow baixa o `ffmpeg.exe`, confere o SHA-256 e valida `RemotoAgent-package.json` antes de empacotar. O binario nao e versionado no Git; mantenha a origem e a licenca correspondentes junto dos artefatos.
+
 O botao `Conectar` registra uma solicitacao de sessao; um owner ou admin precisa aprovar antes de abrir o adaptador correspondente. Sessoes de suporte usam RustDesk quando instalado; sessoes de jogo usam o relay H.264 experimental do proprio Remoto quando `ENABLE_GAME_MODE=true` e os segredos do canal estao configurados. O cliente nativo inicial fica em `apps/operator`, abre descritores de sessao de uso unico e pode ser iniciado pelo `GameEngine`; ele ainda nao e liberado como instalador assinado e nao promete compatibilidade com anti-cheat ou desktop seguro. Owner, admin e tecnico conseguem configurar o proprio 2FA TOTP no painel; em producao, as operacoes remotas ficam bloqueadas ate a ativacao. Configure `TOTP_ENCRYPTION_KEY` e `DESKTOP_SESSION_SECRET` separados do `JWT_SECRET`.
 
 A API possui `/health` para liveness e `/ready` para readiness com verificacao do PostgreSQL. O workflow em `.github/workflows/ci.yml` valida testes, tipos, build e os Compose antes de qualquer deploy.
