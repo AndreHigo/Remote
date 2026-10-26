@@ -926,6 +926,23 @@ function App() {
     }
   }
 
+  async function changeManagedUserRole(userToUpdate: ManagedUser, role: ManagedUser["role"]) {
+    if (role === userToUpdate.role) return;
+    if (!window.confirm(`Alterar a funcao de ${userToUpdate.name} para ${role}? As sessoes remotas deste usuario serao revogadas.`)) return;
+    try {
+      const updated = await patchJson<ManagedUser>(`/users/${userToUpdate.id}`, token, {
+        name: userToUpdate.name,
+        email: userToUpdate.email,
+        role,
+        active: userToUpdate.active
+      });
+      setManagedUsers((current) => current.map((item) => item.id === updated.id ? updated : item));
+      setStatusMessage("Funcao do usuario atualizada");
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "Nao foi possivel atualizar a funcao");
+    }
+  }
+
   async function resetManagedUserPassword(userToUpdate: ManagedUser) {
     const password = window.prompt(`Nova senha para ${userToUpdate.email} (minimo 8 caracteres):`);
     if (!password) return;
@@ -1168,6 +1185,7 @@ function App() {
     onNewUserRoleChange={setNewUserRole}
     onCreateManagedUser={() => void createManagedUser()}
     onToggleManagedUser={(managedUser) => void toggleManagedUser(managedUser)}
+    onChangeManagedUserRole={(managedUser, role) => void changeManagedUserRole(managedUser, role)}
     onResetManagedUserPassword={(managedUser) => void resetManagedUserPassword(managedUser)}
     onKeyNameChange={setNewKeyName}
     onKeyCustomerChange={setNewKeyCustomerId}
@@ -1280,6 +1298,7 @@ interface OperationsConsoleProps {
   onNewUserRoleChange: (value: ManagedUser["role"]) => void;
   onCreateManagedUser: () => void;
   onToggleManagedUser: (user: ManagedUser) => void;
+  onChangeManagedUserRole: (user: ManagedUser, role: ManagedUser["role"]) => void;
   onResetManagedUserPassword: (user: ManagedUser) => void;
   onKeyNameChange: (value: string) => void;
   onKeyCustomerChange: (value: string) => void;
@@ -1381,6 +1400,7 @@ function OperationsConsole(props: OperationsConsoleProps) {
     onNewUserRoleChange,
     onCreateManagedUser,
     onToggleManagedUser,
+    onChangeManagedUserRole,
     onResetManagedUserPassword,
     onKeyNameChange,
     onKeyCustomerChange,
@@ -1686,7 +1706,7 @@ function OperationsConsole(props: OperationsConsoleProps) {
               <ul className="userList">{managedUsers.map((managedUser) => <li key={managedUser.id}>
                 <span><strong>{managedUser.name}</strong><small>{managedUser.email} / {managedUser.role} / 2FA {managedUser.twoFactorEnabled ? "ativo" : "pendente"}</small></span>
                 <span className={`commandStatus ${managedUser.active ? "succeeded" : "failed"}`}>{managedUser.active ? "Ativo" : "Bloqueado"}</span>
-                <span className="customerActions"><button className="secondary compact" type="button" onClick={() => onResetManagedUserPassword(managedUser)}>Redefinir senha</button><button className="iconButton compact" type="button" onClick={() => onToggleManagedUser(managedUser)} disabled={managedUser.id === user.id} aria-label={`${managedUser.active ? "Bloquear" : "Ativar"} ${managedUser.name}`} title={managedUser.active ? "Bloquear usuario" : "Ativar usuario"}>{managedUser.active ? <Ban size={15} /> : <ShieldCheck size={15} />}</button></span>
+                <span className="customerActions"><select className="roleSelect" value={managedUser.role} onChange={(event) => onChangeManagedUserRole(managedUser, event.target.value as ManagedUser["role"])} disabled={managedUser.id === user.id} aria-label={`Funcao de ${managedUser.name}`}><option value="admin">Administrador</option><option value="technician">Tecnico</option><option value="viewer">Visualizador</option>{user.role === "owner" ? <option value="owner">Owner</option> : null}</select><button className="secondary compact" type="button" onClick={() => onResetManagedUserPassword(managedUser)}>Redefinir senha</button><button className="iconButton compact" type="button" onClick={() => onToggleManagedUser(managedUser)} disabled={managedUser.id === user.id} aria-label={`${managedUser.active ? "Bloquear" : "Ativar"} ${managedUser.name}`} title={managedUser.active ? "Bloquear usuario" : "Ativar usuario"}>{managedUser.active ? <Ban size={15} /> : <ShieldCheck size={15} />}</button></span>
               </li>)}</ul>
             </section>
             <section className="panel archivedPanel">

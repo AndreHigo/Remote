@@ -970,6 +970,7 @@ h3 { color: #24343b; font-size: 13px; }
 .userList li { display: grid; grid-template-columns: minmax(240px, 1fr) auto auto; gap: 12px; align-items: center; border-top: 1px solid #e5ecef; padding-top: 10px; }
 .userList strong, .userList small { display: block; }
 .userList small { color: #708087; font-size: 11px; }
+.userList .roleSelect { min-height: 32px; border: 1px solid #cddade; border-radius: 7px; background: #fff; color: #172026; padding: 0 7px; font-size: 11px; }
 .archivedPanel { grid-column: 1 / -1; display: grid; gap: 12px; }
 .archivedList { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .archivedList li { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid #e5ecef; padding-top: 10px; }
