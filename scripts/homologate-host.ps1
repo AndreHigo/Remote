@@ -141,6 +141,8 @@ if ($configurationStatus -ne "configured") {
 }
 if (-not $interactiveTask) {
   $nextChecks.Add("Instalar a tarefa RemotoAgentDesktop em uma sessao elevada e confirmar o processo interativo.")
+} elseif ($sessionProcesses.Count -eq 0) {
+  $nextChecks.Add("A tarefa RemotoAgentDesktop existe, mas o processo interativo nao esta em execucao; inicie a tarefa ou entre novamente na sessao do Windows.")
 }
 if ($ffmpegPath -and -not $serviceFfmpegPath) {
   $nextChecks.Add("Instalar o FFmpeg em uma pasta protegida (Program Files/ProgramData); o servico nao executa binarios do perfil do usuario.")
@@ -196,6 +198,7 @@ $report = [ordered]@{
     interactiveTaskInstalled = [bool]$interactiveTask
     interactiveTaskState = if ($interactiveTask) { [string]$interactiveTask.State } else { "NotInstalled" }
     interactiveSessionProcess = ($sessionProcesses.Count -gt 0)
+    interactiveSessionReady = [bool]($interactiveTask -and $sessionProcesses.Count -gt 0)
   }
   nextChecks = @($nextChecks)
 }

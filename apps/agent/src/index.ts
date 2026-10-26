@@ -561,6 +561,8 @@ async function executeCommand(deviceId: string, pendingCommand: CommandResponse)
             disks: inventory.hardware.disks
           },
           capture: inventory.software.capture,
+          sessions: inventory.software.sessions,
+          input: inventory.software.input,
           runtime: inventory.software.runtime
         }
       };

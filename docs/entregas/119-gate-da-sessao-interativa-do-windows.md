@@ -15,6 +15,8 @@ O inventario do dispositivo exibe agora:
 - `Sessao Windows`: informa se a tarefa `RemotoAgentDesktop` esta instalada e se o processo interativo foi encontrado;
 - mensagem de reparo quando a captura esta pronta, mas a sessao interativa ainda nao esta.
 
+O comando remoto `collect-diagnostics` e o relatorio `homologate-host.ps1` tambem publicam `interactiveSessionReady`, alem dos sinais detalhados, para o suporte conseguir identificar rapidamente se falta a tarefa ou apenas o processo do usuario.
+
 A API tambem recusa a aprovacao com `interactive-session-not-ready` e orienta reparar a instalacao e atualizar o inventario.
 
 ## Reparo no computador
