@@ -7,6 +7,7 @@
 - Em producao, `REDIS_URL` e obrigatoria no processo da API, no Compose e no preflight.
 - O endpoint `/ready` verifica PostgreSQL e Redis; o container fica fora do pool saudavel se o rate limit distribuido nao estiver acessivel.
 - As rotas autenticadas de um dispositivo usam um bucket adicional de 120 requisicoes por minuto por agente e dispositivo, compartilhado entre heartbeat, status, inventario, comandos e sessoes.
+- Administradores podem consultar `/admin/rate-limit/diagnostics` para ver o estado do store, memoria usada, limite de memoria configurado e quantidade de chaves do Redis sem expor a URL ou os valores das chaves.
 - Se Redis nao estiver configurado, o desenvolvimento local continua usando o fallback em memoria. Se estiver configurado e indisponivel, a producao falha fechado com `rate_limit_unavailable`.
 
 ## Validacao
@@ -18,4 +19,4 @@
 
 ## Limites
 
-Ainda falta monitoramento de memoria/chaves no Redis. O Redis deve ser fornecido pela VPS ou por um servico gerenciado, com senha e preferencialmente `rediss://` fora da rede privada.
+O endpoint fornece uma fotografia sob demanda; ainda falta conectar essas leituras a alertas/metricas persistentes da VPS. O Redis deve ser fornecido pela VPS ou por um servico gerenciado, com senha e preferencialmente `rediss://` fora da rede privada.

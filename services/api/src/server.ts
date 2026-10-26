@@ -23,7 +23,7 @@ import {
 import { prisma } from "./db.js";
 import { getAgentInstallerPath } from "./installer-download.js";
 import { repository } from "./repository.js";
-import { createRateLimiter, getRateLimitStoreStatus } from "./rate-limit.js";
+import { createRateLimiter, getRateLimitStoreDiagnostics, getRateLimitStoreStatus } from "./rate-limit.js";
 
 const app = express();
 const port = Number(process.env.PORT ?? 4100);
@@ -197,6 +197,11 @@ app.get("/ready", async (_request, response) => {
   } catch {
     response.status(503).json({ ok: false, service: "remoto-api", database: "unavailable" });
   }
+});
+
+app.get("/admin/rate-limit/diagnostics", requireRole(["owner", "admin"]), async (_request, response) => {
+  const diagnostics = await getRateLimitStoreDiagnostics();
+  response.status(diagnostics.store === "unavailable" ? 503 : 200).json(diagnostics);
 });
 
 app.post(

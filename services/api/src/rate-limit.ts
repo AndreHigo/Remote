@@ -19,6 +19,16 @@ interface RateLimitEntry {
 
 type RateLimitRedisClient = ReturnType<typeof createClient>;
 
+export interface RateLimitStoreDiagnostics {
+  store: "redis" | "memory" | "unavailable";
+  checkedAt: string;
+  redis?: {
+    usedMemoryBytes: number | null;
+    maxMemoryBytes: number | null;
+    keys: number | null;
+  };
+}
+
 const redisClients = new Map<string, RateLimitRedisClient>();
 const REDIS_WINDOW_SCRIPT = [
   "local count = redis.call('INCR', KEYS[1])",
@@ -88,6 +98,54 @@ export async function getRateLimitStoreStatus(): Promise<"redis" | "memory" | "u
   } catch {
     return "unavailable";
   }
+}
+
+export async function getRateLimitStoreDiagnostics(): Promise<RateLimitStoreDiagnostics> {
+  const checkedAt = new Date().toISOString();
+  const redisUrl = process.env.REDIS_URL;
+  if (!redisUrl) {
+    return { store: process.env.NODE_ENV === "production" ? "unavailable" : "memory", checkedAt };
+  }
+
+  try {
+    const client = getRedisClient(redisUrl);
+    if (!client.isOpen) await client.connect();
+    const [memoryInfo, databaseSize] = await Promise.all([
+      client.sendCommand(["INFO", "memory"]),
+      client.sendCommand(["DBSIZE"])
+    ]);
+    const memory = parseRedisMemoryInfo(String(memoryInfo));
+    const keys = Number(databaseSize);
+    return {
+      store: "redis",
+      checkedAt,
+      redis: {
+        ...memory,
+        keys: Number.isFinite(keys) && keys >= 0 ? keys : null
+      }
+    };
+  } catch {
+    return { store: "unavailable", checkedAt };
+  }
+}
+
+export function parseRedisMemoryInfo(info: string) {
+  const values = new Map<string, string>();
+  for (const line of info.split(/\r?\n/)) {
+    const separator = line.indexOf(":");
+    if (separator <= 0) continue;
+    values.set(line.slice(0, separator), line.slice(separator + 1).trim());
+  }
+
+  const parseBytes = (key: string) => {
+    const value = Number(values.get(key));
+    return Number.isFinite(value) && value >= 0 ? value : null;
+  };
+
+  return {
+    usedMemoryBytes: parseBytes("used_memory"),
+    maxMemoryBytes: parseBytes("maxmemory")
+  };
 }
 
 function consumeMemory(entries: Map<string, RateLimitEntry>, maxEntries: number, key: string, windowMs: number) {
