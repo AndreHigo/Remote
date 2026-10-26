@@ -45,6 +45,7 @@ export async function connectRemoteSession(
   let capture: CaptureProcess | undefined;
   let input: RealtimeInputBridge | undefined;
   let detachCapture: (() => void) | undefined;
+  let cleanedUp = false;
   let pingTimer: NodeJS.Timeout | undefined;
   let metricsTimer: NodeJS.Timeout | undefined;
   let closedNotified = false;
@@ -80,6 +81,10 @@ export async function connectRemoteSession(
     const fail = (error: Error) => {
       if (settled) return;
       settled = true;
+      cleanup();
+      if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+        socket.close(1002, "handshake-failed");
+      }
       reject(error);
     };
 
@@ -178,6 +183,8 @@ export async function connectRemoteSession(
     }
 
     function cleanup() {
+      if (cleanedUp) return;
+      cleanedUp = true;
       if (pingTimer) clearInterval(pingTimer);
       pingTimer = undefined;
       if (metricsTimer) clearInterval(metricsTimer);

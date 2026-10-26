@@ -242,6 +242,33 @@ test("cliente realtime notifica uma desconexao de socket e libera o agente para 
   assert.deepEqual(reasons, ["network-down"]);
 });
 
+test("cliente realtime fecha o socket quando o handshake recebe mensagem invalida", async (t) => {
+  const server = http.createServer();
+  const wss = new WebSocketServer({ server });
+  let serverSocketClosed = false;
+  t.after(async () => {
+    wss.close();
+    if (server.listening) await new Promise<void>((resolve) => server.close(() => resolve()));
+  });
+
+  wss.on("connection", (socket) => {
+    socket.once("close", () => { serverSocketClosed = true; });
+    socket.send("nao-e-json");
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+
+  await assert.rejects(
+    connectRemoteSession(
+      { sessionId: "session-test", deviceId: "device-test", mode: "game", role: "client", accessToken: "session-token" },
+      { url: `ws://127.0.0.1:${address.port}/sessions/session-test` }
+    ),
+    /Resposta realtime invalida/
+  );
+  await waitFor(() => serverSocketClosed);
+});
+
 async function waitFor(predicate: () => boolean) {
   const deadline = Date.now() + 3000;
   while (!predicate() && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 10));
