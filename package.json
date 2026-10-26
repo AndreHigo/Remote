@@ -18,6 +18,7 @@
     "db:push": "npm run db:push -w services/api",
     "db:seed": "npm run db:seed -w services/api",
     "deploy:preflight": "powershell -NoProfile -ExecutionPolicy Bypass -File infra/docker/preflight-production.ps1",
+    "backup:rotate": "powershell -NoProfile -ExecutionPolicy Bypass -File infra/docker/rotate-backups.ps1",
     "agent:register": "npm run register -w apps/agent",
     "agent:heartbeat": "npm run heartbeat -w apps/agent",
     "agent:inventory": "npm run inventory -w apps/agent",

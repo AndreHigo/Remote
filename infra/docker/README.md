@@ -67,6 +67,20 @@ Com a stack em execucao, gere um backup local do banco antes de mudancas:
 powershell -ExecutionPolicy Bypass -File infra/docker/backup-postgres.ps1
 ```
 
+Para simular a retencao e listar o que seria removido, mantendo os 7 backups mais recentes:
+
+```powershell
+npm run backup:rotate -- -BackupDirectory .\backups -KeepCount 7
+```
+
+A remocao exige confirmacao explicita. Agende esse comando somente depois de revisar a simulacao:
+
+```powershell
+npm run backup:rotate -- -BackupDirectory .\backups -KeepCount 7 -ConfirmDelete
+```
+
+O script considera apenas arquivos cifrados com o formato `remoto-YYYYMMDD-HHmmss.sql.enc`; nenhum outro arquivo do diretorio e tocado.
+
 Para restaurar, confirme explicitamente a operacao destrutiva e informe o arquivo cifrado:
 
 ```powershell
