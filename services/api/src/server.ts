@@ -171,19 +171,29 @@ app.get("/health", (_request, response) => {
   });
 });
 
-app.get("/downloads/agent", (request, response) => {
-  const installerPath = getAgentInstallerPath();
-  if (!installerPath) {
-    response.status(404).json({ message: "Instalador do agente ainda nao foi configurado nesta implantacao" });
-    return;
-  }
+app.get(
+  "/downloads/agent",
+  createRateLimiter({
+    name: "InstallerDownload",
+    windowMs: 15 * 60 * 1000,
+    max: 30,
+    maxEntries: 20_000,
+    key: (request) => `ip:${request.ip ?? request.socket.remoteAddress ?? "unknown"}`
+  }),
+  (request, response) => {
+    const installerPath = getAgentInstallerPath();
+    if (!installerPath) {
+      response.status(404).json({ message: "Instalador do agente ainda nao foi configurado nesta implantacao" });
+      return;
+    }
 
-  response.download(installerPath, agentInstallerFileName, { dotfiles: "deny" }, (error) => {
-    if (!error || response.headersSent) return;
-    console.error("Falha ao enviar instalador do agente", error);
-    response.status(404).json({ message: "Instalador do agente indisponivel" });
-  });
-});
+    response.download(installerPath, agentInstallerFileName, { dotfiles: "deny" }, (error) => {
+      if (!error || response.headersSent) return;
+      console.error("Falha ao enviar instalador do agente", error);
+      response.status(404).json({ message: "Instalador do agente indisponivel" });
+    });
+  }
+);
 
 app.get("/ready", async (_request, response) => {
   try {
