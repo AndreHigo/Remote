@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createInputReleaseTracker, validateInputEvent } from "./input.js";
+import { createInputReleaseTracker, serializeInputEvent, validateInputEvent } from "./input.js";
 
 test("entrada aceita somente eventos tipados e limita movimento", () => {
   assert.deepEqual(validateInputEvent({ type: "mouse.relative", dx: 99999, dy: -99999 }), {
@@ -25,6 +25,13 @@ test("entrada rejeita comando arbitrario e scan code fora da faixa", () => {
   assert.throws(() => validateInputEvent({ type: "shell", command: "whoami" }), /nao permitido/);
   assert.throws(() => validateInputEvent({ type: "key", scanCode: 999, action: "down" }), /nao permitido/);
   assert.throws(() => validateInputEvent({ type: "key", scanCode: 72, action: "down", extended: "yes" }), /nao permitido/);
+});
+
+test("entrada usa protocolo tipado compacto para reduzir trabalho no host", () => {
+  assert.equal(serializeInputEvent({ type: "mouse.relative", dx: -4, dy: 8 }), "m -4 8");
+  assert.equal(serializeInputEvent({ type: "mouse.button", button: "right", action: "down" }), "b right down");
+  assert.equal(serializeInputEvent({ type: "mouse.wheel", delta: 120 }), "w 120");
+  assert.equal(serializeInputEvent({ type: "key", scanCode: 30, action: "up", extended: true }), "k 30 up 1");
 });
 
 test("entrada libera teclas e botoes mantidos quando a sessao encerra", () => {

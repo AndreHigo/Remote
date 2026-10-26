@@ -20,7 +20,7 @@ Stack candidata:
 - React;
 - Rust para integracoes locais.
 
-Estado atual: contrato, captura, entrada e transporte realtime autenticado estao implementados para o host Windows. O painel web possui o cliente experimental do modo jogo e `apps/operator` fornece uma janela nativa inicial para o operador.
+Estado atual: contrato, captura, entrada e transporte realtime autenticado estao implementados para o host Windows. A ponte de `SendInput` usa um protocolo tipado compacto para reduzir sobrecarga por evento. O painel web possui o cliente experimental do modo jogo e `apps/operator` fornece uma janela nativa inicial para o operador.
 
 O modulo `capture.ts` monta uma captura Windows de baixa latencia via FFmpeg. O metodo `auto` prioriza `ddagrab` (Desktop Duplication API) quando disponivel e quando um encoder acelerado foi selecionado; com fallback de `libx264` por CPU, prefere `gdigrab` para manter compatibilidade em maquinas sem GPU dedicada. A selecao explicita de `ddagrab` continua disponivel e cai para `gdigrab` quando o filtro nao existe. O perfil de encoder `auto` detecta os encoders H.264 publicados pela build local, prioriza aceleracao NVIDIA/AMD/Intel e sempre cai para `libx264` por CPU quando a GPU, o driver ou a build nao forem compativeis. O modulo `input.ts` valida eventos tipados e usa uma ponte Windows isolada para SendInput. O modulo `realtime.ts` conecta o host ao relay autenticado e envia video e entrada somente dentro da sessao aprovada.
 

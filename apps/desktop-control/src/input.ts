@@ -71,6 +71,20 @@ export function validateInputEvent(value: unknown): RemoteInputEvent {
   throw new Error("Evento de entrada nao permitido");
 }
 
+export function serializeInputEvent(value: RemoteInputEvent) {
+  const event = validateInputEvent(value);
+  switch (event.type) {
+    case "mouse.relative":
+      return `m ${event.dx} ${event.dy}`;
+    case "mouse.button":
+      return `b ${event.button} ${event.action}`;
+    case "mouse.wheel":
+      return `w ${event.delta}`;
+    case "key":
+      return `k ${event.scanCode} ${event.action} ${event.extended === true ? 1 : 0}`;
+  }
+}
+
 export class WindowsInputBridge {
   private readonly process: ChildProcessWithoutNullStreams;
   private readonly releaseTracker = createInputReleaseTracker();
@@ -92,7 +106,7 @@ export class WindowsInputBridge {
   send(value: unknown) {
     const event = validateInputEvent(value);
     if (!this.process.stdin.writable) throw new Error("Ponte de entrada encerrada");
-    this.process.stdin.write(`${JSON.stringify(event)}\n`);
+    this.process.stdin.write(`${serializeInputEvent(event)}\n`);
     this.releaseTracker.observe(event);
   }
 
@@ -101,7 +115,7 @@ export class WindowsInputBridge {
     this.closed = true;
     if (this.process.stdin.writable) {
       for (const event of this.releaseTracker.releaseEvents()) {
-        this.process.stdin.write(`${JSON.stringify(event)}\n`);
+        this.process.stdin.write(`${serializeInputEvent(event)}\n`);
       }
       this.process.stdin.end();
       this.forceKillTimer = setTimeout(() => {
@@ -126,7 +140,7 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, Math.round(value)));
 }
 
-// The bridge accepts only the typed JSON events above; it never evaluates a user command.
+// The bridge accepts only the typed line protocol above; it never evaluates a user command.
 const POWERSHELL_BRIDGE = String.raw`
 $signature = @'
 using System;
@@ -148,17 +162,18 @@ public static class RemotoInput {
 Add-Type -TypeDefinition $signature
 while ($line = [Console]::In.ReadLine()) {
   try {
-    $event = $line | ConvertFrom-Json
-    switch ($event.type) {
-      'mouse.relative' { [RemotoInput]::Move([int]$event.dx, [int]$event.dy) }
-      'mouse.button' {
-        $data = if ($event.button -eq 'left') { 0 } elseif ($event.button -eq 'right') { 0 } else { 0 }
-        $down = $event.action -eq 'down'
-        $flag = if ($event.button -eq 'left') { if ($down) { 2 } else { 4 } } elseif ($event.button -eq 'right') { if ($down) { 8 } else { 16 } } else { if ($down) { 32 } else { 64 } }
-        [RemotoInput]::Button($data, $flag)
+    $parts = $line -split ' '
+    switch ($parts[0]) {
+      'm' { if ($parts.Count -eq 3) { [RemotoInput]::Move([int]$parts[1], [int]$parts[2]) } }
+      'b' {
+        if ($parts.Count -eq 3) {
+          $down = $parts[2] -eq 'down'
+          $flag = if ($parts[1] -eq 'left') { if ($down) { 2 } else { 4 } } elseif ($parts[1] -eq 'right') { if ($down) { 8 } else { 16 } } elseif ($parts[1] -eq 'middle') { if ($down) { 32 } else { 64 } } else { 0 }
+          if ($flag -ne 0) { [RemotoInput]::Button(0, $flag) }
+        }
       }
-      'mouse.wheel' { [RemotoInput]::Wheel([int]$event.delta) }
-      'key' { [RemotoInput]::Key([ushort]$event.scanCode, $event.action -eq 'up', $event.extended -eq $true) }
+      'w' { if ($parts.Count -eq 2) { [RemotoInput]::Wheel([int]$parts[1]) } }
+      'k' { if ($parts.Count -eq 4) { [RemotoInput]::Key([ushort]$parts[1], $parts[2] -eq 'up', $parts[3] -eq '1') } }
     }
   } catch { }
 }
