@@ -14,6 +14,8 @@ Medicao da sessao local:
 - RTT medio/p95: `1/1 ms`;
 - descartes do relay: `0`.
 
+Na segunda rodada, com `CaptureEncoder=auto` e `CaptureMethod=auto`, o host usou o caminho acelerado disponivel e registrou primeiro frame de `40 ms`, `26,96 FPS`, `3442,66 kbps`, RTT medio/p95 de `1/1 ms` e zero descartes.
+
 O FPS agora conta samples de video dos fragmentos fMP4, e nao apenas a quantidade de segmentos recebidos.
 
 ## Limites
