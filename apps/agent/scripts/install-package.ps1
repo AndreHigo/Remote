@@ -52,6 +52,21 @@ function Wait-ServiceRemoved {
   }
 }
 
+function Wait-ServiceRunning {
+  param([string]$Name)
+
+  $deadline = (Get-Date).AddSeconds(15)
+  while ((Get-Date) -lt $deadline) {
+    $service = Get-Service -Name $Name -ErrorAction SilentlyContinue
+    if ($service -and $service.Status -eq "Running") { return }
+    if ($service -and $service.Status -eq "Stopped") {
+      throw "O servico $Name parou logo apos a instalacao. Verifique a configuracao e o diagnostico do agente."
+    }
+    Start-Sleep -Milliseconds 250
+  }
+  throw "O servico $Name nao entrou em execucao em 15 segundos. Verifique o Visualizador de Eventos e execute o reparo como administrador."
+}
+
 function Assert-SecureEndpoint {
   param([string]$Value, [ValidateSet("api", "realtime")][string]$Kind)
   try { $uri = [Uri]$Value } catch { throw "URL $Kind invalida." }
@@ -228,6 +243,7 @@ New-Service -Name $ServiceName -BinaryPathName $binPath -DisplayName "Remoto Age
 Invoke-Sc @("description", $ServiceName, "Agente Remoto para presenca, inventario e acesso assistido.")
 Invoke-Sc @("failure", $ServiceName, "reset=", "86400", "actions=", "restart/5000/restart/15000/restart/60000")
 Start-Service -Name $ServiceName
+Wait-ServiceRunning -Name $ServiceName
 
 $legacyRunKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
 Remove-ItemProperty -Path $legacyRunKey -Name "RemotoAgentDesktop" -ErrorAction SilentlyContinue

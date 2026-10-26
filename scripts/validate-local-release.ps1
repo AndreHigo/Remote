@@ -44,8 +44,8 @@ $innoInstaller = Get-Content -LiteralPath "apps/agent/scripts/remoto-agent.iss" 
 if (-not (Test-Path -LiteralPath "apps/agent/scripts/repair-installed-agent.ps1")) {
   throw "O pacote do agente precisa conter o script de reparo elevado."
 }
-if ($packageInstaller -notmatch '(?i)RepairExisting' -or $packageInstaller -notmatch '(?i)Start-ScheduledTask') {
-  throw "O instalador do agente precisa suportar reparo e recriar a tarefa interativa."
+if ($packageInstaller -notmatch '(?i)RepairExisting' -or $packageInstaller -notmatch '(?i)Start-ScheduledTask' -or $packageInstaller -notmatch '(?i)function Wait-ServiceRunning') {
+  throw "O instalador do agente precisa suportar reparo, validar o servico e recriar a tarefa interativa."
 }
 if ($innoInstaller -notmatch '(?i)CloseApplications=force' -or
     $innoInstaller -notmatch '(?i)function StopExistingService: Boolean' -or
