@@ -139,7 +139,10 @@ end;
 
 function ReadExistingConfigValue(Name: string; DefaultValue: string): string;
 begin
-  Result := ReadJsonValue(ExpandConstant('{app}\.remoto-agent.config.json'), Name, DefaultValue);
+  { InitializeWizard runs before the selected install directory is initialized.
+    The default location is enough to prefill an upgrade without touching the
+    app constant too early. }
+  Result := ReadJsonValue(ExpandConstant('{autopf}\Remoto Agent\.remoto-agent.config.json'), Name, DefaultValue);
 end;
 
 function ReadInstallerProfileValue(Name: string; DefaultValue: string): string;
@@ -245,8 +248,11 @@ var
   Parameters: string;
   ResultCode: Integer;
   ExecResult: Boolean;
+  AgentDirectory: string;
 begin
   Result := True;
+  { PrepareToInstall can run before the application directory is initialized. }
+  AgentDirectory := WizardDirValue;
   ScPath := ExpandConstant('{sys}\sc.exe');
   { Evita que o SCM religue o servico enquanto o instalador troca os binarios. }
   Exec(ScPath, 'config RemotoAgent start= disabled', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
@@ -279,8 +285,8 @@ begin
   { Confirma pelo caminho do executavel, inclusive quando o processo nao aparece
     pelo nome esperado no momento em que o SCM termina o servico. }
   Parameters := '-NoProfile -Command "$targets=@(''' +
-    ExpandConstant('{app}\RemotoAgent.exe') + ''',''' +
-    ExpandConstant('{app}\RemotoAgentService.exe') + '''); ' +
+    AddBackslash(AgentDirectory) + 'RemotoAgent.exe' + ''',''' +
+    AddBackslash(AgentDirectory) + 'RemotoAgentService.exe' + '''); ' +
     '$p=Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -and $targets -contains $_.ExecutablePath }; ' +
     '$p | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; ' +
     '$deadline=(Get-Date).AddSeconds(10); while ((Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -and $targets -contains $_.ExecutablePath }) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 250 }; ' +

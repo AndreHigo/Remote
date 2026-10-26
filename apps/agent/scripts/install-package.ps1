@@ -10,6 +10,22 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$InstallLogPath = Join-Path $env:ProgramData "Remoto\logs\install-package.log"
+
+function Write-InstallStage {
+  param([string]$Stage)
+  try {
+    [System.IO.Directory]::CreateDirectory((Split-Path -Parent $InstallLogPath)) | Out-Null
+    Add-Content -LiteralPath $InstallLogPath -Value ("{0:o} {1}" -f (Get-Date), $Stage) -Encoding UTF8
+  } catch { }
+}
+
+trap {
+  Write-InstallStage ("error: " + $_.Exception.Message + " line=" + $_.InvocationInfo.ScriptLineNumber + " code=" + $_.InvocationInfo.Line.Trim())
+  throw
+}
+
+Write-InstallStage "start"
 
 function Assert-Administrator {
   $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -30,14 +46,21 @@ function Invoke-Sc {
 function Stop-ExistingAgentProcesses {
   param([string]$TaskName)
 
-  & schtasks.exe /End /TN $TaskName 2>$null | Out-Null
+  Write-InstallStage "stop-task-before"
+  $schtasksPath = Join-Path $env:SystemRoot "System32\schtasks.exe"
+  if (Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue) {
+    & $schtasksPath /End /TN $TaskName 2>$null | Out-Null
+  }
+  Write-InstallStage "stop-task-after"
   Get-Process -Name "RemotoAgentService", "RemotoAgent" -ErrorAction SilentlyContinue |
     Stop-Process -Force -ErrorAction SilentlyContinue
+  Write-InstallStage "stop-process-after"
 
   $deadline = (Get-Date).AddSeconds(10)
   while ((Get-Process -Name "RemotoAgentService", "RemotoAgent" -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) {
     Start-Sleep -Milliseconds 250
   }
+  Write-InstallStage "stop-process-wait-after"
 }
 
 function Wait-ServiceRemoved {
@@ -155,8 +178,10 @@ function Test-ProtectedFfmpegPath {
 }
 
 Assert-Administrator
+Write-InstallStage "administrator-ok"
 $AgentRoot = (Resolve-Path $PSScriptRoot).Path
 Assert-ProtectedAgentRoot -Path $AgentRoot
+Write-InstallStage "protected-root-ok"
 $AgentExe = Join-Path $AgentRoot "RemotoAgent.exe"
 $ServiceExe = Join-Path $AgentRoot "RemotoAgentService.exe"
 $ConfigPath = Join-Path $AgentRoot ".remoto-agent.config.json"
@@ -221,29 +246,39 @@ $configJson = @{
 } | ConvertTo-Json
 [System.IO.Directory]::CreateDirectory($StateDirectory) | Out-Null
 [System.IO.File]::WriteAllText($ConfigPath, $configJson, [System.Text.UTF8Encoding]::new($false))
+Write-InstallStage "config-written"
 if (-not (Test-Path -LiteralPath $StatePath)) { [System.IO.File]::WriteAllText($StatePath, "{}", [System.Text.UTF8Encoding]::new($false)) }
 & icacls.exe $ConfigPath /inheritance:r /remove "*S-1-5-11" "*S-1-5-32-545" | Out-Host
 & icacls.exe $ConfigPath /grant:r "*S-1-5-18:(F)" "*S-1-5-32-544:(F)" $CurrentUserReadGrant | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "Nao foi possivel proteger a configuracao do agente." }
+Write-InstallStage "config-acl-ok"
 & icacls.exe $StateDirectory /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)(F)" "*S-1-5-32-544:(OI)(CI)(F)" $CurrentUserModifyGrant | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "Nao foi possivel proteger o estado operacional do agente." }
+Write-InstallStage "state-acl-ok"
 
 $existingService = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
 Stop-ExistingAgentProcesses -TaskName $InteractiveTaskName
-if ($existingService) {
-  if ($existingService.Status -ne "Stopped") {
+Write-InstallStage "processes-stopped"
+if ($existingService -and $existingService.Status -ne "Stopped") {
     Stop-Service -Name $ServiceName -Force -ErrorAction SilentlyContinue
-  }
-  & sc.exe delete $ServiceName | Out-Host
-  Wait-ServiceRemoved -Name $ServiceName
 }
 
 $binPath = '"{0}"' -f $ServiceExe
-New-Service -Name $ServiceName -BinaryPathName $binPath -DisplayName "Remoto Agent" -Description "Agente Remoto para presenca, inventario e acesso assistido." -StartupType Automatic | Out-Null
+if (Get-Service -Name $ServiceName -ErrorAction SilentlyContinue) {
+  # Reuse the service after the installer temporarily disables it. Deleting a
+  # Windows service can remain pending and make an immediate recreation fail.
+  Invoke-Sc @("config", $ServiceName, "binPath=", $binPath, "start=", "auto")
+  Write-InstallStage "service-configured"
+  Set-Service -Name $ServiceName -StartupType Automatic
+} else {
+  New-Service -Name $ServiceName -BinaryPathName $binPath -DisplayName "Remoto Agent" -Description "Agente Remoto para presenca, inventario e acesso assistido." -StartupType Automatic | Out-Null
+  Write-InstallStage "service-created"
+}
 Invoke-Sc @("description", $ServiceName, "Agente Remoto para presenca, inventario e acesso assistido.")
 Invoke-Sc @("failure", $ServiceName, "reset=", "86400", "actions=", "restart/5000/restart/15000/restart/60000")
 Start-Service -Name $ServiceName
 Wait-ServiceRunning -Name $ServiceName
+Write-InstallStage "service-running"
 
 $legacyRunKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
 Remove-ItemProperty -Path $legacyRunKey -Name "RemotoAgentDesktop" -ErrorAction SilentlyContinue
@@ -252,6 +287,7 @@ if (Get-Command Register-ScheduledTask -ErrorAction SilentlyContinue) {
   $trigger = New-ScheduledTaskTrigger -AtLogOn -User $CurrentUserName
   $principal = New-ScheduledTaskPrincipal -UserId $CurrentUserSid -LogonType Interactive -RunLevel Limited
   Register-ScheduledTask -TaskName $InteractiveTaskName -Action $action -Trigger $trigger -Principal $principal -Force | Out-Null
+  Write-InstallStage "interactive-task-registered"
   try { Start-ScheduledTask -TaskName $InteractiveTaskName -ErrorAction Stop } catch { Write-Warning "O processo interativo sera iniciado no proximo logon: $($_.Exception.Message)" }
 } else {
   New-Item -Path $legacyRunKey -Force | Out-Null
