@@ -1,6 +1,21 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildInteractiveSessionCapability } from "./session-capability.js";
+import { buildInteractiveSessionCapability, parseInteractiveSessionProbe } from "./session-capability.js";
+
+test("interpreta a sondagem do PowerShell sem aceitar valores frouxos", () => {
+  assert.deepEqual(parseInteractiveSessionProbe('{"taskInstalled":true,"processRunning":true}'), {
+    taskInstalled: true,
+    processRunning: true
+  });
+  assert.deepEqual(parseInteractiveSessionProbe('{"taskInstalled":1,"processRunning":"true"}'), {
+    taskInstalled: false,
+    processRunning: false
+  });
+  assert.deepEqual(parseInteractiveSessionProbe(""), {
+    taskInstalled: false,
+    processRunning: false
+  });
+});
 
 test("agente interativo nao exige tarefa agendada durante desenvolvimento", () => {
   assert.deepEqual(buildInteractiveSessionCapability({

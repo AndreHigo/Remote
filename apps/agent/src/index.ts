@@ -9,7 +9,7 @@ import { inspectFfmpegCapabilities, resolveFfmpegExecutable } from "@remoto/desk
 import { resolveAgentEndpoints } from "./config.js";
 import { buildCaptureReadiness, readCaptureProfile } from "./capture-config.js";
 import { buildInputCapabilities } from "./input-capability.js";
-import { buildInteractiveSessionCapability } from "./session-capability.js";
+import { buildInteractiveSessionCapability, parseInteractiveSessionProbe } from "./session-capability.js";
 import { AGENT_VERSION } from "./version.js";
 
 const execFileAsync = promisify(execFile);
@@ -474,12 +474,12 @@ async function collectInteractiveSessionCapability() {
       "-Command",
       "$task=Get-ScheduledTask -TaskName 'RemotoAgentDesktop' -ErrorAction SilentlyContinue; $process=Get-CimInstance Win32_Process -Filter \"Name = 'RemotoAgent.exe'\" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -match '(?i)(^|\\s)sessions(\\s|$)' }; [pscustomobject]@{taskInstalled=[bool]$task; processRunning=[bool]$process} | ConvertTo-Json -Compress"
     ]);
-    const probe = JSON.parse(stdout.trim()) as { taskInstalled?: unknown; processRunning?: unknown };
+    const probe = parseInteractiveSessionProbe(stdout);
     return buildInteractiveSessionCapability({
       platform: process.platform,
       serviceMode: true,
-      taskInstalled: probe.taskInstalled === true,
-      processRunning: probe.processRunning === true
+      taskInstalled: probe.taskInstalled,
+      processRunning: probe.processRunning
     });
   } catch {
     return buildInteractiveSessionCapability({
