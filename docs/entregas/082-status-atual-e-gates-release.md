@@ -2,13 +2,15 @@
 
 ## Estado atual
 
-- commit publicado: `1589111`;
-- CI `40240910784` verde em qualidade e empacotamento Windows;
+- commit publicado: `8460dbf`;
+- CI `40261757959` verde em qualidade e empacotamento Windows;
 - testes automatizados, typecheck, build, auditoria de dependencias, Compose, instaladores, diagnostico do host e smoke local do primeiro frame validados;
 - agente Windows, operador nativo, painel web, relay H.264 e modo jogo experimental estao versionados;
 - teclado/mouse funcionam no modo jogo; o gamepad possui mapa experimental para WASD, teclas comuns e mouse relativo.
 - o perfil `auto` reduz o fallback de CPU para 30 FPS e 3,5 Mbps, mantendo 60 FPS e 6 Mbps quando um encoder acelerado esta disponivel.
 - owner e admin podem editar etiquetas administrativas dos dispositivos, e a busca do painel tambem consulta essas etiquetas.
+- o agente aplica quota adicional de 120 requisicoes por minuto por agente e dispositivo nas rotas operacionais;
+- releases Windows geram `release-manifest.json` e conferem hashes, versao e Authenticode antes de publicar uma tag.
 
 ## Gates que ainda exigem ambiente externo
 
@@ -17,7 +19,7 @@
 3. Repetir o teste com host sem GPU dedicada, GPU integrada e GPU dedicada.
 4. Validar UAC, tela bloqueada, troca de usuario, audio WASAPI e jogos que aceitem ou exijam controle real.
 5. Configurar e validar a VPS com dominio, TLS/WSS, Redis TLS, backups, firewall, observabilidade e migracoes.
-6. Assinar os instaladores com Authenticode e confirmar atualizacao e reparo sem erro de arquivo bloqueado.
+6. Configurar o certificado real, publicar uma tag assinada e confirmar atualizacao e reparo sem erro de arquivo bloqueado.
 
 ## Decisao de release
 
