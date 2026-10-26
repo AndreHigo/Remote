@@ -4,6 +4,8 @@
 
 Em 26/10/2026, o smoke local de ponta a ponta passou com Postgres, API, agente, inventario, comandos, gate do modo jogo, relay realtime, captura FFmpeg e primeiro frame fMP4.
 
+Na mesma rodada, o fluxo administrativo validou cadastro, movimento e exclusao de cliente, alem do bloqueio de exclusao enquanto existe dispositivo arquivado.
+
 Medicao da sessao local:
 
 - primeiro frame: `45 ms`;

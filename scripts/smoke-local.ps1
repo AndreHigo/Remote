@@ -176,6 +176,18 @@ try {
   Invoke-Checked "Comandos do agente" "npm.cmd" @("run", "agent:commands")
 
   $device = Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:4100/devices/$($state.deviceId)" -Headers $headers
+  $temporaryCustomer = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:4100/customers" -Headers $headers -ContentType "application/json" -Body (@{
+    name = "Smoke Cliente $($runId.Substring(0, 8))"
+    document = "SMOKE-$($runId.Substring(0, 12))"
+    contactName = "Smoke Operator"
+    contactEmail = "smoke-$($runId.Substring(0, 8))@remoto.local"
+  } | ConvertTo-Json)
+  $movedDevice = Invoke-RestMethod -Method Patch -Uri "http://127.0.0.1:4100/devices/$($state.deviceId)/customer" -Headers $headers -ContentType "application/json" -Body (@{ customerId = $temporaryCustomer.id } | ConvertTo-Json)
+  if ($movedDevice.customerId -ne $temporaryCustomer.id) { throw "O dispositivo nao foi movido para o cliente temporario." }
+  $restoredCustomerDevice = Invoke-RestMethod -Method Patch -Uri "http://127.0.0.1:4100/devices/$($state.deviceId)/customer" -Headers $headers -ContentType "application/json" -Body (@{ customerId = $device.customerId } | ConvertTo-Json)
+  if ($restoredCustomerDevice.customerId -ne $device.customerId) { throw "O dispositivo nao voltou para o cliente original." }
+  Invoke-RestMethod -Method Delete -Uri "http://127.0.0.1:4100/customers/$($temporaryCustomer.id)" -Headers $headers | Out-Null
+  Write-Host "Cadastro, movimento e exclusao de cliente validados." -ForegroundColor DarkGray
   Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:4100/devices/$($state.deviceId)/archive" -Headers $headers | Out-Null
   try {
     Invoke-RestMethod -Method Delete -Uri "http://127.0.0.1:4100/customers/$($device.customerId)" -Headers $headers | Out-Null
