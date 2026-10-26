@@ -248,6 +248,8 @@ var
 begin
   Result := True;
   ScPath := ExpandConstant('{sys}\sc.exe');
+  { Evita que o SCM religue o servico enquanto o instalador troca os binarios. }
+  Exec(ScPath, 'config RemotoAgent start= disabled', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Exec(ScPath, 'stop RemotoAgent', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 
   PowerShellPath := ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe');
@@ -273,6 +275,21 @@ begin
   Exec(ExpandConstant('{sys}\schtasks.exe'), '/End /TN "RemotoAgentDesktop"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Exec(TaskKillPath, '/F /T /IM RemotoAgentService.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Exec(TaskKillPath, '/F /T /IM RemotoAgent.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
+  { Confirma pelo caminho do executavel, inclusive quando o processo nao aparece
+    pelo nome esperado no momento em que o SCM termina o servico. }
+  Parameters := '-NoProfile -Command "$targets=@(''' +
+    ExpandConstant('{app}\RemotoAgent.exe') + ''',''' +
+    ExpandConstant('{app}\RemotoAgentService.exe') + '''); ' +
+    '$p=Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -and $targets -contains $_.ExecutablePath }; ' +
+    '$p | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; ' +
+    '$deadline=(Get-Date).AddSeconds(10); while ((Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -and $targets -contains $_.ExecutablePath }) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 250 }; ' +
+    'if (Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -and $targets -contains $_.ExecutablePath }) { exit 1 }"';
+  ExecResult := Exec(PowerShellPath, Parameters, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  if (not ExecResult) or (ResultCode <> 0) then begin
+    Result := False;
+    Exit;
+  end;
 
   { FFmpeg is a child of the interactive capture process. Inno can still get
     ERROR_ACCESS_DENIED while replacing the bundled binary if that child has
