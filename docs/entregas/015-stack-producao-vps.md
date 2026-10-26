@@ -10,6 +10,7 @@
 - Compose de producao com PostgreSQL privado, migration, API, web e RustDesk OSS.
 - Healthchecks de PostgreSQL e API.
 - Arquivo `production.env.example` sem segredos reais.
+- O instalador do agente é montado de forma somente leitura em `/opt/remoto/releases` e servido pela API após ser colocado em `infra/docker/release/`.
 
 ## Validacao obrigatoria antes de subir
 
@@ -17,6 +18,7 @@
 - Criar DNS para o painel e para o relay RustDesk.
 - Abrir somente as portas documentadas.
 - Fazer backup externo do volume PostgreSQL.
+- Copiar o instalador Windows assinado para `infra/docker/release/RemotoAgent-Setup.exe` antes do preflight.
 - Instalar RustDesk nos dois computadores e configurar a chave publica do servidor.
 - Rodar teste de tela, teclado, mouse, reconexao e encerramento em duas redes distintas.
 

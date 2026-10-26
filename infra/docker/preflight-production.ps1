@@ -5,9 +5,13 @@ param(
 
 $ErrorActionPreference = "Stop"
 $composeFile = "infra/docker/docker-compose.production.yml"
+$installerHostPath = Join-Path (Split-Path -Parent $composeFile) "release\RemotoAgent-Setup.exe"
 
 if (!(Test-Path -LiteralPath $EnvFile)) { throw "Arquivo de ambiente nao encontrado: $EnvFile" }
 if (!(Test-Path -LiteralPath $composeFile)) { throw "Compose de producao nao encontrado: $composeFile" }
+if (!(Test-Path -LiteralPath $installerHostPath -PathType Leaf)) {
+  throw "Instalador do agente ausente: $installerHostPath. Gere uma release Windows assinada e copie o arquivo para infra/docker/release antes do deploy."
+}
 
 $values = @{}
 Get-Content -LiteralPath $EnvFile | ForEach-Object {

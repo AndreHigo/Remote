@@ -64,7 +64,10 @@ services:
       REALTIME_INTERNAL_SECRET: ${REALTIME_INTERNAL_SECRET:?Defina REALTIME_INTERNAL_SECRET}
       REALTIME_CONTROL_URL: http://realtime:4200
       ENABLE_GAME_MODE: ${ENABLE_GAME_MODE:-false}
+      REMOTO_AGENT_INSTALLER_PATH: ${REMOTO_AGENT_INSTALLER_PATH:-/opt/remoto/releases/RemotoAgent-Setup.exe}
       TRUST_PROXY: "true"
+    volumes:
+      - ./release:/opt/remoto/releases:ro
     expose:
       - "4100"
     healthcheck:
