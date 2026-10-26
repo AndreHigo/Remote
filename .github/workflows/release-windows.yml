@@ -147,20 +147,34 @@ jobs:
       - name: Generate checksums
         shell: powershell
         run: |
-          $files = @(
-            "apps/agent/release/RemotoAgent-Setup.exe",
-            "apps/agent/release/RemotoAgent-Windows.zip"
-          )
           $operatorInstaller = @(Get-ChildItem -LiteralPath "apps/operator/release" -Filter "Remoto-Operator-Setup-*.exe" -File)
           if ($operatorInstaller.Count -ne 1) { throw "Esperado um instalador do operador, encontrados $($operatorInstaller.Count)." }
-          $files += $operatorInstaller[0].FullName
-          $lines = foreach ($file in $files) {
-            if (-not (Test-Path -LiteralPath $file)) { throw "Artefato ausente: $file" }
-            $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $file).Hash
-            "$hash  $file"
+          $artifacts = @(
+            [pscustomobject]@{ path = "apps/agent/release/RemotoAgent-Setup.exe"; authenticode = $true },
+            [pscustomobject]@{ path = "apps/agent/release/RemotoAgent-Windows.zip"; authenticode = $false },
+            [pscustomobject]@{ path = "apps/operator/release/$($operatorInstaller[0].Name)"; authenticode = $true }
+          ) | ForEach-Object {
+            if (-not (Test-Path -LiteralPath $_.path -PathType Leaf)) { throw "Artefato ausente: $($_.path)" }
+            [pscustomobject]@{
+              path = $_.path.Replace('\', '/')
+              sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $_.path).Hash.ToLowerInvariant()
+              authenticode = $_.authenticode
+            }
           }
-          $lines | Set-Content -LiteralPath release-manifest.txt -Encoding utf8
-          Get-Content -LiteralPath release-manifest.txt
+          [pscustomobject]@{
+            schemaVersion = 1
+            version = $env:REMOTO_RELEASE_VERSION
+            artifacts = @($artifacts)
+          } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath release-manifest.json -Encoding utf8
+          Get-Content -LiteralPath release-manifest.json
+
+      - name: Verify release manifest and signatures
+        shell: powershell
+        run: |
+          $arguments = @("-RootPath", ".", "-ManifestPath", "release-manifest.json", "-ExpectedVersion", $env:REMOTO_RELEASE_VERSION)
+          if ($env:GITHUB_REF -like "refs/tags/*") { $arguments += "-RequireSignature" }
+          & .\scripts\verify-windows-release.ps1 @arguments
+          if ($LASTEXITCODE -ne 0) { throw "Verificacao da release falhou." }
 
       - name: Upload installers
         uses: actions/upload-artifact@v7
@@ -170,7 +184,7 @@ jobs:
             apps/agent/release/RemotoAgent-Setup.exe
             apps/agent/release/RemotoAgent-Windows.zip
             apps/operator/release/Remoto-Operator-Setup-*.exe
-            release-manifest.txt
+            release-manifest.json
           if-no-files-found: error
 
   publish:
@@ -194,6 +208,6 @@ jobs:
             release/apps/agent/release/RemotoAgent-Setup.exe \
             release/apps/agent/release/RemotoAgent-Windows.zip \
             release/apps/operator/release/Remoto-Operator-Setup-*.exe \
-            release/release-manifest.txt \
+            release/release-manifest.json \
             --title "Remoto $GITHUB_REF_NAME" \
             --generate-notes

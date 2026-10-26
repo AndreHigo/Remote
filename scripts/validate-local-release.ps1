@@ -62,6 +62,8 @@ $hostDiagnostics = Get-Content -LiteralPath "scripts/homologate-host.ps1" -Raw
 if ($hostDiagnostics -notmatch '(?i)ffmpegSource' -or $hostDiagnostics -notmatch '(?i)configuredFfmpegPath') {
   throw "O diagnostico do host precisa sondar o FFmpeg configurado/protegido e declarar a origem."
 }
+$releaseVerifier = Get-Content -LiteralPath "scripts/verify-windows-release.ps1" -Raw
+[scriptblock]::Create($releaseVerifier) | Out-Null
 Write-Host "Runtime privilegiado e ACL da configuracao verificados." -ForegroundColor Green
 
 Write-Host "`n== Instaladores ==" -ForegroundColor Cyan
