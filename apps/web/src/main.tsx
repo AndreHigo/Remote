@@ -36,7 +36,8 @@ const REALTIME_URL = import.meta.env.VITE_REALTIME_URL ?? (import.meta.env.PROD
   ? `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/realtime`
   : "ws://localhost:4200");
 const AGENT_INSTALLER_URL = import.meta.env.VITE_AGENT_INSTALLER_URL
-  ?? "https://github.com/AndreHigo/Remote/releases/latest/download/RemotoAgent-Setup.exe";
+  ?? `${API_URL.replace(/\/$/, "")}/downloads/agent`;
+const HAS_EXPLICIT_AGENT_INSTALLER_URL = Boolean(import.meta.env.VITE_AGENT_INSTALLER_URL);
 const TOKEN_KEY = "remoto.auth.token";
 const USER_KEY = "remoto.auth.user";
 
@@ -52,6 +53,7 @@ interface Summary {
 
 interface HealthResponse {
   gameMode: "disabled" | "experimental";
+  agentInstaller: "available" | "not-configured";
 }
 
 interface AuthUser {
@@ -371,6 +373,7 @@ function App() {
   const [authReady, setAuthReady] = React.useState(false);
   const [summary, setSummary] = React.useState<Summary | null>(null);
   const [gameModeEnabled, setGameModeEnabled] = React.useState(false);
+  const [agentInstallerAvailable, setAgentInstallerAvailable] = React.useState(HAS_EXPLICIT_AGENT_INSTALLER_URL);
   const [devices, setDevices] = React.useState<Device[]>([]);
   const [auditEvents, setAuditEvents] = React.useState<AuditEvent[]>([]);
   const [sessions, setSessions] = React.useState<RemoteSession[]>([]);
@@ -422,8 +425,14 @@ function App() {
 
   React.useEffect(() => {
     getJson<HealthResponse>("/health", "")
-      .then((health) => setGameModeEnabled(health.gameMode === "experimental"))
-      .catch(() => setGameModeEnabled(false));
+      .then((health) => {
+        setGameModeEnabled(health.gameMode === "experimental");
+        if (!HAS_EXPLICIT_AGENT_INSTALLER_URL) setAgentInstallerAvailable(health.agentInstaller === "available");
+      })
+      .catch(() => {
+        setGameModeEnabled(false);
+        if (!HAS_EXPLICIT_AGENT_INSTALLER_URL) setAgentInstallerAvailable(false);
+      });
   }, []);
 
   const selectedDevice = devices.find((device) => device.id === selectedDeviceId) ?? devices[0];
@@ -1180,6 +1189,7 @@ function App() {
     onboardingKeyName={onboardingKeyName}
     onboardingKey={onboardingKey}
     onboardingLoading={onboardingLoading}
+    agentInstallerAvailable={agentInstallerAvailable}
     loading={loading}
     statusMessage={statusMessage}
     onSectionChange={setActiveSection}
@@ -1301,6 +1311,7 @@ interface OperationsConsoleProps {
   onboardingKeyName: string;
   onboardingKey: CreatedAgentKey | null;
   onboardingLoading: boolean;
+  agentInstallerAvailable: boolean;
   loading: boolean;
   statusMessage: string;
   onSectionChange: (section: AppSection) => void;
@@ -1484,6 +1495,7 @@ function OperationsConsole(props: OperationsConsoleProps) {
     onboardingKeyName,
     onboardingKey,
     onboardingLoading,
+    agentInstallerAvailable,
     onConnectReasonChange,
     onConnectModeChange,
     onCloseConnection,
@@ -1843,7 +1855,7 @@ function OperationsConsole(props: OperationsConsoleProps) {
                   <div className="onboardingKeyBox"><code>{onboardingKey.key}</code><button className="iconButton compact" type="button" onClick={onCopyOnboardingKey} aria-label="Copiar chave de cadastro" title="Copiar chave"><Copy size={15} /></button></div>
                   <div className="modalInfo"><strong>Próximo passo</strong><span>Baixe o perfil e o instalador para a mesma pasta no computador que será cadastrado. Ao abrir o instalador, API, relay e chave serão preenchidos automaticamente. Não é necessário usar o terminal.</span></div>
                   <button className="secondary installerDownload" type="button" onClick={onDownloadAgentProfile}><Download size={16} />Baixar perfil de instalação</button>
-                  <a className="primary installerDownload" href={AGENT_INSTALLER_URL} target="_blank" rel="noreferrer" download><Download size={16} />Baixar instalador do agente <ArrowUpRight size={14} /></a>
+                  {agentInstallerAvailable ? <a className="primary installerDownload" href={AGENT_INSTALLER_URL} target="_blank" rel="noreferrer" download><Download size={16} />Baixar instalador do agente <ArrowUpRight size={14} /></a> : <div className="installerUnavailable"><strong>Instalador ainda não publicado</strong><span>Configure `REMOTO_AGENT_INSTALLER_PATH` na API ou `VITE_AGENT_INSTALLER_URL` no painel para liberar o download desta implantação.</span></div>}
                   <details className="advancedSetup"><summary>Instalação avançada para desenvolvimento</summary><pre className="setupCommand">{[`$env:REMOTO_API_URL="${API_URL}"`, `$env:REMOTO_AGENT_KEY="${onboardingKey.key}"`, "npm run agent:register"].join("\n")}</pre><a className="agentSourceLink" href="https://github.com/AndreHigo/Remote/tree/main/apps/agent" target="_blank" rel="noreferrer">Abrir código do agente <ArrowUpRight size={14} /></a></details>
                   <div className="modalActions"><button className="primary" type="button" onClick={onCloseOnboarding}>Concluir</button></div>
                 </>

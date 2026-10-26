@@ -21,6 +21,7 @@ import {
   type AuthenticatedRequest
 } from "./auth.js";
 import { prisma } from "./db.js";
+import { getAgentInstallerPath } from "./installer-download.js";
 import { repository } from "./repository.js";
 import { createRateLimiter, getRateLimitStoreStatus } from "./rate-limit.js";
 
@@ -30,6 +31,7 @@ const nodeEnv = process.env.NODE_ENV ?? "development";
 const realtimeInternalSecret = process.env.REALTIME_INTERNAL_SECRET;
 const realtimeControlUrl = process.env.REALTIME_CONTROL_URL ?? "http://localhost:4200";
 const gameModeEnabled = process.env.ENABLE_GAME_MODE === "true" && Boolean(realtimeInternalSecret);
+const agentInstallerFileName = "RemotoAgent-Setup.exe";
 
 if (nodeEnv === "production" && (!process.env.JWT_SECRET || !process.env.DESKTOP_SESSION_SECRET || !process.env.TOTP_ENCRYPTION_KEY || !process.env.REDIS_URL)) {
   throw new Error("JWT_SECRET, DESKTOP_SESSION_SECRET, TOTP_ENCRYPTION_KEY e REDIS_URL sao obrigatorios em producao");
@@ -161,7 +163,26 @@ const userUpdateSchema = z.object({
 const passwordResetSchema = z.object({ password: z.string().min(8).max(200) });
 
 app.get("/health", (_request, response) => {
-  response.json({ ok: true, service: "remoto-api", gameMode: gameModeEnabled ? "experimental" : "disabled" });
+  response.json({
+    ok: true,
+    service: "remoto-api",
+    gameMode: gameModeEnabled ? "experimental" : "disabled",
+    agentInstaller: getAgentInstallerPath() ? "available" : "not-configured"
+  });
+});
+
+app.get("/downloads/agent", (request, response) => {
+  const installerPath = getAgentInstallerPath();
+  if (!installerPath) {
+    response.status(404).json({ message: "Instalador do agente ainda nao foi configurado nesta implantacao" });
+    return;
+  }
+
+  response.download(installerPath, agentInstallerFileName, { dotfiles: "deny" }, (error) => {
+    if (!error || response.headersSent) return;
+    console.error("Falha ao enviar instalador do agente", error);
+    response.status(404).json({ message: "Instalador do agente indisponivel" });
+  });
 });
 
 app.get("/ready", async (_request, response) => {

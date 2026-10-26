@@ -23,3 +23,5 @@ Stack atual:
 
 O modo jogo permanece desabilitado por padrao e so aparece como disponivel quando a API responde `gameMode: "experimental"` em `/health`.
 
+O onboarding baixa o instalador do agente por `/api/downloads/agent` quando a API confirma `agentInstaller: "available"`. Para usar CDN ou GitHub Release, defina `VITE_AGENT_INSTALLER_URL` no build do painel; a chave de cadastro continua sendo entregue separadamente no perfil de instalação.
+

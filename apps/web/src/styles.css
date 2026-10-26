@@ -1086,6 +1086,8 @@ h3 { color: #24343b; font-size: 13px; }
 .setupCommand { overflow: auto; margin: 12px 0 0; padding: 13px; border-radius: 8px; background: #17242b; color: #c4f0df; font: 11px/1.65 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; word-break: break-word; }
 .agentSourceLink { display: inline-flex; align-items: center; gap: 5px; margin-top: 12px; color: var(--accent-dark); font-size: 11px; font-weight: 800; text-decoration: none; }
 .agentSourceLink:hover { text-decoration: underline; }
+.installerUnavailable { display: grid; gap: 4px; padding: 13px 14px; border: 1px solid #e9c98c; background: #fff8e8; color: #765313; font-size: 12px; line-height: 1.45; }
+.installerUnavailable strong { color: #5f410f; font-size: 13px; }
 .installerDownload { width: 100%; min-height: 42px; margin-top: 14px; text-decoration: none; }
 .installerDownload.secondary { color: var(--accent-dark); }
 .advancedSetup { margin-top: 14px; color: var(--muted); font-size: 11px; }
