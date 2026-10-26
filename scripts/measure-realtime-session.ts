@@ -11,6 +11,8 @@ let bytesReceived = 0;
 let firstFrameMs: number | undefined;
 let firstFrameValid = false;
 let closedReason: string | undefined;
+let relayDroppedFrames = 0;
+let relayDroppedBytes = 0;
 let connection: Awaited<ReturnType<typeof connectRemoteSession>> | undefined;
 const latencySamplesMs: number[] = [];
 
@@ -54,6 +56,10 @@ async function main() {
         onLatencyMs(latencyMs) {
           latencySamplesMs.push(latencyMs);
         },
+        onMetrics(metrics) {
+          relayDroppedFrames = metrics.relayDroppedFrames ?? relayDroppedFrames;
+          relayDroppedBytes = metrics.relayDroppedBytes ?? relayDroppedBytes;
+        },
         onClosed(reason) {
           closedReason = reason;
           if (firstFrameMs === undefined) firstFrameReject?.(new Error(`sessao encerrou antes do primeiro frame: ${reason}`));
@@ -75,6 +81,8 @@ async function main() {
     firstFrameMs,
     framesReceived,
     bytesReceived,
+    relayDroppedFrames,
+    relayDroppedBytes,
     latencySamplesMs,
     firstFrameValid,
     closedReason

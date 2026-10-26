@@ -15,6 +15,8 @@ test("medicao realtime resume primeiro frame, FPS, bitrate e p95", () => {
       firstFrameMs: 420,
       framesReceived: 600,
       bytesReceived: 2_000_000,
+      relayDroppedFrames: 3,
+      relayDroppedBytes: 1200,
       latencySamplesMs: [10, 20, 30, 40],
       firstFrameValid: true
     }),
@@ -26,6 +28,8 @@ test("medicao realtime resume primeiro frame, FPS, bitrate e p95", () => {
       fpsReceived: 60,
       bytesReceived: 2_000_000,
       bitrateKbps: 1600,
+      relayDroppedFrames: 3,
+      relayDroppedBytes: 1200,
       latencySamples: 4,
       latencyAvgMs: 25,
       latencyP95Ms: 40,

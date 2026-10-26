@@ -3,6 +3,8 @@ export interface RealtimeMeasurementInput {
   firstFrameMs?: number;
   framesReceived: number;
   bytesReceived: number;
+  relayDroppedFrames?: number;
+  relayDroppedBytes?: number;
   latencySamplesMs: number[];
   firstFrameValid: boolean;
   closedReason?: string;
@@ -16,6 +18,8 @@ export interface RealtimeMeasurementReport {
   fpsReceived: number;
   bytesReceived: number;
   bitrateKbps: number;
+  relayDroppedFrames: number;
+  relayDroppedBytes: number;
   latencySamples: number;
   latencyAvgMs: number | null;
   latencyP95Ms: number | null;
@@ -41,6 +45,8 @@ export function summarizeRealtimeMeasurement(input: RealtimeMeasurementInput): R
     fpsReceived: round(input.framesReceived / durationSeconds),
     bytesReceived: input.bytesReceived,
     bitrateKbps: round((input.bytesReceived * 8) / durationSeconds / 1_000),
+    relayDroppedFrames: nonNegativeInteger(input.relayDroppedFrames),
+    relayDroppedBytes: nonNegativeInteger(input.relayDroppedBytes),
     latencySamples: latencySamples.length,
     latencyAvgMs,
     latencyP95Ms,
@@ -57,4 +63,8 @@ function percentile(values: number[], ratio: number) {
 
 function round(value: number) {
   return Math.round(value * 100) / 100;
+}
+
+function nonNegativeInteger(value: number | undefined) {
+  return typeof value === "number" && Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
 }

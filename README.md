@@ -92,7 +92,7 @@ npm run measure:realtime
 
 O `smoke:local` também abre um cliente realtime independente, autentica a sessão aprovada e exige o recebimento do primeiro frame capturado pelo FFmpeg. A evidência e os limites desse teste estão em [`docs/entregas/061-smoke-primeiro-frame.md`](docs/entregas/061-smoke-primeiro-frame.md).
 
-Para uma rodada entre duas máquinas, use `npm run measure:realtime` com os descritores de uma sessão `game` aprovada. O cliente gera FPS, bitrate, tempo do primeiro frame e RTT médio/p95; o procedimento está em [`docs/entregas/067-medicao-realtime-homologacao.md`](docs/entregas/067-medicao-realtime-homologacao.md).
+Para uma rodada entre duas máquinas, use `npm run measure:realtime` com os descritores de uma sessão `game` aprovada. O cliente gera FPS, bitrate, tempo do primeiro frame, RTT médio/p95 e descartes confirmados pelo relay; o procedimento está em [`docs/entregas/067-medicao-realtime-homologacao.md`](docs/entregas/067-medicao-realtime-homologacao.md).
 
 Durante uma sessao de jogo, o operador nativo exibe RTT atual/p95, tempo ate o primeiro frame e volume de video recebido. Esses numeros ajudam a registrar a homologacao, mas nao substituem o teste entre duas maquinas descrito em `docs/entregas/029-runbook-homologacao-jogo.md`.
 
