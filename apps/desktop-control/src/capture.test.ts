@@ -48,6 +48,7 @@ test("encoders AMD e Intel nao recebem tune exclusivo do libx264", () => {
   for (const encoder of ["amd", "intel"] as const) {
     const args = buildWindowsCaptureArgs({ quality: "balanced", encoder });
     assert.ok(!args.includes("zerolatency"));
+    assert.ok(!args.includes("p1"));
     assert.deepEqual(args.slice(args.indexOf("-bf"), args.indexOf("-bf") + 2), ["-bf", "0"]);
   }
 });

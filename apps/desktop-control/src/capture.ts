@@ -65,7 +65,7 @@ export function buildWindowsCaptureArgs(profile: CaptureProfile = defaultProfile
   args.push(
     ...(profile.audio === "system" ? ["-map", "0:v:0", "-map", "1:a:0"] : ["-an"]),
     "-c:v", encoderName(profile.encoder),
-    "-preset", profile.encoder === "cpu" || profile.encoder === "auto" ? "ultrafast" : "p1",
+    ...encoderPresetArgs(profile.encoder),
     ...encoderLatencyArgs(profile.encoder),
     "-profile:v", "main",
     "-level", "4.2",
@@ -225,7 +225,7 @@ function probeHardwareEncoder(executable: string, encoder: Exclude<VideoEncoder,
       "-frames:v", "1",
       "-an",
       "-c:v", encoderName(encoder),
-      "-preset", "p1",
+      ...encoderPresetArgs(encoder),
       ...encoderLatencyArgs(encoder),
       "-pix_fmt", "yuv420p",
       "-f", "null", nullOutput
@@ -343,6 +343,12 @@ function encoderLatencyArgs(encoder: VideoEncoder) {
   if (encoder === "cpu" || encoder === "auto") return ["-tune", "zerolatency"];
   if (encoder === "nvidia") return ["-tune", "ull", "-zerolatency", "1"];
   return ["-bf", "0"];
+}
+
+function encoderPresetArgs(encoder: VideoEncoder) {
+  if (encoder === "cpu" || encoder === "auto") return ["-preset", "ultrafast"];
+  if (encoder === "nvidia") return ["-preset", "p1"];
+  return [];
 }
 
 function qualityDefaults(quality: VideoQuality, encoder: VideoEncoder = "auto") {
