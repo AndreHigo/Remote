@@ -911,7 +911,7 @@ function App() {
   async function moveDevice(device: Device, customerId: string) {
     const target = customers.find((customer) => customer.id === customerId);
     if (!target || target.id === device.customerId) return;
-    if (!window.confirm(`Mover ${device.displayName} de ${device.customerName} para ${target.name}? O agente precisara usar uma chave do novo cliente.`)) return;
+    if (!window.confirm(`Mover ${device.displayName} de ${device.customerName} para ${target.name}? A chave ativa vinculada acompanha a transferencia e as sessoes abertas serao encerradas.`)) return;
 
     try {
       await patchJson<Device>(`/devices/${device.id}/customer`, token, { customerId: target.id });

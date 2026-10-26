@@ -7,6 +7,7 @@
 - `npm run validate:release` aprovado com testes, typecheck, build, sintaxe nativa, hardening do instalador e `npm audit` sem vulnerabilidades;
 - preflight de producao aprovado com ambiente temporario valido, compose de producao e instalador local presente;
 - instalador Windows recompilado com FFmpeg embutido, configuracao realtime e tarefa interativa;
+- administracao validada no smoke: ao mover um dispositivo, a chave ativa vinculada acompanha a transferencia e as sessoes abertas sao encerradas;
 - commits publicados na branch `main` e workspace limpo.
 
 ## Gates antes da VPS
