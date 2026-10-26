@@ -1966,6 +1966,65 @@ function percentile(values: number[], ratio: number) {
   return Math.round(sorted[index]);
 }
 
+type Mp4BoxRange = { payloadStart: number; end: number };
+
+function readMp4Boxes(buffer: Uint8Array, type: string | undefined, start = 0, end = buffer.byteLength): Mp4BoxRange[] {
+  const view = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+  const boxes: Mp4BoxRange[] = [];
+  let offset = start;
+  while (offset + 8 <= end) {
+    const declaredSize = view.getUint32(offset);
+    const headerSize = declaredSize === 1 ? 16 : 8;
+    if (offset + headerSize > end) break;
+    const byteLength = declaredSize === 1 ? Number(view.getBigUint64(offset + 8)) : declaredSize;
+    if (!Number.isSafeInteger(byteLength) || byteLength < headerSize || offset + byteLength > end) break;
+    const boxType = String.fromCharCode(...buffer.subarray(offset + 4, offset + 8));
+    if (type === undefined || boxType === type) boxes.push({ payloadStart: offset + headerSize, end: offset + byteLength });
+    offset += byteLength;
+  }
+  return boxes;
+}
+
+function findMp4BoxDeep(buffer: Uint8Array, type: string, start: number, end: number): Mp4BoxRange | undefined {
+  const direct = readMp4Boxes(buffer, type, start, end)[0];
+  if (direct) return direct;
+  for (const box of readMp4Boxes(buffer, undefined, start, end)) {
+    const nested = findMp4BoxDeep(buffer, type, box.payloadStart, box.end);
+    if (nested) return nested;
+  }
+}
+
+function findVideoTrackId(segment: Uint8Array): number | undefined {
+  const view = new DataView(segment.buffer, segment.byteOffset, segment.byteLength);
+  for (const moov of readMp4Boxes(segment, "moov")) {
+    for (const trak of readMp4Boxes(segment, "trak", moov.payloadStart, moov.end)) {
+      const handler = findMp4BoxDeep(segment, "hdlr", trak.payloadStart, trak.end);
+      if (!handler || String.fromCharCode(...segment.subarray(handler.payloadStart + 8, handler.payloadStart + 12)) !== "vide") continue;
+      const tkhd = readMp4Boxes(segment, "tkhd", trak.payloadStart, trak.end)[0];
+      if (!tkhd || tkhd.payloadStart + 16 > tkhd.end) continue;
+      const trackIdOffset = view.getUint8(tkhd.payloadStart) === 1 ? tkhd.payloadStart + 20 : tkhd.payloadStart + 12;
+      if (trackIdOffset + 4 <= tkhd.end) return view.getUint32(trackIdOffset);
+    }
+  }
+  return undefined;
+}
+
+function countVideoSamples(segment: Uint8Array, expectedTrackId: number | undefined): number {
+  const view = new DataView(segment.buffer, segment.byteOffset, segment.byteLength);
+  const counts: number[] = [];
+  for (const moof of readMp4Boxes(segment, "moof")) {
+    for (const traf of readMp4Boxes(segment, "traf", moof.payloadStart, moof.end)) {
+      const tfhd = readMp4Boxes(segment, "tfhd", traf.payloadStart, traf.end)[0];
+      const trackId = tfhd && tfhd.payloadStart + 8 <= tfhd.end ? view.getUint32(tfhd.payloadStart + 4) : undefined;
+      if (expectedTrackId !== undefined && trackId !== expectedTrackId) continue;
+      for (const trun of readMp4Boxes(segment, "trun", traf.payloadStart, traf.end)) {
+        if (trun.payloadStart + 8 <= trun.end) counts.push(view.getUint32(trun.payloadStart + 4));
+      }
+    }
+  }
+  return counts.length ? Math.max(...counts) : 0;
+}
+
 function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }: { session: GameSessionDescriptor; realtimeUrl: string; started: boolean; onStartWeb: () => void; onClose: () => void }) {
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const socketRef = React.useRef<WebSocket | null>(null);
@@ -1976,7 +2035,8 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
   const pressedButtonsRef = React.useRef(new Set<"left" | "middle" | "right">());
   const pressedGamepadKeysRef = React.useRef(new Set<string>());
   const pingTimerRef = React.useRef<number | null>(null);
-  const frameCountRef = React.useRef(0);
+  const videoFrameCountRef = React.useRef(0);
+  const videoTrackIdRef = React.useRef<number | undefined>(undefined);
   const latencySamplesRef = React.useRef<number[]>([]);
   const qualityStartedAtRef = React.useRef<number | null>(null);
   const qualityLatencyHistoryRef = React.useRef<Array<{ elapsedMs: number; rttMs: number }>>([]);
@@ -2002,7 +2062,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
   React.useEffect(() => {
     if (started && qualityStartedAtRef.current === null) qualityStartedAtRef.current = performance.now();
     fpsTimerRef.current = window.setInterval(() => {
-      const nextFps = frameCountRef.current;
+      const nextFps = videoFrameCountRef.current;
       setFps(nextFps);
       if (qualityStartedAtRef.current !== null) {
         qualityFpsHistoryRef.current = [
@@ -2010,7 +2070,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
           { elapsedMs: Math.max(0, Math.round(performance.now() - qualityStartedAtRef.current)), fps: nextFps }
         ].slice(-600);
       }
-      frameCountRef.current = 0;
+      videoFrameCountRef.current = 0;
     }, 1000);
     return () => {
       if (fpsTimerRef.current !== null) window.clearInterval(fpsTimerRef.current);
@@ -2174,7 +2234,8 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
           setError("O frame recebido excede o limite permitido.");
           return;
         }
-        frameCountRef.current += 1;
+        videoTrackIdRef.current ??= findVideoTrackId(frame);
+        videoFrameCountRef.current += countVideoSamples(frame, videoTrackIdRef.current);
         if (firstFrameAtRef.current === null) {
           firstFrameAtRef.current = performance.now();
           setFirstFrameMs(Math.max(0, Math.round(firstFrameAtRef.current - sessionStartedAt)));
@@ -2217,7 +2278,8 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
       sourceBufferRef.current = null;
       mediaQueueRef.current = [];
       mediaQueueBytesRef.current = 0;
-      frameCountRef.current = 0;
+      videoFrameCountRef.current = 0;
+      videoTrackIdRef.current = undefined;
       latencySamplesRef.current = [];
       qualityLatencyHistoryRef.current = [];
       qualityFpsHistoryRef.current = [];

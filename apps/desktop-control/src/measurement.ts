@@ -2,6 +2,7 @@ export interface RealtimeMeasurementInput {
   durationMs: number;
   firstFrameMs?: number;
   framesReceived: number;
+  videoFramesReceived?: number;
   bytesReceived: number;
   relayDroppedFrames?: number;
   relayDroppedBytes?: number;
@@ -15,6 +16,7 @@ export interface RealtimeMeasurementReport {
   durationMs: number;
   firstFrameMs: number | null;
   framesReceived: number;
+  videoFramesReceived: number;
   fpsReceived: number;
   bytesReceived: number;
   bitrateKbps: number;
@@ -36,13 +38,15 @@ export function summarizeRealtimeMeasurement(input: RealtimeMeasurementInput): R
     ? round(latencySamples.reduce((total, value) => total + value, 0) / latencySamples.length)
     : null;
   const latencyP95Ms = latencySamples.length ? round(percentile(latencySamples, 0.95)) : null;
+  const videoFramesReceived = nonNegativeInteger(input.videoFramesReceived ?? input.framesReceived);
 
   return {
     schemaVersion: 1,
     durationMs,
     firstFrameMs: input.firstFrameMs ?? null,
     framesReceived: input.framesReceived,
-    fpsReceived: round(input.framesReceived / durationSeconds),
+    videoFramesReceived,
+    fpsReceived: round(videoFramesReceived / durationSeconds),
     bytesReceived: input.bytesReceived,
     bitrateKbps: round((input.bytesReceived * 8) / durationSeconds / 1_000),
     relayDroppedFrames: nonNegativeInteger(input.relayDroppedFrames),
@@ -52,7 +56,7 @@ export function summarizeRealtimeMeasurement(input: RealtimeMeasurementInput): R
     latencyP95Ms,
     firstFrameValid: input.firstFrameValid,
     closedReason: input.closedReason ?? null,
-    result: input.firstFrameValid && input.framesReceived > 0 ? "pass" : "fail"
+    result: input.firstFrameValid && videoFramesReceived > 0 ? "pass" : "fail"
   };
 }
 

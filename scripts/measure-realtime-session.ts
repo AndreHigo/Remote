@@ -1,12 +1,14 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { connectRemoteSession } from "../apps/desktop-control/src/realtime.js";
+import { connectRemoteSession, countVideoSamples, findVideoTrackId } from "../apps/desktop-control/src/realtime.js";
 import { summarizeRealtimeMeasurement } from "../apps/desktop-control/src/measurement.js";
 
 const durationMs = readSeconds("MEASURE_DURATION_SECONDS", 30, 5, 300) * 1_000;
 const firstFrameTimeoutMs = readSeconds("MEASURE_FIRST_FRAME_TIMEOUT_SECONDS", 20, 5, 120) * 1_000;
 const startedAt = Date.now();
 let framesReceived = 0;
+let videoFramesReceived = 0;
+let videoTrackId: number | undefined;
 let bytesReceived = 0;
 let firstFrameMs: number | undefined;
 let firstFrameValid = false;
@@ -44,6 +46,8 @@ async function main() {
         onFrame(frame) {
           framesReceived += 1;
           bytesReceived += frame.byteLength;
+          videoTrackId ??= findVideoTrackId(frame);
+          videoFramesReceived += countVideoSamples(frame, videoTrackId);
           if (firstFrameMs !== undefined) return;
           if (!hasMp4Box(frame, "ftyp") || !hasMp4Box(frame, "moov")) {
             firstFrameReject?.(new Error("primeiro frame sem inicializacao fMP4 valida"));
@@ -80,6 +84,7 @@ async function main() {
     durationMs: Math.max(1, Date.now() - startedAt),
     firstFrameMs,
     framesReceived,
+    videoFramesReceived,
     bytesReceived,
     relayDroppedFrames,
     relayDroppedBytes,

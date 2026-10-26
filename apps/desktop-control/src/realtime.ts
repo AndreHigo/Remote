@@ -18,6 +18,7 @@ export interface RealtimeClientOptions {
 
 export interface RealtimeMetrics {
   framesReceived: number;
+  videoFramesReceived: number;
   bytesReceived: number;
   firstFrameMs?: number;
   latencyMs?: number;
@@ -53,7 +54,9 @@ export async function connectRemoteSession(
   let closedNotified = false;
   const startedAt = Date.now();
   let framesReceived = 0;
+  let videoFramesReceived = 0;
   let bytesReceived = 0;
+  let videoTrackId: number | undefined;
   let firstFrameMs: number | undefined;
   let latencyMs: number | undefined;
   let relayDroppedFrames = 0;
@@ -67,6 +70,7 @@ export async function connectRemoteSession(
     lastMetricsAt = now;
     options.onMetrics?.({
       framesReceived,
+      videoFramesReceived,
       bytesReceived,
       firstFrameMs,
       latencyMs,
@@ -108,6 +112,8 @@ export async function connectRemoteSession(
           const frame = toBuffer(data);
           framesReceived += 1;
           bytesReceived += frame.byteLength;
+          videoTrackId ??= findVideoTrackId(frame);
+          videoFramesReceived += countVideoSamples(frame, videoTrackId);
           const isFirstFrame = firstFrameMs === undefined;
           if (isFirstFrame) firstFrameMs = Math.max(0, Date.now() - startedAt);
           options.onFrame?.(frame);
@@ -314,6 +320,65 @@ export function buildRealtimeSessionUrl(configured: string, sessionId: string) {
   const base = configured.replace(/\/+$/, "");
   const sessionPath = `/sessions/${encodeURIComponent(sessionId)}`;
   return base.endsWith(sessionPath) ? base : `${base}${sessionPath}`;
+}
+
+export function findVideoTrackId(segment: Buffer) {
+  for (const moov of findBoxes(segment, "moov")) {
+    for (const trak of findBoxes(segment, "trak", moov.payloadStart, moov.end)) {
+      const handler = findBoxDeep(segment, "hdlr", trak.payloadStart, trak.end);
+      if (!handler || segment.toString("ascii", handler.payloadStart + 8, handler.payloadStart + 12) !== "vide") continue;
+      const tkhd = findBoxes(segment, "tkhd", trak.payloadStart, trak.end)[0];
+      if (!tkhd || tkhd.payloadStart + 16 > tkhd.end) continue;
+      const version = segment[tkhd.payloadStart];
+      const trackIdOffset = version === 1 ? tkhd.payloadStart + 20 : tkhd.payloadStart + 12;
+      if (trackIdOffset + 4 <= tkhd.end) return segment.readUInt32BE(trackIdOffset);
+    }
+  }
+  return undefined;
+}
+
+export function countVideoSamples(segment: Buffer, videoTrackId?: number) {
+  const counts: number[] = [];
+  for (const moof of findBoxes(segment, "moof")) {
+    for (const traf of findBoxes(segment, "traf", moof.payloadStart, moof.end)) {
+      const tfhd = findBoxes(segment, "tfhd", traf.payloadStart, traf.end)[0];
+      const trackId = tfhd && tfhd.payloadStart + 8 <= tfhd.end ? segment.readUInt32BE(tfhd.payloadStart + 4) : undefined;
+      if (videoTrackId !== undefined && trackId !== videoTrackId) continue;
+      for (const trun of findBoxes(segment, "trun", traf.payloadStart, traf.end)) {
+        if (trun.payloadStart + 8 <= trun.end) counts.push(segment.readUInt32BE(trun.payloadStart + 4));
+      }
+    }
+  }
+  return counts.length ? Math.max(...counts) : 0;
+}
+
+interface Mp4BoxRange {
+  payloadStart: number;
+  end: number;
+}
+
+function findBoxes(buffer: Buffer, type: string | undefined, start = 0, end = buffer.byteLength): Mp4BoxRange[] {
+  const boxes: Mp4BoxRange[] = [];
+  let offset = start;
+  while (offset + 8 <= end) {
+    const declaredSize = buffer.readUInt32BE(offset);
+    const headerSize = declaredSize === 1 ? 16 : 8;
+    if (offset + headerSize > end) break;
+    const byteLength = declaredSize === 1 ? Number(buffer.readBigUInt64BE(offset + 8)) : declaredSize;
+    if (!Number.isSafeInteger(byteLength) || byteLength < headerSize || offset + byteLength > end) break;
+    if (type === undefined || buffer.toString("ascii", offset + 4, offset + 8) === type) boxes.push({ payloadStart: offset + headerSize, end: offset + byteLength });
+    offset += byteLength;
+  }
+  return boxes;
+}
+
+function findBoxDeep(buffer: Buffer, type: string, start: number, end: number): Mp4BoxRange | undefined {
+  for (const box of findBoxes(buffer, type, start, end)) return box;
+  for (const box of findBoxes(buffer, undefined, start, end)) {
+    const nested = findBoxDeep(buffer, type, box.payloadStart, box.end);
+    if (nested) return nested;
+  }
+  return undefined;
 }
 
 function toBuffer(data: WebSocket.RawData) {

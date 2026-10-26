@@ -17,7 +17,8 @@ const gamepadStatus = document.getElementById("gamepad-status");
 const reportButton = document.getElementById("report");
 const frameQueue = [];
 let mediaStarted = false;
-let frameCount = 0;
+let videoFrameCount = 0;
+let videoTrackId;
 let fpsTimer;
 let sourceBuffer;
 let mediaSource;
@@ -118,7 +119,8 @@ function keepNearLiveEdge() {
 function receiveFrame(value) {
   const frame = value instanceof Uint8Array ? value : new Uint8Array(value);
   if (!frame.byteLength) return;
-  frameCount += 1;
+  videoTrackId ??= findVideoTrackId(frame);
+  videoFrameCount += countVideoSamples(frame, videoTrackId);
   frameQueue.push(frame);
   queuedBytes += frame.byteLength;
   while (queuedBytes > 16 * 1024 * 1024 && frameQueue.length > 1) {
@@ -130,9 +132,9 @@ function receiveFrame(value) {
 }
 
 fpsTimer = window.setInterval(() => {
-  currentFps = frameCount;
+  currentFps = videoFrameCount;
   fpsText.textContent = `${currentFps} FPS`;
-  frameCount = 0;
+  videoFrameCount = 0;
   dropsText.textContent = `fila ${droppedFrames}`;
 }, 1000);
 
@@ -238,6 +240,62 @@ window.addEventListener("beforeunload", () => {
   mouseMotionFrame = undefined;
   pendingMouseMotion = { dx: 0, dy: 0 };
 });
+
+function readMp4Boxes(buffer, type, start = 0, end = buffer.byteLength) {
+  const view = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+  const boxes = [];
+  let offset = start;
+  while (offset + 8 <= end) {
+    const declaredSize = view.getUint32(offset);
+    const headerSize = declaredSize === 1 ? 16 : 8;
+    if (offset + headerSize > end) break;
+    const byteLength = declaredSize === 1 ? Number(view.getBigUint64(offset + 8)) : declaredSize;
+    if (!Number.isSafeInteger(byteLength) || byteLength < headerSize || offset + byteLength > end) break;
+    const boxType = String.fromCharCode(...buffer.subarray(offset + 4, offset + 8));
+    if (type === undefined || boxType === type) boxes.push({ payloadStart: offset + headerSize, end: offset + byteLength });
+    offset += byteLength;
+  }
+  return boxes;
+}
+
+function findMp4BoxDeep(buffer, type, start, end) {
+  const direct = readMp4Boxes(buffer, type, start, end)[0];
+  if (direct) return direct;
+  for (const box of readMp4Boxes(buffer, undefined, start, end)) {
+    const nested = findMp4BoxDeep(buffer, type, box.payloadStart, box.end);
+    if (nested) return nested;
+  }
+}
+
+function findVideoTrackId(segment) {
+  const view = new DataView(segment.buffer, segment.byteOffset, segment.byteLength);
+  for (const moov of readMp4Boxes(segment, "moov")) {
+    for (const trak of readMp4Boxes(segment, "trak", moov.payloadStart, moov.end)) {
+      const handler = findMp4BoxDeep(segment, "hdlr", trak.payloadStart, trak.end);
+      if (!handler || String.fromCharCode(...segment.subarray(handler.payloadStart + 8, handler.payloadStart + 12)) !== "vide") continue;
+      const tkhd = readMp4Boxes(segment, "tkhd", trak.payloadStart, trak.end)[0];
+      if (!tkhd || tkhd.payloadStart + 16 > tkhd.end) continue;
+      const trackIdOffset = view.getUint8(tkhd.payloadStart) === 1 ? tkhd.payloadStart + 20 : tkhd.payloadStart + 12;
+      if (trackIdOffset + 4 <= tkhd.end) return view.getUint32(trackIdOffset);
+    }
+  }
+}
+
+function countVideoSamples(segment, expectedTrackId) {
+  const view = new DataView(segment.buffer, segment.byteOffset, segment.byteLength);
+  const counts = [];
+  for (const moof of readMp4Boxes(segment, "moof")) {
+    for (const traf of readMp4Boxes(segment, "traf", moof.payloadStart, moof.end)) {
+      const tfhd = readMp4Boxes(segment, "tfhd", traf.payloadStart, traf.end)[0];
+      const trackId = tfhd && tfhd.payloadStart + 8 <= tfhd.end ? view.getUint32(tfhd.payloadStart + 4) : undefined;
+      if (expectedTrackId !== undefined && trackId !== expectedTrackId) continue;
+      for (const trun of readMp4Boxes(segment, "trun", traf.payloadStart, traf.end)) {
+        if (trun.payloadStart + 8 <= trun.end) counts.push(view.getUint32(trun.payloadStart + 4));
+      }
+    }
+  }
+  return counts.length ? Math.max(...counts) : 0;
+}
 document.getElementById("close").addEventListener("click", () => window.remotoOperator.closeSession());
 window.remotoOperator.onStatus(({ status, detail: message }) => {
   if (status === "connecting" && qualityState.connectedOnce) qualityState.reconnects += 1;
@@ -276,6 +334,8 @@ window.remotoOperator.onMetrics(({ latencyMs, latencyP95Ms, firstFrameMs, frames
 });
 window.remotoOperator.onSession(({ audio, sessionId, deviceId, mode }) => {
   qualityState = { ...qualityState, sessionId, deviceId, mode, startedAt: Date.now(), connectedOnce: false };
+  videoFrameCount = 0;
+  videoTrackId = undefined;
   reportButton.disabled = false;
   if (mediaStarted) return;
   mediaStarted = true;

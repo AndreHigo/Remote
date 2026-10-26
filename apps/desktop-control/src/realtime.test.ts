@@ -6,7 +6,7 @@ import WebSocket, { WebSocketServer } from "ws";
 import type { CaptureProcess } from "./capture.js";
 import { validateInputEvent } from "./input.js";
 import { summarizeRealtimeMeasurement } from "./measurement.js";
-import { buildRealtimeSessionUrl, connectRemoteSession, forwardCaptureFrames, type RealtimeInputBridge } from "./realtime.js";
+import { buildRealtimeSessionUrl, connectRemoteSession, countVideoSamples, findVideoTrackId, forwardCaptureFrames, type RealtimeInputBridge } from "./realtime.js";
 
 test("medicao realtime resume primeiro frame, FPS, bitrate e p95", () => {
   assert.deepEqual(
@@ -25,6 +25,7 @@ test("medicao realtime resume primeiro frame, FPS, bitrate e p95", () => {
       durationMs: 10_000,
       firstFrameMs: 420,
       framesReceived: 600,
+      videoFramesReceived: 600,
       fpsReceived: 60,
       bytesReceived: 2_000_000,
       bitrateKbps: 1600,
@@ -38,6 +39,26 @@ test("medicao realtime resume primeiro frame, FPS, bitrate e p95", () => {
       result: "pass"
     }
   );
+});
+
+test("conta amostras de video nos fragmentos fMP4 sem confundir segmentos com FPS", () => {
+  const trackId = Buffer.alloc(4);
+  trackId.writeUInt32BE(7, 0);
+  const tkhd = Buffer.alloc(16);
+  tkhd.writeUInt32BE(0, 0);
+  trackId.copy(tkhd, 12);
+  const hdlr = Buffer.alloc(12);
+  hdlr.write("vide", 8, 4, "ascii");
+  const initialization = mp4Box("moov", mp4Box("trak", Buffer.concat([mp4Box("tkhd", tkhd), mp4Box("mdia", mp4Box("hdlr", hdlr))])));
+  const tfhd = Buffer.alloc(8);
+  tfhd.writeUInt32BE(0, 0);
+  trackId.copy(tfhd, 4);
+  const trun = Buffer.alloc(8);
+  trun.writeUInt32BE(5, 4);
+  const media = mp4Box("moof", mp4Box("traf", Buffer.concat([mp4Box("tfhd", tfhd), mp4Box("trun", trun)])));
+
+  assert.equal(findVideoTrackId(initialization), 7);
+  assert.equal(countVideoSamples(media, 7), 5);
 });
 
 test("monta o caminho da sessao quando o agente recebe apenas a base do relay", () => {
