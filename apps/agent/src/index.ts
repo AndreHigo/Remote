@@ -10,6 +10,7 @@ import { resolveAgentEndpoints } from "./config.js";
 import { buildCaptureReadiness, readCaptureProfile } from "./capture-config.js";
 import { buildInputCapabilities } from "./input-capability.js";
 import { buildInteractiveSessionCapability, parseInteractiveSessionProbe } from "./session-capability.js";
+import { isValidAgentState, type AgentState } from "./state.js";
 import { AGENT_VERSION } from "./version.js";
 
 const execFileAsync = promisify(execFile);
@@ -54,12 +55,6 @@ interface DeviceResponse {
   remoteId: string;
   status: "online" | "offline";
   lastSeenAt: string | null;
-}
-
-interface AgentState {
-  deviceId: string;
-  remoteId: string;
-  displayName: string;
 }
 
 interface InventoryResponse {
@@ -953,7 +948,8 @@ function readInterval(name: string, fallback: number) {
 
 async function loadState() {
   try {
-    return JSON.parse(await fs.readFile(config.stateFile, "utf8")) as AgentState;
+    const parsed: unknown = JSON.parse(await fs.readFile(config.stateFile, "utf8"));
+    return isValidAgentState(parsed) ? parsed : null;
   } catch {
     return null;
   }

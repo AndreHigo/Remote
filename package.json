@@ -34,6 +34,7 @@
     "operator:build": "npm run build -w apps/operator",
     "operator:package:windows": "npm run package:windows -w apps/operator",
     "diagnostics:host": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/homologate-host.ps1",
+    "local:up": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-local-stack.ps1",
     "smoke:local": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-local.ps1",
     "measure:realtime": "npm exec -- tsx scripts/measure-realtime-session.ts"
   },
