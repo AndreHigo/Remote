@@ -274,6 +274,20 @@ begin
   Exec(TaskKillPath, '/F /T /IM RemotoAgentService.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Exec(TaskKillPath, '/F /T /IM RemotoAgent.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 
+  { FFmpeg is a child of the interactive capture process. Inno can still get
+    ERROR_ACCESS_DENIED while replacing the bundled binary if that child has
+    not released its handle. Match the executable path so unrelated FFmpeg
+    processes on the computer are left alone. }
+  Parameters := '-NoProfile -Command "$p=Get-CimInstance Win32_Process | Where-Object { $_.Name -eq ''ffmpeg.exe'' -and $_.ExecutablePath -and $_.ExecutablePath -match ''(?i)\\Remoto Agent\\ffmpeg\\ffmpeg\.exe$'' }; ' +
+    '$p | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; ' +
+    '$deadline=(Get-Date).AddSeconds(10); while ((Get-CimInstance Win32_Process | Where-Object { $_.Name -eq ''ffmpeg.exe'' -and $_.ExecutablePath -and $_.ExecutablePath -match ''(?i)\\Remoto Agent\\ffmpeg\\ffmpeg\.exe$'' }) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 250 }; ' +
+    'if (Get-CimInstance Win32_Process | Where-Object { $_.Name -eq ''ffmpeg.exe'' -and $_.ExecutablePath -and $_.ExecutablePath -match ''(?i)\\Remoto Agent\\ffmpeg\\ffmpeg\.exe$'' }) { exit 1 }"';
+  ExecResult := Exec(PowerShellPath, Parameters, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  if (not ExecResult) or (ResultCode <> 0) then begin
+    Result := False;
+    Exit;
+  end;
+
   Parameters := '-NoProfile -Command "$deadline=(Get-Date).AddSeconds(10); while ((Get-Process -Name ''RemotoAgentService'', ''RemotoAgent'' -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 250 }; if (Get-Process -Name ''RemotoAgentService'', ''RemotoAgent'' -ErrorAction SilentlyContinue) { exit 1 }"';
   ExecResult := Exec(PowerShellPath, Parameters, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Result := ExecResult and (ResultCode = 0);
