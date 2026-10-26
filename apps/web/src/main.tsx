@@ -1867,6 +1867,13 @@ function Metric({ label, value, tone }: { label: string; value: number; tone?: "
   );
 }
 
+function percentile(values: number[], ratio: number) {
+  if (!values.length) return null;
+  const sorted = [...values].sort((left, right) => left - right);
+  const index = Math.min(sorted.length - 1, Math.max(0, Math.ceil(sorted.length * ratio) - 1));
+  return Math.round(sorted[index]);
+}
+
 function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }: { session: GameSessionDescriptor; realtimeUrl: string; started: boolean; onStartWeb: () => void; onClose: () => void }) {
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const socketRef = React.useRef<WebSocket | null>(null);
@@ -1878,11 +1885,17 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
   const pressedGamepadKeysRef = React.useRef(new Set<string>());
   const pingTimerRef = React.useRef<number | null>(null);
   const frameCountRef = React.useRef(0);
+  const latencySamplesRef = React.useRef<number[]>([]);
+  const firstFrameAtRef = React.useRef<number | null>(null);
+  const droppedFramesRef = React.useRef(0);
   const fpsTimerRef = React.useRef<number | null>(null);
   const [status, setStatus] = React.useState("Conectando ao computador...");
   const [error, setError] = React.useState<string | null>(null);
   const [latencyMs, setLatencyMs] = React.useState<number | null>(null);
+  const [latencyP95Ms, setLatencyP95Ms] = React.useState<number | null>(null);
+  const [firstFrameMs, setFirstFrameMs] = React.useState<number | null>(null);
   const [fps, setFps] = React.useState<number | null>(null);
+  const [droppedFrames, setDroppedFrames] = React.useState(0);
   const [nativeDownloaded, setNativeDownloaded] = React.useState(false);
   const [gamepadConnected, setGamepadConnected] = React.useState(false);
 
@@ -1911,6 +1924,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
       ? `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}${realtimeUrl}`
       : realtimeUrl;
     let disposed = false;
+    const sessionStartedAt = performance.now();
     let reconnectTimer: number | null = null;
     let firstFrameTimer: number | null = null;
     let reconnectAttempt = 0;
@@ -2027,7 +2041,12 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
             if (message.reason === "session-expired" || message.reason === "session-ended") reconnectAllowed = false;
             setStatus(message.reason === "peer-disconnected" ? "O computador remoto desconectou. Reconectando..." : message.reason ?? "Sessao encerrada.");
           }
-          if (message.type === "pong" && typeof message.sentAt === "number") setLatencyMs(Math.max(0, Math.round(performance.now() - message.sentAt)));
+          if (message.type === "pong" && typeof message.sentAt === "number") {
+            const sample = Math.max(0, Math.round(performance.now() - message.sentAt));
+            latencySamplesRef.current = [...latencySamplesRef.current, sample].slice(-60);
+            setLatencyMs(sample);
+            setLatencyP95Ms(percentile(latencySamplesRef.current, 0.95));
+          }
           return;
         }
         const frame = new Uint8Array(event.data as ArrayBuffer);
@@ -2038,11 +2057,17 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
           return;
         }
         frameCountRef.current += 1;
+        if (firstFrameAtRef.current === null) {
+          firstFrameAtRef.current = performance.now();
+          setFirstFrameMs(Math.max(0, Math.round(firstFrameAtRef.current - sessionStartedAt)));
+        }
         mediaQueueRef.current.push(frame);
         mediaQueueBytesRef.current += frame.byteLength;
         while (mediaQueueBytesRef.current > 16 * 1024 * 1024 && mediaQueueRef.current.length > 1) {
           const dropped = mediaQueueRef.current.shift();
           mediaQueueBytesRef.current -= dropped?.byteLength ?? 0;
+          droppedFramesRef.current += 1;
+          setDroppedFrames(droppedFramesRef.current);
         }
         pump();
       });
@@ -2072,6 +2097,13 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
       mediaQueueRef.current = [];
       mediaQueueBytesRef.current = 0;
       frameCountRef.current = 0;
+      latencySamplesRef.current = [];
+      firstFrameAtRef.current = null;
+      droppedFramesRef.current = 0;
+      setLatencyMs(null);
+      setLatencyP95Ms(null);
+      setFirstFrameMs(null);
+      setDroppedFrames(0);
       setFps(null);
       URL.revokeObjectURL(video.src);
     };
@@ -2239,7 +2271,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
             onKeyUp={(event) => sendKey(event, "up")}
           />
         )}
-        <footer className="gameSessionFooter"><span>{started ? <>Video H.264 / relay autenticado / Entrada: teclado + mouse / Gamepad: {gamepadConnected ? "mapa experimental" : "conecte um controle"}{latencyMs === null ? "" : ` / RTT ${latencyMs} ms`}{fps === null ? "" : ` / FPS ${fps}`}</> : "Sessao aprovada e aguardando sua escolha"}</span><div className="gameSessionFooterActions"><button className="danger" type="button" onClick={onClose}>Encerrar sessao</button></div></footer>
+        <footer className="gameSessionFooter"><span>{started ? <>Video H.264 / relay autenticado / Entrada: teclado + mouse / Gamepad: {gamepadConnected ? "mapa experimental" : "conecte um controle"}{latencyMs === null ? "" : ` / RTT ${latencyMs} ms`}{latencyP95Ms === null ? "" : ` / p95 ${latencyP95Ms} ms`}{firstFrameMs === null ? "" : ` / 1o frame ${firstFrameMs} ms`}{fps === null ? "" : ` / FPS ${fps}`}{droppedFrames > 0 ? ` / fila descartada ${droppedFrames}` : ""}</> : "Sessao aprovada e aguardando sua escolha"}</span><div className="gameSessionFooterActions"><button className="danger" type="button" onClick={onClose}>Encerrar sessao</button></div></footer>
       </section>
     </div>
   );
