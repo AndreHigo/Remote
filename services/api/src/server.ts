@@ -39,6 +39,16 @@ if (nodeEnv === "production" && (!process.env.JWT_SECRET || !process.env.DESKTOP
 
 app.disable("x-powered-by");
 app.set("trust proxy", process.env.TRUST_PROXY === "true");
+
+function requestClientAddress(request: express.Request) {
+  return request.ip ?? request.socket.remoteAddress ?? "unknown";
+}
+
+function agentRateLimitKey(request: express.Request) {
+  // A chave de autenticacao e bearer e nao pode escolher a identidade do bucket.
+  return `ip:${requestClientAddress(request)}`;
+}
+
 const configuredWebOrigins = (process.env.WEB_ORIGIN ?? "http://localhost:5173")
   .split(",")
   .map((origin) => origin.trim())
@@ -289,18 +299,14 @@ app.use(
     windowMs: 60 * 1000,
     max: 600,
     maxEntries: 20_000,
-    key: (request) => `ip:${request.ip ?? request.socket.remoteAddress ?? "unknown"}`
+    key: (request) => `ip:${requestClientAddress(request)}`
   }),
   createRateLimiter({
     name: "Agent",
     windowMs: 60 * 1000,
     max: 180,
     maxEntries: 20_000,
-    key: (request) => {
-      const agentKey = request.header("x-agent-key")?.trim();
-      if (agentKey) return `agent:${crypto.createHash("sha256").update(agentKey).digest("hex")}`;
-      return `ip:${request.ip ?? request.socket.remoteAddress ?? "unknown"}`;
-    }
+    key: agentRateLimitKey
   })
 );
 
