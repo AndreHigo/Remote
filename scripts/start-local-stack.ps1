@@ -46,6 +46,33 @@ function Start-WorkspaceProcess {
   return Start-Process npm.cmd -ArgumentList $Arguments -WorkingDirectory $root -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
 }
 
+function Ensure-DockerReady {
+  try {
+    docker info *> $null
+    if ($LASTEXITCODE -eq 0) { return }
+  } catch { }
+
+  $dockerDesktop = Join-Path $env:ProgramFiles "Docker\Docker\Docker Desktop.exe"
+  if (-not (Test-Path -LiteralPath $dockerDesktop)) {
+    throw "Docker Desktop nao foi encontrado em $dockerDesktop."
+  }
+
+  Write-Host "Docker Desktop nao esta pronto. Iniciando..." -ForegroundColor Yellow
+  Start-Process -FilePath $dockerDesktop -WindowStyle Hidden | Out-Null
+
+  $deadline = (Get-Date).AddMinutes(2)
+  while ((Get-Date) -lt $deadline) {
+    try {
+      docker info *> $null
+      if ($LASTEXITCODE -eq 0) { return }
+    } catch { }
+    Start-Sleep -Seconds 5
+  }
+
+  throw "Docker Desktop nao ficou pronto em 2 minutos."
+}
+
+Ensure-DockerReady
 docker compose -f infra/docker/docker-compose.yml up -d postgres | Out-Host
 $deadline = (Get-Date).AddSeconds(60)
 do {

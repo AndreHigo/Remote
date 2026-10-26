@@ -5,6 +5,7 @@
 - O agente rejeita `agent.state.json` vazio ou incompleto e refaz o cadastro automaticamente.
 - A tarefa interativa nao inicia mais com `displayName=undefined` por causa de um estado invalido.
 - O projeto ganhou `npm run local:up` para subir PostgreSQL, API, relay realtime e front com health checks.
+- O `local:up` inicia o Docker Desktop automaticamente quando o motor ainda nao esta pronto e aguarda a infraestrutura antes de continuar.
 - O stack local grava logs em `C:\ProgramData\Remoto\logs`.
 
 ## Validacao
