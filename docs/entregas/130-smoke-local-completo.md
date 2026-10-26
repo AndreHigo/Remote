@@ -16,6 +16,7 @@ O fluxo validado foi:
 - conexao do agente como host;
 - captura FFmpeg;
 - recebimento do primeiro frame fMP4 pelo cliente realtime;
+- medicao local de 5 segundos com FPS, bitrate, RTT medio/p95 e descartes do relay;
 - encerramento e limpeza dos processos e do container local.
 
 ## Evidencia
@@ -24,7 +25,9 @@ O smoke terminou com codigo `0` e informou:
 
 `Smoke test local aprovado: API, banco, agente, captura FFmpeg, primeiro frame, sessao game e relay.`
 
-O relay tambem recebeu um frame inicial valido contendo a inicializacao fMP4 esperada.
+O relay tambem recebeu um frame inicial valido contendo a inicializacao fMP4 esperada. A medicao agora e executada pelo proprio smoke e deixa um relatorio temporario JSON antes da limpeza.
+
+Na execucao local mais recente, a medicao registrou primeiro frame em `38 ms`, aproximadamente `2 FPS`, `3458.33 kbps`, RTT medio de `1.5 ms`, RTT p95 de `2 ms` e zero descartes do relay. Esses numeros sao apenas uma referencia do mesmo computador e nao representam uma conexao pela internet.
 
 ## Limites
 

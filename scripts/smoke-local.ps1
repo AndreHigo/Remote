@@ -204,34 +204,43 @@ try {
     throw "O agente nao conectou o host ao relay.`n$details"
   }
 
-  $env:SMOKE_SESSION_ID = $sessionId
-  $env:SMOKE_DEVICE_ID = $state.deviceId
-  $env:SMOKE_ACCESS_TOKEN = $accessToken
-  $env:SMOKE_REALTIME_URL = "ws://127.0.0.1:4200"
+  $env:MEASURE_SESSION_ID = $sessionId
+  $env:MEASURE_DEVICE_ID = $state.deviceId
+  $env:MEASURE_ACCESS_TOKEN = $accessToken
+  $env:MEASURE_REALTIME_URL = "ws://127.0.0.1:4200"
+  $env:MEASURE_DURATION_SECONDS = "5"
+  $env:MEASURE_FIRST_FRAME_TIMEOUT_SECONDS = "20"
+  $measurementReportPath = Join-Path $tempRoot "realtime-measurement.json"
+  $env:MEASURE_OUTPUT_PATH = $measurementReportPath
   $clientLog = Join-Path $tempRoot "smoke-client.log"
   $clientErrorLog = Join-Path $tempRoot "smoke-client-error.log"
-  $clientProcess = Start-WorkspaceProcess "Cliente realtime smoke" @("exec", "--", "tsx", "scripts/smoke-realtime-client.ts") $clientLog $clientErrorLog
-  $deadline = (Get-Date).AddSeconds(25)
-  $firstFrameReceived = $false
-  while ((Get-Date) -lt $deadline) {
-    $clientOutput = (Read-LogText $clientLog) + "`n" + (Read-LogText $clientErrorLog)
-    if ($clientOutput -match "first-frame:\s+\d+\s+bytes") { $firstFrameReceived = $true; break }
-    if ($clientProcess.HasExited) { break }
-    Start-Sleep -Seconds 1
+  $clientProcess = Start-WorkspaceProcess "Medicao realtime smoke" @("exec", "--", "tsx", "scripts/measure-realtime-session.ts") $clientLog $clientErrorLog
+  if (-not $clientProcess.WaitForExit(45000)) {
+    Stop-ProcessTree $clientProcess
+    throw "A medicao realtime nao terminou em 45 segundos."
   }
-  if (-not $firstFrameReceived) {
-    $details = (Read-LogText $clientLog) + "`n" + (Read-LogText $clientErrorLog)
-    throw "O cliente smoke nao recebeu o primeiro frame real pelo relay.`n$details"
+  $clientOutput = (Read-LogText $clientLog) + "`n" + (Read-LogText $clientErrorLog)
+  if (-not (Test-Path -LiteralPath $measurementReportPath)) {
+    throw "A medicao realtime falhou.`n$clientOutput"
+  }
+  $measurement = Get-Content -LiteralPath $measurementReportPath -Raw | ConvertFrom-Json
+  if ($measurement.result -ne "pass") {
+    throw "A medicao realtime nao aprovou o canal.`n$clientOutput"
+  }
+  if ($null -ne $clientProcess.ExitCode -and $clientProcess.ExitCode -ne 0) {
+    Write-Warning ("O wrapper npm terminou com codigo {0}, mas o relatorio realtime foi gerado e aprovado." -f $clientProcess.ExitCode)
   }
 
   Write-Host "Smoke test local aprovado: API, banco, agente, captura FFmpeg, primeiro frame, sessao game e relay." -ForegroundColor Green
-  Write-Host "Limite: entrada, medicao de rede, audio, gamepad e homologacao entre duas maquinas exigem clientes Windows separados." -ForegroundColor Yellow
+  Write-Host ("Medicao local: primeiro frame={0}ms, FPS={1}, bitrate={2}kbps, RTT medio={3}ms, RTT p95={4}ms, descartes={5}." -f $measurement.firstFrameMs, $measurement.fpsReceived, $measurement.bitrateKbps, $measurement.latencyAvgMs, $measurement.latencyP95Ms, $measurement.relayDroppedFrames) -ForegroundColor Green
+  Write-Host "Limite: essa medicao e local; entrada, audio, gamepad e homologacao entre duas maquinas exigem clientes Windows separados." -ForegroundColor Yellow
 } finally {
   if ($sessionId -and $loginToken) {
     try {
       Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:4100/desktop-sessions/end" -ContentType "application/json" -Body (@{ accessToken = $accessToken } | ConvertTo-Json) | Out-Null
     } catch { }
   }
+  Stop-ProcessTree $clientProcess
   Stop-ProcessTree $agentProcess
   Stop-ProcessTree $apiProcess
   Stop-ProcessTree $realtimeProcess
