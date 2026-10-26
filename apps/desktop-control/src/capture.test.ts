@@ -39,8 +39,17 @@ test("captura pode priorizar encoder de GPU sem quebrar fallback de perfil", () 
   const args = buildWindowsCaptureArgs({ quality: "high", encoder: "nvidia", width: 1920, height: 1080 });
 
   assert.ok(args.includes("h264_nvenc"));
+  assert.deepEqual(args.slice(args.indexOf("-tune"), args.indexOf("-tune") + 4), ["-tune", "ull", "-zerolatency", "1"]);
   assert.ok(args.includes("scale=1920:1080:force_original_aspect_ratio=decrease"));
   assert.ok(args.includes("60"));
+});
+
+test("encoders AMD e Intel nao recebem tune exclusivo do libx264", () => {
+  for (const encoder of ["amd", "intel"] as const) {
+    const args = buildWindowsCaptureArgs({ quality: "balanced", encoder });
+    assert.ok(!args.includes("zerolatency"));
+    assert.deepEqual(args.slice(args.indexOf("-bf"), args.indexOf("-bf") + 2), ["-bf", "0"]);
+  }
 });
 
 test("captura pode usar Desktop Duplication para jogos em tela cheia", () => {

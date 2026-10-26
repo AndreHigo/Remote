@@ -66,7 +66,7 @@ export function buildWindowsCaptureArgs(profile: CaptureProfile = defaultProfile
     ...(profile.audio === "system" ? ["-map", "0:v:0", "-map", "1:a:0"] : ["-an"]),
     "-c:v", encoderName(profile.encoder),
     "-preset", profile.encoder === "cpu" || profile.encoder === "auto" ? "ultrafast" : "p1",
-    "-tune", "zerolatency",
+    ...encoderLatencyArgs(profile.encoder),
     "-profile:v", "main",
     "-level", "4.2",
     "-g", String(keyframeInterval),
@@ -131,13 +131,14 @@ export function inspectFfmpegCapabilities(preferredPath?: string, profile: Captu
   const filtersOutput = runFfmpegProbe(executable, ["-hide_banner", "-filters"]);
   const formatsOutput = runFfmpegProbe(executable, ["-hide_banner", "-formats"]);
   const devicesOutput = runFfmpegProbe(executable, ["-hide_banner", "-devices"]);
-  const hardwareEncoders = ([
+  const listedHardwareEncoders = ([
     ["nvidia", "h264_nvenc"],
     ["amd", "h264_amf"],
     ["intel", "h264_qsv"]
   ] as const)
     .filter(([, name]) => new RegExp(`\\b${name}\\b`).test(encodersOutput))
     .map(([encoder]) => encoder);
+  const hardwareEncoders = listedHardwareEncoders.filter((encoder) => probeHardwareEncoder(executable, encoder));
   const availableEncoders = [
     ...hardwareEncoders.map((encoder) => encoderName(encoder)),
     ...( /\blibx264\b/.test(encodersOutput) ? ["libx264"] : [])
@@ -207,9 +208,36 @@ function resolveCaptureEncoder(requested: VideoEncoder, executable: string): Exc
       stdio: ["ignore", "pipe", "ignore"]
     });
     const available = [...output.matchAll(/\bh264_(?:nvenc|amf|qsv)\b/g)].map((match) => match[0]);
-    return selectCaptureEncoder(requested, available);
+    const selected = selectCaptureEncoder(requested, available);
+    if (selected === "cpu" || probeHardwareEncoder(executable, selected)) return selected;
+    return "cpu";
   } catch {
     return "cpu";
+  }
+}
+
+function probeHardwareEncoder(executable: string, encoder: Exclude<VideoEncoder, "auto" | "cpu">) {
+  const nullOutput = process.platform === "win32" ? "NUL" : "/dev/null";
+  try {
+    execFileSync(executable, [
+      "-hide_banner", "-loglevel", "error", "-nostdin",
+      "-f", "lavfi", "-i", "color=c=black:s=16x16:r=1",
+      "-frames:v", "1",
+      "-an",
+      "-c:v", encoderName(encoder),
+      "-preset", "p1",
+      ...encoderLatencyArgs(encoder),
+      "-pix_fmt", "yuv420p",
+      "-f", "null", nullOutput
+    ], {
+      encoding: "utf8",
+      timeout: 1_500,
+      windowsHide: true,
+      stdio: ["ignore", "ignore", "ignore"]
+    });
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -309,6 +337,12 @@ function encoderName(encoder: VideoEncoder) {
     case "intel": return "h264_qsv";
     default: return "libx264";
   }
+}
+
+function encoderLatencyArgs(encoder: VideoEncoder) {
+  if (encoder === "cpu" || encoder === "auto") return ["-tune", "zerolatency"];
+  if (encoder === "nvidia") return ["-tune", "ull", "-zerolatency", "1"];
+  return ["-bf", "0"];
 }
 
 function qualityDefaults(quality: VideoQuality, encoder: VideoEncoder = "auto") {

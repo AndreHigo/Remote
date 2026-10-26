@@ -1,7 +1,11 @@
 [CmdletBinding()]
 param(
   [string]$PostgresPassword = "remoto-local-postgres-password-123456",
-  [switch]$KeepPostgres
+  [switch]$KeepPostgres,
+  [ValidateSet("auto", "cpu", "nvidia", "amd", "intel")]
+  [string]$CaptureEncoder = "cpu",
+  [ValidateSet("auto", "gdigrab", "ddagrab")]
+  [string]$CaptureMethod = "gdigrab"
 )
 
 $ErrorActionPreference = "Stop"
@@ -143,8 +147,8 @@ try {
   $env:REMOTO_AGENT_STATE = $statePath
   $env:REMOTO_DEVICE_NAME = "SMOKE-HOST-$($runId.Substring(0, 8))"
   $env:REMOTO_AGENT_SESSION_SECONDS = "2"
-  $env:REMOTO_CAPTURE_ENCODER = "cpu"
-  $env:REMOTO_CAPTURE_METHOD = "gdigrab"
+  $env:REMOTO_CAPTURE_ENCODER = $CaptureEncoder
+  $env:REMOTO_CAPTURE_METHOD = $CaptureMethod
 
   Invoke-Checked "Cadastro do agente" "npm.cmd" @("run", "agent:register")
   Invoke-Checked "Heartbeat do agente" "npm.cmd" @("run", "agent:heartbeat")
@@ -225,7 +229,8 @@ try {
   }
   $measurement = Get-Content -LiteralPath $measurementReportPath -Raw | ConvertFrom-Json
   if ($measurement.result -ne "pass") {
-    throw "A medicao realtime nao aprovou o canal.`n$clientOutput"
+    $hostDetails = (Read-LogText $agentLog) + "`n" + (Read-LogText $agentErrorLog)
+    throw "A medicao realtime nao aprovou o canal.`n$clientOutput`nHost:`n$hostDetails"
   }
   if ($null -ne $clientProcess.ExitCode -and $clientProcess.ExitCode -ne 0) {
     Write-Warning ("O wrapper npm terminou com codigo {0}, mas o relatorio realtime foi gerado e aprovado." -f $clientProcess.ExitCode)

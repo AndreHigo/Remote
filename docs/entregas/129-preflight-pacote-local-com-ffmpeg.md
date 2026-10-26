@@ -13,7 +13,7 @@ Artefatos locais, ignorados pelo Git:
 - `apps/agent/release/RemotoAgent-Setup.exe`;
 - `apps/agent/release/RemotoAgent-Windows.zip`.
 
-O instalador local gerado nesta homologacao teve SHA-256 `5F6D535450D19BA4A8594BEE68E90A311199EC545696CEE3DC48602850C5A24E`.
+O instalador local gerado nesta homologacao teve SHA-256 `F8425587CE500B8FD79CE16EB136D5DD14E68B71CBB6D86C3C368B586225D27D`.
 
 A compilacao tambem inclui a parada seletiva de processos `ffmpeg.exe` filhos do agente antes da substituicao dos arquivos. O filtro usa o caminho protegido do Remoto e nao encerra FFmpeg de outros programas.
 
