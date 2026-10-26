@@ -1697,6 +1697,7 @@ function OperationsConsole(props: OperationsConsoleProps) {
                       <span className={`status ${selectedDevice.status}`}>{selectedDevice.status === "online" ? <Wifi size={15} /> : <WifiOff size={15} />}{selectedDevice.status === "online" ? "Online" : "Offline"}</span>
                     </div>
                     <button className="primary detailConnect" type="button" onClick={() => onRequestSession(selectedDevice)}><Play size={16} />Abrir sessao remota<ArrowUpRight size={16} /></button>
+                    {latestInventory && latestInventory.software.sessions?.interactiveSessionReady !== true && agentInstallerAvailable ? <a className="secondary installerDownload" href={AGENT_INSTALLER_URL} target="_blank" rel="noreferrer" download title="Baixar o instalador para reparar a sessao interativa"><Download size={16} />Atualizar agente <ArrowUpRight size={14} /></a> : null}
                     <dl className="details">
                       <div><dt>Usuario</dt><dd>{selectedDevice.userName}</dd></div>
                       <div><dt>IP local</dt><dd>{selectedDevice.localIp}</dd></div>
