@@ -1,4 +1,4 @@
-export type GameCapabilityReason = "inventory-missing" | "inventory-stale" | "capture-not-ready" | "inventory-invalid";
+export type GameCapabilityReason = "inventory-missing" | "inventory-stale" | "capture-not-ready" | "interactive-session-not-ready" | "inventory-invalid";
 
 export interface GameCapabilityStatus {
   ready: boolean;
@@ -35,6 +35,11 @@ export function evaluateGameCapability(
   const capture = (snapshot.software as { capture?: unknown }).capture;
   if (!capture || typeof capture !== "object" || Array.isArray(capture) || (capture as { gameModeReady?: unknown }).gameModeReady !== true) {
     return { ready: false, reason: "capture-not-ready" };
+  }
+
+  const sessions = (snapshot.software as { sessions?: unknown }).sessions;
+  if (!sessions || typeof sessions !== "object" || Array.isArray(sessions) || (sessions as { interactiveSessionReady?: unknown }).interactiveSessionReady !== true) {
+    return { ready: false, reason: "interactive-session-not-ready" };
   }
 
   return { ready: true, audio: readGameAudio(snapshot) };

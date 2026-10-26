@@ -33,7 +33,17 @@ if (-not [string]::IsNullOrWhiteSpace($FfmpegPath)) {
   if ([System.IO.Path]::GetFileName($resolvedFfmpegPath) -ine "ffmpeg.exe" -or -not (Test-Path -LiteralPath $resolvedFfmpegPath -PathType Leaf)) {
     throw "FfmpegPath precisa apontar para um arquivo ffmpeg.exe existente."
   }
-  $ffmpegSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $resolvedFfmpegPath).Hash.ToLowerInvariant()
+  $getFileHash = Get-Command Get-FileHash -ErrorAction SilentlyContinue
+  if ($getFileHash) {
+    $ffmpegSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $resolvedFfmpegPath).Hash.ToLowerInvariant()
+  } else {
+    $sha256 = New-Object System.Security.Cryptography.SHA256Managed
+    try {
+      $ffmpegSha256 = ([BitConverter]::ToString($sha256.ComputeHash([System.IO.File]::ReadAllBytes($resolvedFfmpegPath)))).Replace("-", "").ToLowerInvariant()
+    } finally {
+      $sha256.Dispose()
+    }
+  }
   $ffmpegVersion = (& $resolvedFfmpegPath -hide_banner -version 2>&1 | Select-Object -First 1).ToString().Trim()
 }
 

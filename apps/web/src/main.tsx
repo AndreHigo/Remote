@@ -193,6 +193,11 @@ interface InventorySnapshot {
       bitrateKbps?: number;
       cpuFallback?: boolean;
     };
+    sessions?: {
+      interactiveSessionReady?: boolean;
+      interactiveTaskInstalled?: boolean;
+      interactiveProcessRunning?: boolean;
+    };
   };
 }
 
@@ -1515,7 +1520,8 @@ function OperationsConsole(props: OperationsConsoleProps) {
 
   const [moveCustomerId, setMoveCustomerId] = React.useState(selectedDevice?.customerId ?? "");
   const connectCapture = connectDevice?.id === selectedDevice?.id ? latestInventory?.software.capture : undefined;
-  const connectGameReady = connectCapture?.gameModeReady === true;
+  const connectSessions = connectDevice?.id === selectedDevice?.id ? latestInventory?.software.sessions : undefined;
+  const connectGameReady = connectCapture?.gameModeReady === true && connectSessions?.interactiveSessionReady === true;
   const connectCaptureLabel = connectCapture
     ? `Captura pronta (${connectCapture.resolvedEncoder ?? connectCapture.encoder ?? "CPU"} / ${connectCapture.resolvedCaptureMethod ?? connectCapture.captureMethod ?? "auto"})${(connectCapture.resolvedEncoder ?? connectCapture.encoder) === "cpu" ? "; fallback CPU pode reduzir FPS e aumentar o uso do processador." : "."}`
     : "";
@@ -1523,6 +1529,8 @@ function OperationsConsole(props: OperationsConsoleProps) {
     ? "O modo jogo esta desabilitado neste ambiente."
     : connectGameReady
       ? connectCaptureLabel
+      : connectCapture?.gameModeReady === true && connectSessions?.interactiveSessionReady !== true
+        ? "Captura pronta, mas a sessao interativa do Windows nao esta pronta. Repare a instalacao do agente e atualize o inventario."
       : latestInventory
         ? "Captura ainda nao esta pronta. Atualize o inventario depois de corrigir FFmpeg/encoder."
         : "Capacidade ainda nao foi avaliada; o inventario sera exigido na aprovacao.";
@@ -1721,7 +1729,8 @@ function OperationsConsole(props: OperationsConsoleProps) {
                         <div><dt>Discos</dt><dd>{latestInventory.hardware.disks?.length ? latestInventory.hardware.disks.map((disk) => `${disk.name ?? disk.mountedAt ?? "disco"} ${formatBytes(disk.freeBytes)} livre`).join(", ") : "n/a"}</dd></div>
                         <div><dt>Video</dt><dd>{latestInventory.hardware.graphics?.adapters?.map((adapter) => adapter.name).join(", ") || "nao detectado"}</dd></div>
                         <div><dt>Codificacao</dt><dd>{latestInventory.hardware.graphics?.encoding === "cpu-fallback" ? "CPU permitido; qualidade pode variar" : latestInventory.hardware.graphics?.encoding === "hardware-preferred-with-cpu-fallback" ? "GPU preferencial com fallback de CPU" : "Nao avaliada"}</dd></div>
-                        <div><dt>Modo jogo</dt><dd>{latestInventory.software.capture?.gameModeReady ? `Pronto (${latestInventory.software.capture.resolvedEncoder ?? latestInventory.software.capture.encoder ?? "CPU"} / ${latestInventory.software.capture.resolvedCaptureMethod ?? latestInventory.software.capture.captureMethod ?? "auto"} / ${latestInventory.software.capture.quality ?? "auto"})` : latestInventory.software.capture?.audio === "system" && !latestInventory.software.capture.systemAudioAvailable ? "Audio do sistema indisponivel nesta build do FFmpeg" : latestInventory.software.capture?.ffmpegAvailable ? "FFmpeg sem encoder H.264 ou captura de desktop utilizavel" : "FFmpeg nao detectado"}</dd></div>
+                        <div><dt>Modo jogo</dt><dd>{latestInventory.software.capture?.gameModeReady && latestInventory.software.sessions?.interactiveSessionReady ? `Pronto (${latestInventory.software.capture.resolvedEncoder ?? latestInventory.software.capture.encoder ?? "CPU"} / ${latestInventory.software.capture.resolvedCaptureMethod ?? latestInventory.software.capture.captureMethod ?? "auto"} / ${latestInventory.software.capture.quality ?? "auto"})` : latestInventory.software.capture?.gameModeReady ? "Captura pronta; repare a sessao interativa do agente" : latestInventory.software.capture?.audio === "system" && !latestInventory.software.capture.systemAudioAvailable ? "Audio do sistema indisponivel nesta build do FFmpeg" : latestInventory.software.capture?.ffmpegAvailable ? "FFmpeg sem encoder H.264 ou captura de desktop utilizavel" : "FFmpeg nao detectado"}</dd></div>
+                        <div><dt>Sessao Windows</dt><dd>{latestInventory.software.sessions?.interactiveSessionReady ? "Pronta para interagir com a area de trabalho" : latestInventory.software.sessions?.interactiveTaskInstalled ? "Tarefa instalada; processo interativo ausente" : "Tarefa interativa nao instalada"}</dd></div>
                         <div><dt>Controle</dt><dd>{latestInventory.software.input?.virtualGamepad ? "Gamepad virtual" : latestInventory.software.input?.gamepad === "keyboard-mouse-map" ? "Mapa para teclado/mouse; sem XInput/DirectInput" : "Nao avaliado"}</dd></div>
                         <div><dt>Audio</dt><dd>{latestInventory.software.capture?.audio === "system" ? latestInventory.software.capture.systemAudioAvailable ? "WASAPI loopback disponivel" : "WASAPI loopback indisponivel" : "Desligado"}</dd></div>
                         <div><dt>Perfil captura</dt><dd>{latestInventory.software.capture ? `${latestInventory.software.capture.width && latestInventory.software.capture.height ? `${latestInventory.software.capture.width}x${latestInventory.software.capture.height}` : "desktop"} / ${latestInventory.software.capture.fps ?? "auto"} FPS / ${latestInventory.software.capture.bitrateKbps ?? "auto"} kbps` : "Nao avaliado"}</dd></div>

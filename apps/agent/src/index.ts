@@ -9,6 +9,7 @@ import { inspectFfmpegCapabilities, resolveFfmpegExecutable } from "@remoto/desk
 import { resolveAgentEndpoints } from "./config.js";
 import { buildCaptureReadiness, readCaptureProfile } from "./capture-config.js";
 import { buildInputCapabilities } from "./input-capability.js";
+import { buildInteractiveSessionCapability } from "./session-capability.js";
 import { AGENT_VERSION } from "./version.js";
 
 const execFileAsync = promisify(execFile);
@@ -396,6 +397,7 @@ async function collectInventory() {
   const disks = await getDisks();
   const graphics = await collectGraphicsInventory();
   const identity = await collectDeviceIdentity();
+  const interactiveSession = await collectInteractiveSessionCapability();
 
   return {
     hardware: {
@@ -439,10 +441,54 @@ async function collectInventory() {
           systemAudioAvailable: capabilities.systemAudioAvailable
         });
       })(),
+      sessions: interactiveSession,
       input: buildInputCapabilities(),
       installed: []
     }
   };
+}
+
+async function collectInteractiveSessionCapability() {
+  const serviceMode = process.env.REMOTO_AGENT_MANAGEMENT_ONLY === "1";
+  if (!serviceMode) {
+    return buildInteractiveSessionCapability({
+      platform: process.platform,
+      serviceMode: false,
+      taskInstalled: true,
+      processRunning: true
+    });
+  }
+
+  if (process.platform !== "win32") {
+    return buildInteractiveSessionCapability({
+      platform: process.platform,
+      serviceMode: true,
+      taskInstalled: false,
+      processRunning: false
+    });
+  }
+
+  try {
+    const { stdout } = await execFileAsync("powershell.exe", [
+      "-NoProfile",
+      "-Command",
+      "$task=Get-ScheduledTask -TaskName 'RemotoAgentDesktop' -ErrorAction SilentlyContinue; $process=Get-CimInstance Win32_Process -Filter \"Name = 'RemotoAgent.exe'\" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -match '(?i)(^|\\s)sessions(\\s|$)' }; [pscustomobject]@{taskInstalled=[bool]$task; processRunning=[bool]$process} | ConvertTo-Json -Compress"
+    ]);
+    const probe = JSON.parse(stdout.trim()) as { taskInstalled?: unknown; processRunning?: unknown };
+    return buildInteractiveSessionCapability({
+      platform: process.platform,
+      serviceMode: true,
+      taskInstalled: probe.taskInstalled === true,
+      processRunning: probe.processRunning === true
+    });
+  } catch {
+    return buildInteractiveSessionCapability({
+      platform: process.platform,
+      serviceMode: true,
+      taskInstalled: false,
+      processRunning: false
+    });
+  }
 }
 
 async function executeCommand(deviceId: string, pendingCommand: CommandResponse) {

@@ -1013,7 +1013,9 @@ export const repository = {
           ? "O computador ainda nao enviou inventario. Atualize o inventario antes de aprovar o modo jogo."
           : capability.reason === "inventory-stale"
             ? "O inventario de captura esta desatualizado. Atualize o inventario antes de aprovar o modo jogo."
-            : capability.reason === "inventory-invalid"
+            : capability.reason === "interactive-session-not-ready"
+              ? "A sessao interativa do agente nao esta pronta. Repare a instalacao do Remoto Agent e atualize o inventario antes de aprovar o modo jogo."
+              : capability.reason === "inventory-invalid"
               ? "O inventario do computador esta invalido para o modo jogo. Reinstale ou atualize o agente."
               : "A captura H.264 deste computador nao esta pronta. Corrija o FFmpeg/encoder e atualize o inventario.";
         await addAudit(
