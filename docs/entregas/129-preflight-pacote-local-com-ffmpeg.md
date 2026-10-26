@@ -21,10 +21,10 @@ A compilacao tambem inclui a parada seletiva de processos `ffmpeg.exe` filhos do
 
 `npm run validate:release` passou com:
 
-- 90 testes;
+- 91 testes;
 - typecheck e build de todos os workspaces;
 - auditoria de dependencias sem vulnerabilidades;
 - validacao do instalador e das ACLs;
-- confirmacao de que a build local do FFmpeg nao oferece WASAPI.
+- confirmacao de que a build local do FFmpeg nao oferece WASAPI; o pacote continua com captura de video e fallback por CPU, mas o audio de sistema permanece desabilitado nesta build.
 
 Este artefato e local e nao assinado. Antes de distribuicao publica ainda sao necessarios assinatura Authenticode, origem/hash/licenca aprovados para a release, instalacao elevada e teste em uma segunda maquina.
