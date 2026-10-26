@@ -1199,3 +1199,436 @@ h3 { color: #24343b; font-size: 13px; }
   .loginBrandCopy h2 { font-size: 18px; }
   .loginForm { padding: 28px 22px; }
 }
+
+/* Final visual pass: keep the operations surface readable at laptop widths. */
+:root {
+  background: #edf2f3;
+  color: #17242a;
+}
+
+body {
+  background: #edf2f3;
+}
+
+.shell {
+  grid-template-columns: 248px minmax(0, 1fr);
+  background: #edf2f3;
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  padding: 26px 16px 18px;
+  background: #0d1a20;
+  border-right: 1px solid #203039;
+}
+
+.brand {
+  margin: 0 8px 38px;
+}
+
+.brandMark {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #83dfbf;
+  box-shadow: 0 0 0 6px rgba(131, 223, 191, .08);
+}
+
+.brand strong {
+  font-size: 15px;
+  letter-spacing: -.01em;
+}
+
+.sidebarLabel {
+  margin: 0 8px 10px;
+  color: #72878f;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.nav {
+  gap: 5px;
+}
+
+.nav button {
+  min-height: 46px;
+  border-radius: 10px;
+  color: #a9bbc1;
+}
+
+.nav button.active,
+.nav button:hover {
+  background: #20343d;
+  color: #fff;
+}
+
+.nav button.active {
+  box-shadow: inset 3px 0 0 #64d4ae;
+}
+
+.workspace {
+  min-width: 0;
+  padding: 32px 36px 56px;
+}
+
+.topbar {
+  margin-bottom: 24px;
+}
+
+.topbarIntro {
+  color: #718189;
+}
+
+.metrics {
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.metric {
+  min-height: 96px;
+  padding: 17px 18px;
+  border-color: #d8e3e5;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .88);
+}
+
+.metric strong {
+  font-size: 28px;
+  letter-spacing: -.04em;
+}
+
+.metric.good {
+  border-color: #bfe4d6;
+  background: #f2fbf7;
+}
+
+.workspaceToolbar {
+  min-height: 42px;
+  margin-bottom: 16px;
+}
+
+.searchField {
+  max-width: 460px;
+  min-height: 42px;
+  border-radius: 9px;
+  box-shadow: 0 1px 2px rgba(24, 44, 51, .03);
+}
+
+.addDeviceButton {
+  min-height: 42px;
+  border-radius: 9px;
+  padding: 0 15px;
+}
+
+.filterGroup {
+  min-height: 42px;
+  border-radius: 9px;
+}
+
+.contentGrid {
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 370px);
+  gap: 16px;
+}
+
+.panel {
+  border-color: #d8e3e5;
+  border-radius: 10px;
+  box-shadow: 0 4px 18px rgba(25, 48, 57, .04);
+}
+
+.deviceList,
+.detailPanel {
+  padding: 20px;
+}
+
+.deviceTable {
+  border-color: #dce6e8;
+  border-radius: 9px;
+}
+
+.deviceTableHead,
+.deviceRow {
+  grid-template-columns: minmax(125px, 1.3fr) minmax(82px, .82fr) 72px 72px 78px;
+  gap: 6px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.deviceTableHead {
+  min-height: 38px;
+  background: #f4f7f8;
+}
+
+.deviceRow {
+  min-height: 72px;
+  background: #fff;
+}
+
+.deviceSelect strong {
+  font-size: 12px;
+}
+
+.deviceCustomer,
+.lastSeen {
+  font-size: 11px;
+}
+
+.rowActions {
+  gap: 4px;
+}
+
+.rowActions .primary {
+  min-width: 68px;
+  padding: 0 8px;
+}
+
+.detailPanel {
+  top: 24px;
+  background: rgba(255, 255, 255, .96);
+}
+
+.detailConnect {
+  min-height: 44px;
+  border-radius: 9px;
+  margin-bottom: 14px;
+}
+
+.details dd {
+  color: #263b43;
+}
+
+.subsection {
+  border-color: #e1e9ea;
+}
+
+.loginShell {
+  padding: 28px;
+  background: radial-gradient(circle at 14% 20%, rgba(95, 205, 169, .13), transparent 30%), #edf2f3;
+}
+
+.loginPanel {
+  grid-template-columns: 300px minmax(390px, 440px);
+  width: min(800px, calc(100vw - 56px));
+  border-radius: 14px;
+  box-shadow: 0 24px 70px rgba(18, 40, 48, .12);
+}
+
+.loginBrand {
+  padding: 34px 30px;
+}
+
+.loginBrandCopy {
+  min-height: 360px;
+  padding: 0 30px 34px;
+}
+
+.loginBrandCopy h2 {
+  max-width: 200px;
+  font-size: 24px;
+}
+
+.loginForm {
+  gap: 18px;
+  padding: 48px 42px;
+}
+
+.loginForm > div:first-child h1 {
+  font-size: 34px;
+}
+
+.loginButton {
+  min-height: 46px;
+  border-radius: 9px;
+}
+
+@media (max-width: 1280px) {
+  .workspace {
+    padding-right: 24px;
+    padding-left: 24px;
+  }
+
+  .contentGrid {
+    grid-template-columns: minmax(0, 1fr) 350px;
+  }
+}
+
+@media (max-width: 960px) {
+  .shell {
+    grid-template-columns: 76px minmax(0, 1fr);
+  }
+
+  .sidebar {
+    position: sticky;
+    z-index: 5;
+    width: auto;
+    padding: 22px 10px;
+  }
+
+  .brand {
+    justify-content: center;
+    margin: 0 0 34px;
+  }
+
+  .brand > div,
+  .sidebarLabel {
+    display: none;
+  }
+
+  .nav button {
+    justify-content: center;
+    padding: 0;
+    font-size: 0;
+  }
+
+  .sidebarFoot {
+    justify-content: center;
+    margin: auto 0 0;
+    padding-right: 0;
+    padding-left: 0;
+    border-top: 0;
+  }
+
+  .sidebarFoot > div {
+    display: none;
+  }
+
+  .workspace {
+    padding-right: 22px;
+    padding-left: 22px;
+  }
+
+  .contentGrid,
+  .securityView {
+    grid-template-columns: 1fr;
+  }
+
+  .detailPanel {
+    position: static;
+  }
+}
+
+@media (max-width: 720px) {
+  .sidebar {
+    position: sticky;
+  }
+
+  .workspace {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
+  .topbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .topActions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .workspaceToolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .searchField {
+    max-width: none;
+  }
+
+  .addDeviceButton,
+  .filterGroup {
+    width: 100%;
+  }
+
+  .addDeviceButton {
+    justify-content: center;
+  }
+
+  .filterGroup {
+    justify-content: space-between;
+  }
+
+  .filterGroup button {
+    flex: 1;
+  }
+
+  .workspaceToolbar .syncState {
+    margin-left: 0;
+  }
+
+  .deviceTable {
+    border: 0;
+    overflow: visible;
+  }
+
+  .deviceTableHead {
+    display: none;
+  }
+
+  .deviceRow {
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    min-height: 0;
+    padding: 13px 0;
+  }
+
+  .deviceSelect {
+    grid-column: 1 / 2;
+  }
+
+  .deviceCustomer {
+    grid-column: 1 / 2;
+    padding-left: 42px;
+  }
+
+  .deviceRow > .status {
+    grid-column: 2 / 3;
+    grid-row: 1;
+  }
+
+  .lastSeen {
+    grid-column: 2 / 3;
+    grid-row: 2;
+  }
+
+  .rowActions {
+    grid-column: 1 / -1;
+    justify-content: stretch;
+  }
+
+  .rowActions .primary {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .loginPanel {
+    grid-template-columns: 1fr;
+    width: min(440px, calc(100vw - 28px));
+  }
+
+  .loginAside {
+    min-height: auto;
+  }
+
+  .loginBrand {
+    padding: 24px 22px;
+  }
+
+  .loginBrandCopy {
+    min-height: 0;
+    padding: 0 22px 24px;
+  }
+
+  .loginForm {
+    padding: 28px 22px;
+  }
+}
