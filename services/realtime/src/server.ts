@@ -42,6 +42,7 @@ interface Room {
   host?: Peer;
   client?: Peer;
   initialFrame?: Buffer;
+  qualityTracker?: RelayQualityTracker;
   expiryTimer?: NodeJS.Timeout;
   revalidationTimer?: NodeJS.Timeout;
   expiresAt?: number;
@@ -131,7 +132,8 @@ export function createRealtimeServer() {
           return close(socket, "channel-not-authorized");
         }
 
-        const room = rooms.get(payload.sessionId) ?? {};
+        const room = rooms.get(payload.sessionId) ?? { qualityTracker: createRelayQualityTracker() };
+        room.qualityTracker ??= createRelayQualityTracker();
         if (!rooms.has(payload.sessionId) && rooms.size >= maxRooms) return close(socket, "too-many-rooms");
         if (room[payload.role]) return close(socket, "role-already-connected");
         const other = payload.role === "host" ? room.client : room.host;
@@ -177,6 +179,9 @@ export function createRealtimeServer() {
       const client = room?.client;
       if (client?.socket.readyState === WebSocket.OPEN && client.socket.bufferedAmount <= maxBufferedBytes) {
         client.socket.send(frame, { binary: true });
+      } else if (room && client?.socket.readyState === WebSocket.OPEN) {
+        const quality = room.qualityTracker?.recordDrop(frame.byteLength);
+        if (quality) send(client.socket, { type: "quality", ...quality });
       }
       return;
     }
@@ -308,6 +313,33 @@ export function createEventRateLimiter(maxEventsPerSecond: number, now: () => nu
       if (eventCount + 1 > maxEventsPerSecond) return false;
       eventCount += 1;
       return true;
+    }
+  };
+}
+
+export interface RelayQualitySnapshot {
+  relayDroppedFrames: number;
+  relayDroppedBytes: number;
+}
+
+export interface RelayQualityTracker {
+  recordDrop(byteLength: number): RelayQualitySnapshot | undefined;
+}
+
+export function createRelayQualityTracker(now: () => number = Date.now): RelayQualityTracker {
+  let droppedFrames = 0;
+  let droppedBytes = 0;
+  let lastPublishedAt = Number.NEGATIVE_INFINITY;
+
+  return {
+    recordDrop(byteLength) {
+      if (!Number.isInteger(byteLength) || byteLength < 0) return undefined;
+      droppedFrames += 1;
+      droppedBytes += byteLength;
+      const current = now();
+      if (current - lastPublishedAt < 1_000) return undefined;
+      lastPublishedAt = current;
+      return { relayDroppedFrames: droppedFrames, relayDroppedBytes: droppedBytes };
     }
   };
 }

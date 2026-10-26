@@ -1897,6 +1897,8 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
   const [error, setError] = React.useState<string | null>(null);
   const [latencyMs, setLatencyMs] = React.useState<number | null>(null);
   const [latencyP95Ms, setLatencyP95Ms] = React.useState<number | null>(null);
+  const [relayDroppedFrames, setRelayDroppedFrames] = React.useState(0);
+  const [relayDroppedBytes, setRelayDroppedBytes] = React.useState(0);
   const [firstFrameMs, setFirstFrameMs] = React.useState<number | null>(null);
   const [fps, setFps] = React.useState<number | null>(null);
   const [droppedFrames, setDroppedFrames] = React.useState(0);
@@ -2037,7 +2039,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
       });
       socket.addEventListener("message", (event) => {
         if (typeof event.data === "string") {
-          let message: { type?: string; reason?: string; peerConnected?: boolean; sentAt?: number };
+          let message: { type?: string; reason?: string; peerConnected?: boolean; sentAt?: number; relayDroppedFrames?: number; relayDroppedBytes?: number };
           try {
             message = JSON.parse(event.data) as typeof message;
           } catch {
@@ -2064,6 +2066,10 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
             }
             setLatencyMs(sample);
             setLatencyP95Ms(percentile(latencySamplesRef.current, 0.95));
+          }
+          if (message.type === "quality") {
+            if (typeof message.relayDroppedFrames === "number" && Number.isFinite(message.relayDroppedFrames)) setRelayDroppedFrames(Math.max(0, Math.floor(message.relayDroppedFrames)));
+            if (typeof message.relayDroppedBytes === "number" && Number.isFinite(message.relayDroppedBytes)) setRelayDroppedBytes(Math.max(0, Math.floor(message.relayDroppedBytes)));
           }
           return;
         }
@@ -2127,6 +2133,8 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
       droppedFramesRef.current = 0;
       setLatencyMs(null);
       setLatencyP95Ms(null);
+      setRelayDroppedFrames(0);
+      setRelayDroppedBytes(0);
       setFirstFrameMs(null);
       setDroppedFrames(0);
       setFps(null);
@@ -2262,6 +2270,8 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
         firstFrameMs,
         latestRttMs: latencyMs,
         latencyP95Ms,
+        relayDroppedFrames,
+        relayDroppedBytes,
         currentFps: fps,
         droppedFrames,
         reconnects: reconnectCountRef.current,
@@ -2329,7 +2339,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
             onKeyUp={(event) => sendKey(event, "up")}
           />
         )}
-        <footer className="gameSessionFooter"><span>{started ? <>Video H.264 / relay autenticado / Entrada: teclado + mouse / Gamepad: {gamepadConnected ? "mapa experimental" : "conecte um controle"}{latencyMs === null ? "" : ` / RTT ${latencyMs} ms`}{latencyP95Ms === null ? "" : ` / p95 ${latencyP95Ms} ms`}{firstFrameMs === null ? "" : ` / 1o frame ${firstFrameMs} ms`}{fps === null ? "" : ` / FPS ${fps}`}{droppedFrames > 0 ? ` / fila descartada ${droppedFrames}` : ""}</> : "Sessao aprovada e aguardando sua escolha"}</span><div className="gameSessionFooterActions"><button className="secondary compact" type="button" onClick={downloadQualityReport} disabled={!started} title="Baixar relatorio JSON da sessao"><Download size={14} />Relatorio</button><button className="danger" type="button" onClick={onClose}>Encerrar sessao</button></div></footer>
+        <footer className="gameSessionFooter"><span>{started ? <>Video H.264 / relay autenticado / Entrada: teclado + mouse / Gamepad: {gamepadConnected ? "mapa experimental" : "conecte um controle"}{latencyMs === null ? "" : ` / RTT ${latencyMs} ms`}{latencyP95Ms === null ? "" : ` / p95 ${latencyP95Ms} ms`}{firstFrameMs === null ? "" : ` / 1o frame ${firstFrameMs} ms`}{fps === null ? "" : ` / FPS ${fps}`}{droppedFrames > 0 ? ` / fila descartada ${droppedFrames}` : ""}{relayDroppedFrames > 0 ? ` / relay descartou ${relayDroppedFrames}` : ""}</> : "Sessao aprovada e aguardando sua escolha"}</span><div className="gameSessionFooterActions"><button className="secondary compact" type="button" onClick={downloadQualityReport} disabled={!started} title="Baixar relatorio JSON da sessao"><Download size={14} />Relatorio</button><button className="danger" type="button" onClick={onClose}>Encerrar sessao</button></div></footer>
       </section>
     </div>
   );

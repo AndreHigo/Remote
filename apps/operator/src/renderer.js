@@ -209,13 +209,14 @@ window.remotoOperator.onStatus(({ status, detail: message }) => {
     detail.textContent = message || detail.textContent;
   }
 });
-window.remotoOperator.onMetrics(({ latencyMs, latencyP95Ms, firstFrameMs, bytesReceived }) => {
+window.remotoOperator.onMetrics(({ latencyMs, latencyP95Ms, firstFrameMs, bytesReceived, relayDroppedFrames }) => {
   if (Number.isFinite(latencyMs)) {
     const p95 = Number.isFinite(latencyP95Ms) ? ` / p95 ${Math.round(latencyP95Ms)} ms` : "";
     latencyText.textContent = `RTT ${Math.round(latencyMs)} ms${p95}`;
   }
   if (Number.isFinite(firstFrameMs)) firstFrameText.textContent = `1o frame ${Math.round(firstFrameMs)} ms`;
   if (Number.isFinite(bytesReceived)) receivedText.textContent = `${(bytesReceived / 1024 / 1024).toFixed(1)} MB`;
+  if (Number.isFinite(relayDroppedFrames)) dropsText.textContent = `fila ${droppedFrames} / relay ${Math.round(relayDroppedFrames)}`;
 });
 window.remotoOperator.onSession(({ audio }) => {
   if (mediaStarted) return;

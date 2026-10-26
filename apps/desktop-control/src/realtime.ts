@@ -22,6 +22,8 @@ export interface RealtimeMetrics {
   firstFrameMs?: number;
   latencyMs?: number;
   latencyP95Ms?: number;
+  relayDroppedFrames?: number;
+  relayDroppedBytes?: number;
 }
 
 export interface RealtimeInputBridge {
@@ -54,6 +56,8 @@ export async function connectRemoteSession(
   let bytesReceived = 0;
   let firstFrameMs: number | undefined;
   let latencyMs: number | undefined;
+  let relayDroppedFrames = 0;
+  let relayDroppedBytes = 0;
   const latencySamples: number[] = [];
   let lastMetricsAt = 0;
 
@@ -66,7 +70,9 @@ export async function connectRemoteSession(
       bytesReceived,
       firstFrameMs,
       latencyMs,
-      latencyP95Ms: percentile(latencySamples, 0.95)
+      latencyP95Ms: percentile(latencySamples, 0.95),
+      relayDroppedFrames,
+      relayDroppedBytes
     });
   }
 
@@ -110,7 +116,7 @@ export async function connectRemoteSession(
         return;
       }
 
-      let message: { type?: string; peerConnected?: boolean; reason?: string; sentAt?: number };
+      let message: { type?: string; peerConnected?: boolean; reason?: string; sentAt?: number; relayDroppedFrames?: number; relayDroppedBytes?: number };
       try {
         message = JSON.parse(toBuffer(data).toString("utf8")) as typeof message;
       } catch {
@@ -158,6 +164,17 @@ export async function connectRemoteSession(
         if (latencySamples.length > 60) latencySamples.shift();
         options.onLatencyMs?.(latencyMs);
         publishMetrics();
+        return;
+      }
+
+      if (message.type === "quality") {
+        if (typeof message.relayDroppedFrames === "number" && Number.isFinite(message.relayDroppedFrames)) {
+          relayDroppedFrames = Math.max(0, Math.floor(message.relayDroppedFrames));
+        }
+        if (typeof message.relayDroppedBytes === "number" && Number.isFinite(message.relayDroppedBytes)) {
+          relayDroppedBytes = Math.max(0, Math.floor(message.relayDroppedBytes));
+        }
+        publishMetrics(true);
         return;
       }
 

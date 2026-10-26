@@ -96,7 +96,7 @@ Para uma rodada entre duas máquinas, use `npm run measure:realtime` com os desc
 
 Durante uma sessao de jogo, o operador nativo exibe RTT atual/p95, tempo ate o primeiro frame e volume de video recebido. Esses numeros ajudam a registrar a homologacao, mas nao substituem o teste entre duas maquinas descrito em `docs/entregas/029-runbook-homologacao-jogo.md`.
 
-O painel web tambem permite baixar um relatorio JSON da sessao de jogo. O arquivo registra amostras de RTT, p95, FPS, tempo ate o primeiro frame, reconexoes e frames descartados localmente, facilitando a comparacao entre hosts e redes sem prometer perda de pacotes fim a fim.
+O painel web tambem permite baixar um relatorio JSON da sessao de jogo. O arquivo registra amostras de RTT, p95, FPS, tempo ate o primeiro frame, reconexoes, frames descartados localmente e descartes contabilizados pelo relay, facilitando a comparacao entre hosts e redes sem prometer perda de pacotes fim a fim.
 
 O inventario do agente consulta a capacidade real da build do FFmpeg: encoder H.264 escolhido, metodo de captura disponivel, fallback por CPU e WASAPI loopback opcional. Assim, hosts sem GPU dedicada continuam elegiveis quando possuem `libx264`; no perfil `auto`, o fallback por CPU inicia em 30 FPS e 3,5 Mbps para priorizar estabilidade, enquanto encoders acelerados preservam 60 FPS. Audio do sistema so entra na sessao quando `REMOTO_CAPTURE_AUDIO=system` e a build oferece `wasapi`.
 

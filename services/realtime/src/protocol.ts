@@ -22,6 +22,7 @@ export type ClientMessage =
 export type ServerMessage =
   | { type: "ready"; sessionId: string; mode: SessionMode; peerConnected: boolean }
   | { type: "pong"; sentAt?: number }
+  | { type: "quality"; relayDroppedFrames: number; relayDroppedBytes: number }
   | { type: "closed"; reason: string };
 
 const TOKEN_SECRET = process.env.DESKTOP_SESSION_SECRET ?? process.env.JWT_SECRET ?? crypto.randomBytes(32).toString("hex");
