@@ -46,6 +46,9 @@ Source: "{#StagingDir}\repair-installed-agent.ps1"; DestDir: "{app}"; Flags: ign
 Source: "{#StagingDir}\uninstall-package.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#StagingDir}\homologate-host.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#StagingDir}\ffmpeg\ffmpeg.exe"; DestDir: "{app}\ffmpeg"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "{#StagingDir}\ffmpeg\FFMPEG-LICENSE.txt"; DestDir: "{app}\ffmpeg"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "{#StagingDir}\ffmpeg\FFMPEG-README.txt"; DestDir: "{app}\ffmpeg"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "{#StagingDir}\THIRD-PARTY-NOTICES.txt"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 
 [Icons]
 Name: "{group}\Reparar Remoto Agent"; Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\repair-installed-agent.ps1"""; WorkingDir: "{app}"; Comment: "Corrige a configuracao, o servico e a tarefa interativa do agente"
