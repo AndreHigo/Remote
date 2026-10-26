@@ -1421,10 +1421,13 @@ function OperationsConsole(props: OperationsConsoleProps) {
   const [moveCustomerId, setMoveCustomerId] = React.useState(selectedDevice?.customerId ?? "");
   const connectCapture = connectDevice?.id === selectedDevice?.id ? latestInventory?.software.capture : undefined;
   const connectGameReady = connectCapture?.gameModeReady === true;
+  const connectCaptureLabel = connectCapture
+    ? `Captura pronta (${connectCapture.resolvedEncoder ?? connectCapture.encoder ?? "CPU"} / ${connectCapture.resolvedCaptureMethod ?? connectCapture.captureMethod ?? "auto"})${(connectCapture.resolvedEncoder ?? connectCapture.encoder) === "cpu" ? "; fallback CPU pode reduzir FPS e aumentar o uso do processador." : "."}`
+    : "";
   const connectCapabilityMessage = !gameModeEnabled
     ? "O modo jogo esta desabilitado neste ambiente."
     : connectGameReady
-      ? `Captura pronta (${connectCapture.resolvedEncoder ?? connectCapture.encoder ?? "CPU"} / ${connectCapture.resolvedCaptureMethod ?? connectCapture.captureMethod ?? "auto"}).`
+      ? connectCaptureLabel
       : latestInventory
         ? "Captura ainda nao esta pronta. Atualize o inventario depois de corrigir FFmpeg/encoder."
         : "Capacidade ainda nao foi avaliada; o inventario sera exigido na aprovacao.";
