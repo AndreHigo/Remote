@@ -164,6 +164,13 @@ interface InventorySnapshot {
       agent?: string;
       agentVersion?: string;
     };
+    input?: {
+      keyboard?: string;
+      mouse?: string;
+      gamepad?: "keyboard-mouse-map";
+      virtualGamepad?: boolean;
+      haptics?: boolean;
+    };
     capture?: {
       gameModeReady?: boolean;
       ffmpegAvailable?: boolean;
@@ -1612,6 +1619,7 @@ function OperationsConsole(props: OperationsConsoleProps) {
                         <div><dt>Video</dt><dd>{latestInventory.hardware.graphics?.adapters?.map((adapter) => adapter.name).join(", ") || "nao detectado"}</dd></div>
                         <div><dt>Codificacao</dt><dd>{latestInventory.hardware.graphics?.encoding === "cpu-fallback" ? "CPU permitido; qualidade pode variar" : latestInventory.hardware.graphics?.encoding === "hardware-preferred-with-cpu-fallback" ? "GPU preferencial com fallback de CPU" : "Nao avaliada"}</dd></div>
                         <div><dt>Modo jogo</dt><dd>{latestInventory.software.capture?.gameModeReady ? `Pronto (${latestInventory.software.capture.resolvedEncoder ?? latestInventory.software.capture.encoder ?? "CPU"} / ${latestInventory.software.capture.resolvedCaptureMethod ?? latestInventory.software.capture.captureMethod ?? "auto"} / ${latestInventory.software.capture.quality ?? "auto"})` : latestInventory.software.capture?.audio === "system" && !latestInventory.software.capture.systemAudioAvailable ? "Audio do sistema indisponivel nesta build do FFmpeg" : latestInventory.software.capture?.ffmpegAvailable ? "FFmpeg sem encoder H.264 ou captura de desktop utilizavel" : "FFmpeg nao detectado"}</dd></div>
+                        <div><dt>Controle</dt><dd>{latestInventory.software.input?.virtualGamepad ? "Gamepad virtual" : latestInventory.software.input?.gamepad === "keyboard-mouse-map" ? "Mapa para teclado/mouse; sem XInput/DirectInput" : "Nao avaliado"}</dd></div>
                         <div><dt>Audio</dt><dd>{latestInventory.software.capture?.audio === "system" ? latestInventory.software.capture.systemAudioAvailable ? "WASAPI loopback disponivel" : "WASAPI loopback indisponivel" : "Desligado"}</dd></div>
                         <div><dt>Perfil captura</dt><dd>{latestInventory.software.capture ? `${latestInventory.software.capture.width && latestInventory.software.capture.height ? `${latestInventory.software.capture.width}x${latestInventory.software.capture.height}` : "desktop"} / ${latestInventory.software.capture.fps ?? "auto"} FPS / ${latestInventory.software.capture.bitrateKbps ?? "auto"} kbps` : "Nao avaliado"}</dd></div>
                         <div><dt>Runtime</dt><dd>{latestInventory.software.runtime?.node ?? "n/a"}</dd></div>

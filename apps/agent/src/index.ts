@@ -8,6 +8,7 @@ import { connectRemoteSession, type RealtimeConnection } from "@remoto/desktop-c
 import { inspectFfmpegCapabilities, resolveFfmpegExecutable } from "@remoto/desktop-control/capture";
 import { resolveAgentEndpoints } from "./config.js";
 import { buildCaptureReadiness, readCaptureProfile } from "./capture-config.js";
+import { buildInputCapabilities } from "./input-capability.js";
 import { AGENT_VERSION } from "./version.js";
 
 const execFileAsync = promisify(execFile);
@@ -438,6 +439,7 @@ async function collectInventory() {
           systemAudioAvailable: capabilities.systemAudioAvailable
         });
       })(),
+      input: buildInputCapabilities(),
       installed: []
     }
   };
