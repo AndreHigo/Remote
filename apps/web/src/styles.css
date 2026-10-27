@@ -1069,6 +1069,7 @@ h3 { color: #24343b; font-size: 13px; }
 .monitorTab span { overflow: hidden; color: #7f969f; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .monitorTab.active span { color: #9ec4ff; }
 .gameSessionVideo { display: block; width: 100%; min-height: 420px; max-height: calc(100vh - 190px); aspect-ratio: 16 / 9; background: #05090b; object-fit: contain; outline: none; }
+.gameSessionVideo.pointerLocked { cursor: none; }
 .gameSessionVideo:focus { box-shadow: inset 0 0 0 2px #75dec0; }
 .gameLaunchChoice { display: grid; justify-items: center; gap: 12px; min-height: 420px; padding: 40px 24px; color: #e7f3f1; text-align: center; background: #071217; }
 .gameLaunchChoice h3 { margin: 0; font-size: 22px; }
