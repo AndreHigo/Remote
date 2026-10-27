@@ -75,8 +75,17 @@ export function buildWindowsCaptureArgs(profile: CaptureProfile = defaultProfile
     args.push("-thread_queue_size", "512", "-f", "wasapi", "-loopback", "1", "-i", "default");
   }
 
+  const videoFilters: string[] = [];
+  if (captureMethod === "ddagrab" && profile.encoder === "cpu") {
+    // ddagrab emits a D3D11 frame. Download it explicitly before libx264;
+    // relying on FFmpeg's automatic conversion makes this path fail on some builds.
+    videoFilters.push("hwdownload", "format=bgra");
+  }
   if (profile.width && profile.height) {
-    args.push("-vf", `scale=${profile.width}:${profile.height}:force_original_aspect_ratio=decrease`);
+    videoFilters.push(`scale=${profile.width}:${profile.height}:force_original_aspect_ratio=decrease`);
+  }
+  if (videoFilters.length > 0) {
+    args.push("-vf", videoFilters.join(","));
   }
 
   args.push(
@@ -188,6 +197,24 @@ export function inspectFfmpegCapabilities(preferredPath?: string, profile: Captu
     selectedEncoder,
     selectedEncoderAvailable,
     selectedCaptureMethod
+  };
+}
+
+export function buildGameCaptureProfile(profile: CaptureProfile, capabilities: FfmpegCapabilities): CaptureProfile {
+  const encoder = capabilities.selectedEncoderAvailable ? capabilities.selectedEncoder : "cpu";
+  const captureMethod = profile.captureMethod && profile.captureMethod !== "auto"
+    ? profile.captureMethod
+    : encoder === "cpu" && capabilities.captureMethods.includes("ddagrab")
+      ? "ddagrab"
+      : capabilities.selectedCaptureMethod;
+
+  return {
+    ...profile,
+    quality: profile.quality === "auto" ? "balanced" : profile.quality,
+    encoder,
+    captureMethod,
+    fps: profile.fps ?? 60,
+    bitrateKbps: profile.bitrateKbps ?? (encoder === "cpu" ? 7000 : 12000)
   };
 }
 

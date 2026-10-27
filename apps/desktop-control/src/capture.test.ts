@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildWindowsCaptureArgs, selectCaptureEncoder, selectCaptureMethod } from "./capture.js";
+import { buildGameCaptureProfile, buildWindowsCaptureArgs, selectCaptureEncoder, selectCaptureMethod } from "./capture.js";
 
 test("captura usa CPU e baixa latencia por padrao acessivel", () => {
   const args = buildWindowsCaptureArgs({ quality: "low", encoder: "cpu" });
@@ -70,6 +70,30 @@ test("captura pode usar Desktop Duplication para jogos em tela cheia", () => {
     "-hide_banner", "-loglevel", "error", "-nostdin", "-f", "lavfi", "-i", "ddagrab=framerate=60:draw_mouse=1"
   ]);
   assert.ok(!args.includes("gdigrab"));
+  assert.ok(args.includes("hwdownload,format=bgra"));
+});
+
+test("perfil de jogo prioriza 60 FPS e Desktop Duplication quando a GPU nao esta disponivel", () => {
+  const profile = buildGameCaptureProfile({ quality: "auto", encoder: "auto" }, {
+    executable: "ffmpeg.exe",
+    available: true,
+    videoEncoderAvailable: true,
+    cpuEncoderAvailable: true,
+    hardwareEncoders: [],
+    captureMethods: ["gdigrab", "ddagrab"],
+    systemAudioAvailable: false,
+    selectedEncoder: "cpu",
+    selectedEncoderAvailable: true,
+    selectedCaptureMethod: "gdigrab"
+  });
+
+  assert.deepEqual(profile, {
+    quality: "balanced",
+    encoder: "cpu",
+    captureMethod: "ddagrab",
+    fps: 60,
+    bitrateKbps: 7000
+  });
 });
 
 test("audio do sistema usa WASAPI loopback somente quando solicitado", () => {

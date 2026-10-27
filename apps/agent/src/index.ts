@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { connectRemoteSession, type RealtimeConnection } from "@remoto/desktop-control/realtime";
-import { inspectFfmpegCapabilities, resolveFfmpegExecutable, type MonitorBounds } from "@remoto/desktop-control/capture";
+import { buildGameCaptureProfile, inspectFfmpegCapabilities, resolveFfmpegExecutable, type MonitorBounds } from "@remoto/desktop-control/capture";
 import { resolveAgentEndpoints } from "./config.js";
 import { buildCaptureReadiness, readCaptureProfile } from "./capture-config.js";
 import { buildInputCapabilities } from "./input-capability.js";
@@ -327,17 +327,21 @@ async function reportRemoteSessions(state: AgentState) {
   for (const session of sessions) {
     if (activeRemoteSessions.has(session.sessionId)) continue;
     try {
+      const capabilities = inspectFfmpegCapabilities(config.ffmpegPath, config.captureProfile);
+      const sessionCaptureProfile = session.mode === "game"
+        ? buildGameCaptureProfile(config.captureProfile, capabilities)
+        : config.captureProfile;
       const displays = await collectDisplayInventory();
       const initialMonitorIndex = session.monitorIndex ?? displays.find((display) => display.primary)?.index ?? displays[0]?.index;
       const monitorBounds = initialMonitorIndex === undefined ? undefined : displays[initialMonitorIndex] as MonitorBounds | undefined;
       const connection = await connectRemoteSession(session, {
         url: config.realtimeUrl,
-        capture: { ...config.captureProfile, ffmpegPath: config.ffmpegPath, monitorIndex: initialMonitorIndex, monitorBounds },
+        capture: { ...sessionCaptureProfile, ffmpegPath: config.ffmpegPath, monitorIndex: initialMonitorIndex, monitorBounds },
         onMonitorChange: async (monitorIndex) => {
           const nextDisplays = await collectDisplayInventory();
           const nextBounds = nextDisplays[monitorIndex] as MonitorBounds | undefined;
           return nextBounds
-            ? { ...config.captureProfile, ffmpegPath: config.ffmpegPath, monitorIndex, monitorBounds: nextBounds }
+            ? { ...sessionCaptureProfile, ffmpegPath: config.ffmpegPath, monitorIndex, monitorBounds: nextBounds }
             : undefined;
         },
         onClosed: (reason) => {
