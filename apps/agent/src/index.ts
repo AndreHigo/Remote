@@ -324,7 +324,7 @@ async function reportRemoteSessions(state: AgentState) {
   }
 
   for (const session of sessions) {
-    if (session.mode !== "game" || activeRemoteSessions.has(session.sessionId)) continue;
+    if (activeRemoteSessions.has(session.sessionId)) continue;
     try {
       const connection = await connectRemoteSession(session, {
         url: config.realtimeUrl,

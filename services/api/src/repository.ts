@@ -1064,37 +1064,20 @@ export const repository = {
       kind: "approved" as const,
       session: {
         ...sessionView,
-        connection: session.mode === "SUPPORT"
-          ? {
-              protocol: "rustdesk",
-              status: "ready",
-              uri: `rustdesk://connection/new/${encodeURIComponent(session.device.remoteId)}`,
-              command: `rustdesk.exe --connect "${session.device.remoteId}"`,
-              desktopSession: {
-                sessionId: session.id,
-                deviceId: session.deviceId,
-                mode: "support",
-                role: "client",
-                audio: desktopToken.payload.audio ?? "off",
-                remoteId: session.device.remoteId,
-                accessToken: desktopToken.token,
-                expiresAt: desktopToken.expiresAt.toISOString()
-              }
-            }
-          : {
-              protocol: "native-game",
-            status: "ready",
-            desktopSession: {
-              sessionId: session.id,
-              deviceId: session.deviceId,
-              mode: "game",
-              role: "client",
-              audio: desktopToken.payload.audio ?? "off",
-              remoteId: session.device.remoteId,
-              accessToken: desktopToken.token,
-              expiresAt: desktopToken.expiresAt.toISOString()
-            }
-            }
+        connection: {
+          protocol: session.mode === "SUPPORT" ? "native-web" : "native-game",
+          status: "ready",
+          desktopSession: {
+            sessionId: session.id,
+            deviceId: session.deviceId,
+            mode: session.mode.toLowerCase() as RemoteSessionMode,
+            role: "client",
+            audio: desktopToken.payload.audio ?? "off",
+            remoteId: session.device.remoteId,
+            accessToken: desktopToken.token,
+            expiresAt: desktopToken.expiresAt.toISOString()
+          }
+        }
       }
     };
   },

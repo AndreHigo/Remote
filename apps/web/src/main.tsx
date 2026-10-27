@@ -245,10 +245,10 @@ interface RemoteSessionResponse {
   };
 }
 
-interface GameSessionDescriptor {
+interface RemoteSessionDescriptor {
   sessionId: string;
   deviceId: string;
-  mode: "game";
+  mode: "support" | "game";
   role: "client";
   accessToken: string;
   expiresAt: string;
@@ -437,7 +437,7 @@ function App() {
   const [onboardingLoading, setOnboardingLoading] = React.useState(false);
   const [statusMessage, setStatusMessage] = React.useState("Carregando painel...");
   const [loading, setLoading] = React.useState(true);
-  const [gameSession, setGameSession] = React.useState<GameSessionDescriptor | null>(null);
+  const [gameSession, setGameSession] = React.useState<RemoteSessionDescriptor | null>(null);
   const [gameSessionStarted, setGameSessionStarted] = React.useState(false);
 
   React.useEffect(() => {
@@ -735,11 +735,11 @@ function App() {
   async function approveRemoteSession(session: RemoteSession) {
     try {
       const approved = await postJson<RemoteSessionResponse>(`/remote-sessions/${session.id}/approve`, token);
-      if (approved.connection?.desktopSession?.mode === "game" && approved.connection.desktopSession.accessToken) {
+      if (approved.connection?.desktopSession?.accessToken) {
         setGameSession({
           sessionId: approved.connection.desktopSession.sessionId,
           deviceId: approved.connection.desktopSession.deviceId,
-          mode: "game",
+          mode: approved.connection.desktopSession.mode,
           role: "client",
           audio: approved.connection.desktopSession.audio ?? "off",
           accessToken: approved.connection.desktopSession.accessToken,
@@ -791,7 +791,7 @@ function App() {
   async function launchGameInBrowser() {
     if (!gameSession || gameSessionStarted) return;
     try {
-      const consumed = await postJson<Omit<GameSessionDescriptor, "accessToken">>("/desktop-sessions/consume", token, {
+      const consumed = await postJson<Omit<RemoteSessionDescriptor, "accessToken">>("/desktop-sessions/consume", token, {
         accessToken: gameSession.accessToken
       });
       setGameSession({ ...consumed, accessToken: gameSession.accessToken });
@@ -1445,7 +1445,7 @@ interface OperationsConsoleProps {
   onCopyOnboardingKey: () => void;
   onDownloadAgentProfile: () => void;
   onDownloadAgentBundle: () => void;
-  gameSession: GameSessionDescriptor | null;
+  gameSession: RemoteSessionDescriptor | null;
   gameSessionStarted: boolean;
   onLaunchGameInBrowser: () => void;
   onCloseGameSession: () => void;
@@ -1888,7 +1888,7 @@ function OperationsConsole(props: OperationsConsoleProps) {
         ) : null}
 
         {activeSection === "activity" ? <section className="activityView">
-          <section className="panel sessionPanel"><div className="panelHeader"><div><p className="eyebrow">Controle de acesso</p><h2>Sessoes remotas</h2><p>Suporte abre RustDesk; jogo usa o relay experimental do Remoto.</p></div><Play size={20} /></div>{sessions.length === 0 ? <div className="emptyState"><Play size={24} /><strong>Sem sessoes registradas</strong><span>Os pedidos de acesso aparecerao aqui.</span></div> : <ul className="sessionList">{sessions.map((session) => <li key={session.id}><div><strong>{session.deviceName}</strong><span>{session.mode === "game" ? "Jogo" : "Suporte"} / {session.customerName} / {session.technicianName} / {session.reason}</span><small>{new Date(session.requestedAt).toLocaleString("pt-BR")}</small></div><span className={`commandStatus ${session.status === "approved" ? "succeeded" : session.status === "denied" ? "failed" : ""}`}>{session.status}</span><span className="sessionActions">{canManageKeys && session.status === "requested" ? <><button className="primary compact" type="button" onClick={() => onApproveRemoteSession(session)}><Play size={14} />Aprovar</button><button className="danger compact" type="button" onClick={() => onDenyRemoteSession(session)}><Ban size={14} />Negar</button></> : null}{session.status === "approved" ? <button className="secondary compact" type="button" onClick={() => onEndRemoteSession(session)}>Encerrar</button> : null}</span></li>)}</ul>}</section>
+          <section className="panel sessionPanel"><div className="panelHeader"><div><p className="eyebrow">Controle de acesso</p><h2>Sessoes remotas</h2><p>Suporte e jogo usam o relay seguro do Remoto no navegador.</p></div><Play size={20} /></div>{sessions.length === 0 ? <div className="emptyState"><Play size={24} /><strong>Sem sessoes registradas</strong><span>Os pedidos de acesso aparecerao aqui.</span></div> : <ul className="sessionList">{sessions.map((session) => <li key={session.id}><div><strong>{session.deviceName}</strong><span>{session.mode === "game" ? "Jogo" : "Suporte"} / {session.customerName} / {session.technicianName} / {session.reason}</span><small>{new Date(session.requestedAt).toLocaleString("pt-BR")}</small></div><span className={`commandStatus ${session.status === "approved" ? "succeeded" : session.status === "denied" ? "failed" : ""}`}>{session.status}</span><span className="sessionActions">{canManageKeys && session.status === "requested" ? <><button className="primary compact" type="button" onClick={() => onApproveRemoteSession(session)}><Play size={14} />Aprovar</button><button className="danger compact" type="button" onClick={() => onDenyRemoteSession(session)}><Ban size={14} />Negar</button></> : null}{session.status === "approved" ? <button className="secondary compact" type="button" onClick={() => onEndRemoteSession(session)}>Encerrar</button> : null}</span></li>)}</ul>}</section>
           <section className="panel auditPanel"><div className="panelHeader"><div><p className="eyebrow">Historico do workspace</p><h2>Atividade recente</h2><p>Acoes registradas pela API e pelos operadores.</p></div><Activity size={20} /></div>{auditEvents.length === 0 ? <div className="emptyState"><Activity size={24} /><strong>Sem eventos ainda</strong><span>Heartbeats e sessoes aparecerao aqui.</span></div> : <ul className="auditList">{auditEvents.map((event) => <li key={event.id}><span className="activityIcon"><Activity size={16} /></span><div><strong>{event.action}</strong><span>{event.actor} / alvo {event.targetId}</span></div><time>{new Date(event.createdAt).toLocaleString("pt-BR")}</time></li>)}</ul>}</section>
         </section> : null}
 
@@ -1900,9 +1900,9 @@ function OperationsConsole(props: OperationsConsoleProps) {
                 <button className="iconButton" type="button" onClick={onCloseConnection} aria-label="Fechar" title="Fechar"><X size={17} /></button>
               </div>
               <div className="connectionTarget"><span className={`deviceIcon ${connectDevice.status}`}><Monitor size={19} /></span><div><strong>{connectDevice.displayName}</strong><span>{connectDevice.customerName} / ID {connectDevice.remoteId}</span></div><span className={`status ${connectDevice.status}`}>{connectDevice.status === "online" ? "Online" : "Offline"}</span></div>
-              <label className="reasonField"><span>Modo de acesso</span><select value={connectMode} onChange={(event) => onConnectModeChange(event.target.value as "support" | "game")}><option value="support">Suporte tecnico (RustDesk)</option><option value="game" disabled={!gameModeEnabled || !connectGameReady}>Jogo (experimental{!gameModeEnabled ? " - desabilitado" : connectGameReady ? "" : " - inventario pendente"})</option></select></label>
+              <label className="reasonField"><span>Modo de acesso</span><select value={connectMode} onChange={(event) => onConnectModeChange(event.target.value as "support" | "game")}><option value="support">Suporte remoto (navegador)</option><option value="game" disabled={!gameModeEnabled || !connectGameReady}>Jogo (experimental{!gameModeEnabled ? " - desabilitado" : connectGameReady ? "" : " - inventario pendente"})</option></select></label>
               <label className="reasonField"><span>Motivo do acesso</span><textarea value={connectReason} onChange={(event) => onConnectReasonChange(event.target.value)} rows={3} placeholder="Ex.: validar falha no caixa" autoFocus /></label>
-              <p className="modalNote">A solicitacao sera registrada na atividade. O suporte abre RustDesk; o modo jogo experimental exige relay e captura ativos. {connectCapabilityMessage} {connectInputMessage}</p>
+              <p className="modalNote">A solicitacao sera registrada na atividade. O suporte abre a area de trabalho no navegador; o modo jogo experimental exige relay e captura ativos. {connectCapabilityMessage} {connectInputMessage}</p>
               <div className="modalActions"><button className="secondary" type="button" onClick={onCloseConnection}>Cancelar</button><button className="primary" type="button" onClick={onConfirmConnection} disabled={connectionLoading || connectReason.trim().length < 4 || (connectMode === "game" && !connectGameReady)}><Play size={16} />{connectionLoading ? "Registrando..." : "Solicitar acesso"}</button></div>
             </section>
           </div>
@@ -2025,7 +2025,7 @@ function countVideoSamples(segment: Uint8Array, expectedTrackId: number | undefi
   return counts.length ? Math.max(...counts) : 0;
 }
 
-function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }: { session: GameSessionDescriptor; realtimeUrl: string; started: boolean; onStartWeb: () => void; onClose: () => void }) {
+function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }: { session: RemoteSessionDescriptor; realtimeUrl: string; started: boolean; onStartWeb: () => void; onClose: () => void }) {
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const socketRef = React.useRef<WebSocket | null>(null);
   const sourceBufferRef = React.useRef<SourceBuffer | null>(null);
@@ -2484,7 +2484,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
     <div className="gameSessionBackdrop" role="presentation">
       <section className="gameSessionPanel" role="dialog" aria-modal="true" aria-labelledby="game-session-title">
         <header className="gameSessionHeader">
-          <div><p className="eyebrow"><Gamepad2 size={14} /> Modo jogo experimental</p><h2 id="game-session-title">Sessao remota</h2><span>{status}</span></div>
+          <div><p className="eyebrow"><Gamepad2 size={14} /> {session.mode === "game" ? "Modo jogo experimental" : "Suporte remoto"}</p><h2 id="game-session-title">Sessao remota</h2><span>{status}</span></div>
           <button className="iconButton" type="button" onClick={onClose} aria-label="Encerrar sessao" title="Encerrar sessao"><X size={17} /></button>
         </header>
         {error ? <div className="gameSessionError">{error}</div> : null}
@@ -2492,7 +2492,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
           <div className="gameLaunchChoice">
             <Gamepad2 size={34} aria-hidden="true" />
             <h3>Escolha como abrir esta sessao</h3>
-            <p>O token ainda nao foi usado. Abra no navegador para testar agora ou baixe o descritor para usar o cliente nativo do Remoto.</p>
+            <p>O token ainda nao foi usado. Abra a sessao no navegador ou baixe o descritor para usar um cliente nativo.</p>
             <div className="gameLaunchActions">
               <button className="primary" type="button" onClick={onStartWeb} disabled={nativeDownloaded}><Play size={16} />Abrir no navegador</button>
               <button className="secondary" type="button" onClick={downloadNativeDescriptor} disabled={nativeDownloaded}><Download size={16} />{nativeDownloaded ? "Descritor baixado" : "Cliente nativo"}</button>

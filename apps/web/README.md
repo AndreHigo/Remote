@@ -1,6 +1,6 @@
 # Web App
 
-Painel online da plataforma e cliente web experimental do modo jogo.
+Painel online da plataforma e cliente web de acesso remoto.
 
 Responsabilidades:
 
@@ -9,7 +9,7 @@ Responsabilidades:
 - dispositivos e grupos;
 - status online/offline;
 - solicitar e aprovar acesso remoto;
-- abrir suporte por RustDesk;
+- abrir suporte remoto nativo pelo navegador;
 - reproduzir o relay H.264 do modo jogo experimental com teclado e mouse;
 - inventario, comandos e auditoria;
 - chamados e relatorios em fases futuras.
