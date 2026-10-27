@@ -16,6 +16,19 @@ test("protocolo aceita troca de monitor dentro do limite", () => {
   assert.equal(parseControlMessage(JSON.stringify({ type: "monitor", index: 17 })), null);
 });
 
+test("protocolo aceita o mapa de monitores publicado pelo host", () => {
+  assert.deepEqual(parseControlMessage(JSON.stringify({
+    type: "monitors",
+    activeIndex: 1,
+    monitors: [{ index: 0, name: "DISPLAY1", x: 0, y: 0, width: 1920, height: 1080, primary: true }]
+  })), {
+    type: "monitors",
+    activeIndex: 1,
+    monitors: [{ index: 0, name: "DISPLAY1", x: 0, y: 0, width: 1920, height: 1080, primary: true }]
+  });
+  assert.equal(parseControlMessage(JSON.stringify({ type: "monitors", monitors: [{ index: 0, name: "DISPLAY1", width: 0, height: 1080, x: 0, y: 0, primary: true }] })), null);
+});
+
 test("protocolo rejeita controle grande ou formato arbitrario", () => {
   assert.equal(parseControlMessage("x".repeat(maxControlMessageBytes() + 1)), null);
   assert.equal(parseControlMessage(JSON.stringify({ type: "shell", command: "whoami" })), null);

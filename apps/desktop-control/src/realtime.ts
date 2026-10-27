@@ -7,6 +7,7 @@ import type { DesktopSessionDescriptor } from "./engine.js";
 export interface RealtimeClientOptions {
   url?: string;
   capture?: CaptureProfile;
+  monitors?: RealtimeMonitor[];
   captureFactory?: (profile?: CaptureProfile) => CaptureProcess;
   onMonitorChange?: (monitorIndex: number) => Promise<CaptureProfile | undefined>;
   inputFactory?: () => RealtimeInputBridge;
@@ -15,6 +16,16 @@ export interface RealtimeClientOptions {
   onLatencyMs?: (latencyMs: number) => void;
   onMetrics?: (metrics: RealtimeMetrics) => void;
   onClosed?: (reason: string) => void;
+}
+
+export interface RealtimeMonitor {
+  index: number;
+  name: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  primary: boolean;
 }
 
 export interface RealtimeMetrics {
@@ -146,6 +157,13 @@ export async function connectRemoteSession(
         if (session.role === "host") {
           try {
             input = options.inputFactory?.() ?? new WindowsInputBridge();
+            if (options.monitors?.length) {
+              socket.send(JSON.stringify({
+                type: "monitors",
+                monitors: options.monitors,
+                ...(Number.isInteger(options.capture?.monitorIndex) ? { activeIndex: options.capture?.monitorIndex } : {})
+              }));
+            }
             startCapture(options.capture);
           } catch (error) {
             closeWithReason(error instanceof Error ? error.message : String(error));

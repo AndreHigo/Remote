@@ -42,6 +42,7 @@ interface Room {
   host?: Peer;
   client?: Peer;
   initialFrame?: Buffer;
+  monitors?: Extract<ServerMessage, { type: "monitors" }>;
   qualityTracker?: RelayQualityTracker;
   expiryTimer?: NodeJS.Timeout;
   revalidationTimer?: NodeJS.Timeout;
@@ -164,6 +165,7 @@ export function createRealtimeServer() {
         releasePendingHandshake();
         send(socket, { type: "ready", sessionId: payload.sessionId, mode: payload.mode, peerConnected: Boolean(room.host && room.client) });
         if (other) send(other.socket, { type: "ready", sessionId: payload.sessionId, mode: payload.mode, peerConnected: true });
+        if (payload.role === "client" && room.monitors && socket.readyState === WebSocket.OPEN) send(socket, room.monitors);
         if (payload.role === "client" && room.initialFrame && socket.readyState === WebSocket.OPEN) {
           socket.send(room.initialFrame, { binary: true });
         }
@@ -204,6 +206,15 @@ export function createRealtimeServer() {
       if (!peer.inputRateLimiter.allow()) return close(socket, "monitor-rate-limit");
       const host = rooms.get(peer.payload.sessionId)?.host;
       if (host?.socket.readyState === WebSocket.OPEN) host.socket.send(JSON.stringify(message));
+      return;
+    }
+    if (message.type === "monitors") {
+      if (peer.role !== "host") return close(socket, "monitors-role-not-allowed");
+      const room = rooms.get(peer.payload.sessionId);
+      if (!room) return;
+      room.monitors = message;
+      const client = room.client;
+      if (client?.socket.readyState === WebSocket.OPEN) send(client.socket, message);
     }
     });
 

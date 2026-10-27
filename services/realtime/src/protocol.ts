@@ -14,14 +14,32 @@ export interface ChannelTokenPayload {
   exp: number;
 }
 
+export interface RealtimeMonitor {
+  index: number;
+  name: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  primary: boolean;
+}
+
+export interface MonitorMapMessage {
+  type: "monitors";
+  monitors: RealtimeMonitor[];
+  activeIndex?: number;
+}
+
 export type ClientMessage =
   | { type: "hello"; accessToken: string }
   | { type: "input"; event: Record<string, unknown> }
   | { type: "monitor"; index: number }
+  | MonitorMapMessage
   | { type: "ping"; sentAt?: number };
 
 export type ServerMessage =
   | { type: "ready"; sessionId: string; mode: SessionMode; peerConnected: boolean }
+  | MonitorMapMessage
   | { type: "pong"; sentAt?: number }
   | { type: "quality"; relayDroppedFrames: number; relayDroppedBytes: number }
   | { type: "closed"; reason: string };
@@ -35,6 +53,37 @@ function isFiniteNumber(value: unknown): value is number {
 
 function isIntegerInRange(value: unknown, min: number, max: number): value is number {
   return typeof value === "number" && Number.isInteger(value) && value >= min && value <= max;
+}
+
+function parseMonitorMap(value: unknown, activeIndexValue?: unknown): MonitorMapMessage | null {
+  if (!Array.isArray(value) || value.length > 16) return null;
+  const monitors = value.map((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return null;
+    const monitor = item as Record<string, unknown>;
+    if (
+      !isIntegerInRange(monitor.index, 0, 16) ||
+      typeof monitor.name !== "string" || monitor.name.length === 0 || monitor.name.length > 128 ||
+      !isIntegerInRange(monitor.x, -32768, 32767) || !isIntegerInRange(monitor.y, -32768, 32767) ||
+      !isIntegerInRange(monitor.width, 1, 16384) || !isIntegerInRange(monitor.height, 1, 16384) ||
+      typeof monitor.primary !== "boolean"
+    ) return null;
+    return {
+      index: monitor.index,
+      name: monitor.name,
+      x: monitor.x,
+      y: monitor.y,
+      width: monitor.width,
+      height: monitor.height,
+      primary: monitor.primary
+    } satisfies RealtimeMonitor;
+  });
+  if (monitors.some((monitor) => monitor === null)) return null;
+  if (activeIndexValue !== undefined && !isIntegerInRange(activeIndexValue, 0, 16)) return null;
+  return {
+    type: "monitors",
+    monitors: monitors as RealtimeMonitor[],
+    ...(activeIndexValue === undefined ? {} : { activeIndex: activeIndexValue })
+  };
 }
 
 export function isRealtimeInputEvent(value: unknown): value is Record<string, unknown> {
@@ -91,6 +140,7 @@ export function parseControlMessage(data: Buffer | string): ClientMessage | null
     if (value.type === "monitor" && isIntegerInRange(value.index, 0, 16)) {
       return { type: "monitor", index: value.index };
     }
+    if (value.type === "monitors") return parseMonitorMap(value.monitors, value.activeIndex);
     return null;
   } catch {
     return null;

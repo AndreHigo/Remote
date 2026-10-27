@@ -337,6 +337,7 @@ async function reportRemoteSessions(state: AgentState) {
       const connection = await connectRemoteSession(session, {
         url: config.realtimeUrl,
         capture: { ...sessionCaptureProfile, ffmpegPath: config.ffmpegPath, monitorIndex: initialMonitorIndex, monitorBounds },
+        monitors: displays,
         onMonitorChange: async (monitorIndex) => {
           const nextDisplays = await collectDisplayInventory();
           const nextBounds = nextDisplays[monitorIndex] as MonitorBounds | undefined;

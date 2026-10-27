@@ -2070,7 +2070,8 @@ function countVideoSamples(segment: Uint8Array, expectedTrackId: number | undefi
 }
 
 function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }: { session: RemoteSessionDescriptor; realtimeUrl: string; started: boolean; onStartWeb: () => void; onClose: () => void }) {
-  const monitors = session.monitors ?? [];
+  const [liveMonitors, setLiveMonitors] = React.useState<RemoteMonitor[]>(() => session.monitors ?? []);
+  const monitors = liveMonitors;
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const socketRef = React.useRef<WebSocket | null>(null);
   const sourceBufferRef = React.useRef<SourceBuffer | null>(null);
@@ -2108,6 +2109,12 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
   const [controlActive, setControlActive] = React.useState(false);
   const [pointerLocked, setPointerLocked] = React.useState(false);
   const [activeMonitorIndex, setActiveMonitorIndex] = React.useState(() => session.monitorIndex ?? monitors.find((monitor) => monitor.primary)?.index ?? monitors[0]?.index ?? 0);
+
+  React.useEffect(() => {
+    const nextMonitors = session.monitors ?? [];
+    setLiveMonitors(nextMonitors);
+    setActiveMonitorIndex(session.monitorIndex ?? nextMonitors.find((monitor) => monitor.primary)?.index ?? nextMonitors[0]?.index ?? 0);
+  }, [session.sessionId]);
 
   React.useEffect(() => {
     const updatePointerLock = () => {
@@ -2287,7 +2294,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
       });
       socket.addEventListener("message", (event) => {
         if (typeof event.data === "string") {
-          let message: { type?: string; reason?: string; peerConnected?: boolean; sentAt?: number; relayDroppedFrames?: number; relayDroppedBytes?: number };
+          let message: { type?: string; reason?: string; peerConnected?: boolean; sentAt?: number; relayDroppedFrames?: number; relayDroppedBytes?: number; activeIndex?: number; monitors?: RemoteMonitor[] };
           try {
             message = JSON.parse(event.data) as typeof message;
           } catch {
@@ -2318,6 +2325,19 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
           if (message.type === "quality") {
             if (typeof message.relayDroppedFrames === "number" && Number.isFinite(message.relayDroppedFrames)) setRelayDroppedFrames(Math.max(0, Math.floor(message.relayDroppedFrames)));
             if (typeof message.relayDroppedBytes === "number" && Number.isFinite(message.relayDroppedBytes)) setRelayDroppedBytes(Math.max(0, Math.floor(message.relayDroppedBytes)));
+          }
+          if (message.type === "monitors" && Array.isArray(message.monitors)) {
+            const nextMonitors = message.monitors
+              .filter((monitor) => Number.isInteger(monitor.index) && Number.isInteger(monitor.width) && monitor.width > 0 && Number.isInteger(monitor.height) && monitor.height > 0)
+              .sort((left, right) => left.index - right.index);
+            if (nextMonitors.length > 0) {
+              setLiveMonitors(nextMonitors);
+              setActiveMonitorIndex((current) => typeof message.activeIndex === "number" && nextMonitors.some((monitor) => monitor.index === message.activeIndex)
+                ? message.activeIndex
+                : nextMonitors.some((monitor) => monitor.index === current)
+                  ? current
+                  : nextMonitors.find((monitor) => monitor.primary)?.index ?? nextMonitors[0].index);
+            }
           }
           return;
         }
