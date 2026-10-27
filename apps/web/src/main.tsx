@@ -730,17 +730,20 @@ function App() {
     }
 
     setConnectionLoading(true);
-    setStatusMessage("Registrando solicitacao de acesso...");
+    const deviceId = connectDevice.id;
+    const directAccess = user?.role === "owner" || user?.role === "admin";
+    setStatusMessage(directAccess ? "Abrindo acesso remoto..." : "Registrando solicitacao de acesso...");
     try {
       const session = await postJson<RemoteSessionResponse>("/remote-sessions", token, {
-        deviceId: connectDevice.id,
+        deviceId,
         reason: connectReason.trim(),
         mode: connectMode
       });
       setConnectDevice(null);
       setConnectReason("");
+      const opened = await openApprovedRemoteSession(session, deviceId);
       await refresh();
-      setStatusMessage("Solicitacao registrada. Aguardando aprovacao administrativa.");
+      if (!opened) setStatusMessage("Solicitacao registrada. Aguardando aprovacao administrativa.");
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : "Nao foi possivel abrir a sessao");
     } finally {
@@ -748,29 +751,44 @@ function App() {
     }
   }
 
+  async function openApprovedRemoteSession(approved: RemoteSessionResponse, deviceId: string) {
+    const desktopSession = approved.connection?.desktopSession;
+    if (!desktopSession?.accessToken) {
+      if (approved.connection?.uri) window.location.assign(approved.connection.uri);
+      else if (approved.connection?.message) setStatusMessage(approved.connection.message);
+      return false;
+    }
+
+    setStatusMessage("Conectando ao computador...");
+    const freshInventory = await getJson<InventorySnapshot[]>(`/devices/${deviceId}/inventory`, token).catch(() => []);
+    const monitors = freshInventory
+      .flatMap((inventory) => inventory.software.displays ?? [])
+      .filter((monitor, index, all) => all.findIndex((candidate) => candidate.index === monitor.index) === index)
+      .sort((left, right) => left.index - right.index);
+    const descriptor: RemoteSessionDescriptor = {
+      sessionId: desktopSession.sessionId,
+      deviceId: desktopSession.deviceId,
+      mode: desktopSession.mode,
+      monitorIndex: desktopSession.monitorIndex ?? null,
+      monitors,
+      role: "client",
+      audio: desktopSession.audio ?? "off",
+      accessToken: desktopSession.accessToken,
+      expiresAt: desktopSession.expiresAt ?? new Date(Date.now() + 5 * 60_000).toISOString()
+    };
+    const consumed = await postJson<Omit<RemoteSessionDescriptor, "accessToken">>("/desktop-sessions/consume", token, {
+      accessToken: descriptor.accessToken
+    });
+    setGameSession({ ...descriptor, ...consumed, monitors, accessToken: descriptor.accessToken });
+    setGameSessionStarted(true);
+    setStatusMessage("Sessao remota aberta.");
+    return true;
+  }
+
   async function approveRemoteSession(session: RemoteSession) {
     try {
       const approved = await postJson<RemoteSessionResponse>(`/remote-sessions/${session.id}/approve`, token);
-      if (approved.connection?.desktopSession?.accessToken) {
-        const freshInventory = await getJson<InventorySnapshot[]>(`/devices/${session.deviceId}/inventory`, token).catch(() => []);
-        setGameSession({
-          sessionId: approved.connection.desktopSession.sessionId,
-          deviceId: approved.connection.desktopSession.deviceId,
-          mode: approved.connection.desktopSession.mode,
-          monitorIndex: approved.connection.desktopSession.monitorIndex ?? null,
-          monitors: freshInventory
-            .flatMap((inventory) => inventory.software.displays ?? [])
-            .filter((monitor, index, all) => all.findIndex((candidate) => candidate.index === monitor.index) === index)
-            .sort((left, right) => left.index - right.index),
-          role: "client",
-          audio: approved.connection.desktopSession.audio ?? "off",
-          accessToken: approved.connection.desktopSession.accessToken,
-          expiresAt: approved.connection.desktopSession.expiresAt ?? new Date(Date.now() + 5 * 60_000).toISOString()
-        });
-        setGameSessionStarted(false);
-        setStatusMessage("Sessao de jogo autorizada. Escolha onde abrir.");
-      } else if (approved.connection?.uri) window.location.assign(approved.connection.uri);
-      else if (approved.connection?.message) setStatusMessage(approved.connection.message);
+      await openApprovedRemoteSession(approved, session.deviceId);
       await refresh();
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : "Nao foi possivel aprovar a sessao");
@@ -1924,8 +1942,8 @@ function OperationsConsole(props: OperationsConsoleProps) {
               <div className="connectionTarget"><span className={`deviceIcon ${connectDevice.status}`}><Monitor size={19} /></span><div><strong>{connectDevice.displayName}</strong><span>{connectDevice.customerName} / ID {connectDevice.remoteId}</span></div><span className={`status ${connectDevice.status}`}>{connectDevice.status === "online" ? "Online" : "Offline"}</span></div>
               <label className="reasonField"><span>Modo de acesso</span><select value={connectMode} onChange={(event) => onConnectModeChange(event.target.value as "support" | "game")}><option value="support">Suporte remoto (navegador)</option><option value="game" disabled={!gameModeEnabled || !connectGameReady}>Jogo (experimental{!gameModeEnabled ? " - desabilitado" : connectGameReady ? "" : " - inventario pendente"})</option></select></label>
               <label className="reasonField"><span>Motivo do acesso</span><textarea value={connectReason} onChange={(event) => onConnectReasonChange(event.target.value)} rows={3} placeholder="Ex.: validar falha no caixa" autoFocus /></label>
-              <p className="modalNote">A solicitacao sera registrada na atividade. O suporte abre a area de trabalho no navegador; o modo jogo experimental exige relay e captura ativos. {connectCapabilityMessage} {connectInputMessage}</p>
-              <div className="modalActions"><button className="secondary" type="button" onClick={onCloseConnection}>Cancelar</button><button className="primary" type="button" onClick={onConfirmConnection} disabled={connectionLoading || connectReason.trim().length < 4 || (connectMode === "game" && !connectGameReady)}><Play size={16} />{connectionLoading ? "Registrando..." : "Solicitar acesso"}</button></div>
+              <p className="modalNote">{user.role === "owner" || user.role === "admin" ? "Seu perfil tem acesso direto aos computadores cadastrados. A abertura será registrada na atividade." : "A solicitação será registrada na atividade e ficará aguardando aprovação administrativa."} O suporte abre a área de trabalho no navegador; o modo jogo experimental exige relay e captura ativos. {connectCapabilityMessage} {connectInputMessage}</p>
+              <div className="modalActions"><button className="secondary" type="button" onClick={onCloseConnection}>Cancelar</button><button className="primary" type="button" onClick={onConfirmConnection} disabled={connectionLoading || connectReason.trim().length < 4 || (connectMode === "game" && !connectGameReady)}><Play size={16} />{connectionLoading ? "Abrindo..." : user.role === "owner" || user.role === "admin" ? "Abrir acesso" : "Solicitar acesso"}</button></div>
             </section>
           </div>
         ) : null}

@@ -1062,6 +1062,25 @@ app.post(
       return;
     }
 
+    const user = (request as AuthenticatedRequest).user;
+    if (user.role === "owner" || user.role === "admin") {
+      const approved = await repository.approveRemoteSession({ id: session.session.id, user });
+      if (!approved) {
+        response.status(404).json({ message: "Sessao nao encontrada" });
+        return;
+      }
+      if (approved.kind === "unavailable") {
+        response.status(409).json({ message: approved.message });
+        return;
+      }
+      if (approved.kind === "unchanged") {
+        response.status(409).json({ message: `Sessao ja esta ${approved.status}` });
+        return;
+      }
+      response.status(201).json(approved.session);
+      return;
+    }
+
     response.status(201).json(session.session);
   }
 );
