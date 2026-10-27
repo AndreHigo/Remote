@@ -2007,6 +2007,10 @@ function readMp4Boxes(buffer: Uint8Array, type: string | undefined, start = 0, e
   return boxes;
 }
 
+function isMp4InitializationSegment(buffer: Uint8Array) {
+  return readMp4Boxes(buffer, "ftyp").length > 0 && readMp4Boxes(buffer, "moov").length > 0;
+}
+
 function findMp4BoxDeep(buffer: Uint8Array, type: string, start: number, end: number): Mp4BoxRange | undefined {
   const direct = readMp4Boxes(buffer, type, start, end)[0];
   if (direct) return direct;
@@ -2166,24 +2170,46 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
       }
     };
 
+    const mime = [
+      ...(session.audio === "system" ? [
+        "video/mp4; codecs=\"avc1.4D002A,mp4a.40.2\"",
+        "video/mp4; codecs=\"avc1.4D401F,mp4a.40.2\"",
+        "video/mp4; codecs=\"avc1.64002A,mp4a.40.2\""
+      ] : []),
+      "video/mp4; codecs=\"avc1.4D002A\"",
+      "video/mp4; codecs=\"avc1.4D401F\"",
+      "video/mp4; codecs=\"avc1.64002A\""
+    ].find((candidate) => MediaSource.isTypeSupported(candidate));
+
+    const createSourceBuffer = () => {
+      if (!mime || mediaSource.readyState !== "open") return;
+      const sourceBuffer = mediaSource.addSourceBuffer(mime);
+      sourceBuffer.mode = "sequence";
+      sourceBuffer.addEventListener("updateend", pump);
+      sourceBufferRef.current = sourceBuffer;
+      pump();
+    };
+
+    const resetSourceBuffer = () => {
+      mediaQueueRef.current = [];
+      mediaQueueBytesRef.current = 0;
+      videoTrackIdRef.current = undefined;
+      const current = sourceBufferRef.current;
+      if (!current || mediaSource.readyState !== "open") return;
+      try {
+        if (current.updating) current.abort();
+        mediaSource.removeSourceBuffer(current);
+        sourceBufferRef.current = null;
+        createSourceBuffer();
+      } catch {
+        // A reset can race with a browser MSE update; the next init segment retries normally.
+      }
+    };
+
     const onSourceOpen = () => {
       try {
-        const mime = [
-          ...(session.audio === "system" ? [
-            "video/mp4; codecs=\"avc1.4D002A,mp4a.40.2\"",
-            "video/mp4; codecs=\"avc1.4D401F,mp4a.40.2\"",
-            "video/mp4; codecs=\"avc1.64002A,mp4a.40.2\""
-          ] : []),
-          "video/mp4; codecs=\"avc1.4D002A\"",
-          "video/mp4; codecs=\"avc1.4D401F\"",
-          "video/mp4; codecs=\"avc1.64002A\""
-        ].find((candidate) => MediaSource.isTypeSupported(candidate));
         if (!mime) throw new Error("Codec H.264 nao suportado neste navegador");
-        const sourceBuffer = mediaSource.addSourceBuffer(mime);
-        sourceBuffer.mode = "sequence";
-        sourceBuffer.addEventListener("updateend", pump);
-        sourceBufferRef.current = sourceBuffer;
-        pump();
+        createSourceBuffer();
       } catch (sourceError) {
         setError(sourceError instanceof Error ? sourceError.message : "Nao foi possivel preparar o video");
       }
@@ -2287,6 +2313,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
           setError("O frame recebido excede o limite permitido.");
           return;
         }
+        if (videoTrackIdRef.current !== undefined && isMp4InitializationSegment(frame)) resetSourceBuffer();
         videoTrackIdRef.current ??= findVideoTrackId(frame);
         videoFrameCountRef.current += countVideoSamples(frame, videoTrackIdRef.current);
         if (firstFrameAtRef.current === null) {
@@ -2592,6 +2619,11 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
   function captureVideoPointer(video: HTMLVideoElement) {
     video.focus();
     lastMousePositionRef.current = null;
+    if (document.pointerLockElement === video) {
+      setPointerLocked(true);
+      setControlActive(true);
+      return;
+    }
     setControlActive(true);
     const request = video.requestPointerLock();
     if (request) void request.catch(() => {
@@ -2646,7 +2678,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
             muted={session.audio !== "system"}
             tabIndex={0}
             onClick={(event) => captureVideoPointer(event.currentTarget)}
-            onPointerDown={(event) => { event.preventDefault(); captureVideoPointer(event.currentTarget); }}
+            onPointerDown={(event) => { event.currentTarget.focus(); }}
             onContextMenu={(event) => event.preventDefault()}
             onMouseMove={handleVideoMouseMove}
             onMouseDown={(event) => { if (!controlActive) return; event.preventDefault(); const button = mouseButtons[event.button] ?? "left"; pressedButtonsRef.current.add(button); sendInput({ type: "mouse.button", button, action: "down" }); }}
