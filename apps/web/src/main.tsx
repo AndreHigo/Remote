@@ -758,7 +758,10 @@ function App() {
           deviceId: approved.connection.desktopSession.deviceId,
           mode: approved.connection.desktopSession.mode,
           monitorIndex: approved.connection.desktopSession.monitorIndex ?? null,
-          monitors: freshInventory[0]?.software.displays ?? [],
+          monitors: freshInventory
+            .flatMap((inventory) => inventory.software.displays ?? [])
+            .filter((monitor, index, all) => all.findIndex((candidate) => candidate.index === monitor.index) === index)
+            .sort((left, right) => left.index - right.index),
           role: "client",
           audio: approved.connection.desktopSession.audio ?? "off",
           accessToken: approved.connection.desktopSession.accessToken,
@@ -2054,6 +2057,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
   const pressedKeysRef = React.useRef(new Set<string>());
   const pressedButtonsRef = React.useRef(new Set<"left" | "middle" | "right">());
   const pressedGamepadKeysRef = React.useRef(new Set<string>());
+  const monitorShortcutCodesRef = React.useRef(new Set<string>());
   const pingTimerRef = React.useRef<number | null>(null);
   const videoFrameCountRef = React.useRef(0);
   const videoTrackIdRef = React.useRef<number | undefined>(undefined);
@@ -2416,10 +2420,23 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
         document.exitPointerLock();
         return;
       }
+      if (event.altKey && /^Digit[1-9]$/.test(event.code)) {
+        const monitor = monitors[Number(event.code.slice(5)) - 1];
+        if (monitor) {
+          event.preventDefault();
+          monitorShortcutCodesRef.current.add(event.code);
+          switchMonitor(monitor.index);
+          return;
+        }
+      }
       if (isLocalInteractiveTarget(event.target)) return;
       sendKey(event, "down");
     };
     const handleKeyUp = (event: KeyboardEvent) => {
+      if (monitorShortcutCodesRef.current.delete(event.code)) {
+        event.preventDefault();
+        return;
+      }
       if (isLocalInteractiveTarget(event.target)) return;
       sendKey(event, "up");
     };
@@ -2429,7 +2446,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, [started, controlActive, session.sessionId]);
+  }, [started, controlActive, session.sessionId, monitors, activeMonitorIndex]);
 
   React.useEffect(() => {
     const releasePressedInputs = () => {
@@ -2449,6 +2466,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
       }
       pressedKeysRef.current.clear();
       pressedGamepadKeysRef.current.clear();
+      monitorShortcutCodesRef.current.clear();
     };
     const releaseOnPointerLockChange = () => {
       if (document.pointerLockElement !== videoRef.current) releasePressedInputs();
