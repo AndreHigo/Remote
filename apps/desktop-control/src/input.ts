@@ -150,7 +150,9 @@ $signature = @'
 using System;
 using System.Runtime.InteropServices;
 public static class RemotoInput {
-  [StructLayout(LayoutKind.Explicit)] public struct INPUT { [FieldOffset(0)] public uint type; [FieldOffset(4)] public MOUSEINPUT mi; [FieldOffset(4)] public KEYBDINPUT ki; [FieldOffset(4)] public HARDWAREINPUT hi; }
+  // INPUT is 8-byte aligned on the x64 Windows ABI. Using offset 4 makes
+  // SendInput return success while reading the mouse/key fields incorrectly.
+  [StructLayout(LayoutKind.Explicit, Size = 40)] public struct INPUT { [FieldOffset(0)] public uint type; [FieldOffset(8)] public MOUSEINPUT mi; [FieldOffset(8)] public KEYBDINPUT ki; [FieldOffset(8)] public HARDWAREINPUT hi; }
   [StructLayout(LayoutKind.Sequential)] public struct MOUSEINPUT { public int dx; public int dy; public uint mouseData; public uint dwFlags; public uint time; public IntPtr dwExtraInfo; }
   [StructLayout(LayoutKind.Sequential)] public struct KEYBDINPUT { public ushort wVk; public ushort wScan; public uint dwFlags; public uint time; public IntPtr dwExtraInfo; }
   [StructLayout(LayoutKind.Sequential)] public struct HARDWAREINPUT { public uint uMsg; public ushort wParamL; public ushort wParamH; }
@@ -158,8 +160,9 @@ public static class RemotoInput {
   public static void Move(int dx, int dy) { SendMouse(dx, dy, 0, 0x0001); }
   public static void Button(uint data, uint flags) { SendMouse(0, 0, data, flags); }
   public static void Wheel(int delta) { SendMouse(0, 0, unchecked((uint)delta), 0x0800); }
-  public static void Key(ushort scan, bool up, bool extended) { var input = Base(); input.ki.wScan = scan; input.ki.dwFlags = 0x0008u | (up ? 0x0002u : 0u) | (extended ? 0x0001u : 0u); SendInput(1, new[] { input }, Marshal.SizeOf(typeof(INPUT))); }
-  private static void SendMouse(int dx, int dy, uint data, uint flags) { var input = Base(); input.mi.dx = dx; input.mi.dy = dy; input.mi.mouseData = data; input.mi.dwFlags = flags; SendInput(1, new[] { input }, Marshal.SizeOf(typeof(INPUT))); }
+  public static void Key(ushort scan, bool up, bool extended) { var input = Base(); input.ki.wScan = scan; input.ki.dwFlags = 0x0008u | (up ? 0x0002u : 0u) | (extended ? 0x0001u : 0u); EnsureSent(SendInput(1, new[] { input }, Marshal.SizeOf(typeof(INPUT)))); }
+  private static void SendMouse(int dx, int dy, uint data, uint flags) { var input = Base(); input.mi.dx = dx; input.mi.dy = dy; input.mi.mouseData = data; input.mi.dwFlags = flags; EnsureSent(SendInput(1, new[] { input }, Marshal.SizeOf(typeof(INPUT)))); }
+  private static void EnsureSent(uint sent) { if (sent != 1) throw new InvalidOperationException("SendInput falhou: " + Marshal.GetLastWin32Error()); }
   private static INPUT Base() { var input = new INPUT(); input.type = 0; return input; }
 }
 '@
@@ -179,6 +182,6 @@ while ($line = [Console]::In.ReadLine()) {
       'w' { if ($parts.Count -eq 2) { [RemotoInput]::Wheel([int]$parts[1]) } }
       'k' { if ($parts.Count -eq 4) { [RemotoInput]::Key([ushort]$parts[1], $parts[2] -eq 'up', $parts[3] -eq '1') } }
     }
-  } catch { }
+  } catch { [Console]::Error.WriteLine("entrada: " + $_.Exception.Message) }
 }
 `;
