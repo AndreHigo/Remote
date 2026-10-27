@@ -2542,11 +2542,8 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
     const video = videoRef.current;
     if (!video) return;
     setControlActive(true);
-    setStatus("Controle ativo. Use o video para enviar teclado e mouse.");
+    setStatus("Controle ativo. Cursor visivel; use o video para enviar teclado e mouse.");
     video.focus();
-    void Promise.resolve(video.requestPointerLock?.()).catch(() => {
-      setStatus("Controle ativo. Este navegador nao usa captura exclusiva do mouse; use o video normalmente.");
-    });
   }
 
   function handleVideoMouseMove(event: React.MouseEvent<HTMLVideoElement>) {
@@ -2593,8 +2590,8 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
             playsInline
             muted={session.audio !== "system"}
             tabIndex={0}
-            onClick={(event) => { event.currentTarget.focus(); lastMousePositionRef.current = { x: event.clientX, y: event.clientY }; setControlActive(true); void Promise.resolve(event.currentTarget.requestPointerLock?.()).catch(() => undefined); }}
-            onPointerDown={(event) => { event.currentTarget.focus(); lastMousePositionRef.current = { x: event.clientX, y: event.clientY }; setControlActive(true); void Promise.resolve(event.currentTarget.requestPointerLock?.()).catch(() => undefined); }}
+            onClick={(event) => { event.currentTarget.focus(); lastMousePositionRef.current = { x: event.clientX, y: event.clientY }; setControlActive(true); }}
+            onPointerDown={(event) => { event.currentTarget.focus(); lastMousePositionRef.current = { x: event.clientX, y: event.clientY }; setControlActive(true); }}
             onContextMenu={(event) => event.preventDefault()}
             onMouseMove={handleVideoMouseMove}
             onMouseDown={(event) => { const button = mouseButtons[event.button] ?? "left"; pressedButtonsRef.current.add(button); sendInput({ type: "mouse.button", button, action: "down" }); }}
