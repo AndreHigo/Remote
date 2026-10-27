@@ -11,6 +11,11 @@ test("protocolo aceita hello, ping e entrada tipada", () => {
   });
 });
 
+test("protocolo aceita troca de monitor dentro do limite", () => {
+  assert.deepEqual(parseControlMessage(JSON.stringify({ type: "monitor", index: 2 })), { type: "monitor", index: 2 });
+  assert.equal(parseControlMessage(JSON.stringify({ type: "monitor", index: 17 })), null);
+});
+
 test("protocolo rejeita controle grande ou formato arbitrario", () => {
   assert.equal(parseControlMessage("x".repeat(maxControlMessageBytes() + 1)), null);
   assert.equal(parseControlMessage(JSON.stringify({ type: "shell", command: "whoami" })), null);

@@ -197,6 +197,13 @@ export function createRealtimeServer() {
       if (!peer.inputRateLimiter.allow()) return close(socket, "input-rate-limit");
       const host = rooms.get(peer.payload.sessionId)?.host;
       if (host?.socket.readyState === WebSocket.OPEN) host.socket.send(JSON.stringify(message));
+      return;
+    }
+    if (message.type === "monitor") {
+      if (peer.role !== "client") return close(socket, "monitor-role-not-allowed");
+      if (!peer.inputRateLimiter.allow()) return close(socket, "monitor-rate-limit");
+      const host = rooms.get(peer.payload.sessionId)?.host;
+      if (host?.socket.readyState === WebSocket.OPEN) host.socket.send(JSON.stringify(message));
     }
     });
 

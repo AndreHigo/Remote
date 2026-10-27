@@ -1060,6 +1060,14 @@ h3 { color: #24343b; font-size: 13px; }
 .gameSessionHeader h2 { margin: 0; font-size: 20px; }
 .gameSessionHeader span { display: block; margin-top: 5px; color: #a8babd; font-size: 12px; }
 .gameSessionPanel .iconButton { color: #d9e7e6; border-color: #3c5158; background: #14252b; }
+.monitorTabs { display: flex; min-height: 48px; overflow-x: auto; border-top: 1px solid #1d2c32; border-bottom: 1px solid #30444b; background: #111d22; scrollbar-width: thin; }
+.monitorTab { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 7px; min-width: 150px; max-width: 260px; padding: 10px 14px; border: 0; border-right: 1px solid #2c3d43; color: #a8babd; background: transparent; cursor: pointer; font: inherit; text-align: left; }
+.monitorTab:hover { color: #f1fbf8; background: #1a292f; }
+.monitorTab:focus-visible { outline: 2px solid #75dec0; outline-offset: -2px; }
+.monitorTab.active { color: #69a7ff; background: #222a2d; box-shadow: inset 0 -2px #69a7ff; }
+.monitorTab svg { flex: 0 0 auto; }
+.monitorTab span { overflow: hidden; color: #7f969f; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.monitorTab.active span { color: #9ec4ff; }
 .gameSessionVideo { display: block; width: 100%; min-height: 420px; max-height: calc(100vh - 190px); aspect-ratio: 16 / 9; background: #05090b; object-fit: contain; outline: none; }
 .gameSessionVideo:focus { box-shadow: inset 0 0 0 2px #75dec0; }
 .gameLaunchChoice { display: grid; justify-items: center; gap: 12px; min-height: 420px; padding: 40px 24px; color: #e7f3f1; text-align: center; background: #071217; }

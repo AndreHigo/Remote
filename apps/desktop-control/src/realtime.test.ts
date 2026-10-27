@@ -149,6 +149,9 @@ test("transporte realtime integra host e cliente com captura e entrada tipadas",
   const frames: Buffer[] = [];
   const latencies: number[] = [];
   const metrics: Array<{ framesReceived: number; bytesReceived: number; firstFrameMs?: number; latencyP95Ms?: number }> = [];
+  const requestedMonitors: number[] = [];
+  const captureProfiles: Array<unknown> = [];
+  const captures: Array<CaptureProcess> = [];
   const inputBridge: RealtimeInputBridge = {
     send(value) {
       receivedInputs.push(value);
@@ -163,7 +166,7 @@ test("transporte realtime integra host e cliente com captura e entrada tipadas",
         return;
       }
 
-      const message = JSON.parse(data.toString("utf8")) as { type?: string; accessToken?: string; event?: unknown };
+      const message = JSON.parse(data.toString("utf8")) as { type?: string; accessToken?: string; event?: unknown; index?: number };
       if (message.type === "hello" && message.accessToken) {
         const role = message.accessToken === "host-token" ? "host" : "client";
         sockets.set(role, socket);
@@ -172,6 +175,7 @@ test("transporte realtime integra host e cliente com captura e entrada tipadas",
         return;
       }
       if (message.type === "input") sockets.get("host")?.send(JSON.stringify({ type: "input", event: message.event }));
+      if (message.type === "monitor") sockets.get("host")?.send(JSON.stringify(message));
     });
   });
 
@@ -185,25 +189,39 @@ test("transporte realtime integra host e cliente com captura e entrada tipadas",
   const address = server.address();
   assert.ok(address && typeof address !== "string");
 
-  const stdout = new PassThrough();
-  const stderr = new PassThrough();
-  const fakeCapture = {
-    process: {
+  let currentCapture: { stdout: PassThrough; capture: CaptureProcess } | undefined;
+  const makeCapture = () => {
+    const stdout = new PassThrough();
+    const stderr = new PassThrough();
+    const process = {
       stdout,
       stderr,
       once() { return this; },
       on() { return this; },
       killed: false,
       kill() { this.killed = true; }
-    },
-    stop() { stdout.end(); }
-  } as unknown as CaptureProcess;
+    };
+    const capture = {
+      process,
+      stop() { stdout.end(); process.killed = true; }
+    } as unknown as CaptureProcess;
+    captures.push(capture);
+    currentCapture = { stdout, capture };
+    return capture;
+  };
 
   const host = await connectRemoteSession(
     { sessionId: "session-test", deviceId: "device-test", mode: "game", role: "host", accessToken: "host-token" },
     {
       url: `ws://127.0.0.1:${address.port}/sessions/session-test`,
-      captureFactory: () => fakeCapture,
+      captureFactory: (profile) => {
+        captureProfiles.push(profile);
+        return makeCapture();
+      },
+      onMonitorChange: async (monitorIndex) => {
+        requestedMonitors.push(monitorIndex);
+        return { quality: "balanced", encoder: "cpu", monitorIndex };
+      },
       inputFactory: () => inputBridge
     }
   );
@@ -222,7 +240,8 @@ test("transporte realtime integra host e cliente com captura e entrada tipadas",
 
   const initialization = Buffer.concat([mp4Box("ftyp", Buffer.from("init")), mp4Box("moov", Buffer.from("meta"))]);
   const media = Buffer.concat([mp4Box("moof", Buffer.from("header")), mp4Box("mdat", Buffer.from("payload"))]);
-  stdout.write(Buffer.concat([initialization, media]));
+  assert.ok(currentCapture);
+  currentCapture.stdout.write(Buffer.concat([initialization, media]));
   await waitFor(() => frames.length === 2);
   assert.deepEqual(frames, [initialization, media]);
   await waitFor(() => metrics.some((value) => value.framesReceived === 2));
@@ -236,6 +255,12 @@ test("transporte realtime integra host e cliente com captura e entrada tipadas",
   client.sendInput({ type: "key", scanCode: 30, action: "down" });
   await waitFor(() => receivedInputs.length === 1);
   assert.deepEqual(receivedInputs, [{ type: "key", scanCode: 30, action: "down" }]);
+
+  client.sendMonitor(1);
+  await waitFor(() => requestedMonitors.length === 1 && captureProfiles.length === 2);
+  assert.deepEqual(requestedMonitors, [1]);
+  assert.deepEqual(captureProfiles, [undefined, { quality: "balanced", encoder: "cpu", monitorIndex: 1 }]);
+  assert.equal((captures[0].process as unknown as { killed: boolean }).killed, true);
 
   client.close();
   host.close();

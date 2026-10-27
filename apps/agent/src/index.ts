@@ -327,12 +327,19 @@ async function reportRemoteSessions(state: AgentState) {
   for (const session of sessions) {
     if (activeRemoteSessions.has(session.sessionId)) continue;
     try {
-      const monitorBounds = session.monitorIndex === undefined
-        ? undefined
-        : (await collectDisplayInventory())[session.monitorIndex] as MonitorBounds | undefined;
+      const displays = await collectDisplayInventory();
+      const initialMonitorIndex = session.monitorIndex ?? displays.find((display) => display.primary)?.index ?? displays[0]?.index;
+      const monitorBounds = initialMonitorIndex === undefined ? undefined : displays[initialMonitorIndex] as MonitorBounds | undefined;
       const connection = await connectRemoteSession(session, {
         url: config.realtimeUrl,
-        capture: { ...config.captureProfile, ffmpegPath: config.ffmpegPath, monitorIndex: session.monitorIndex, monitorBounds },
+        capture: { ...config.captureProfile, ffmpegPath: config.ffmpegPath, monitorIndex: initialMonitorIndex, monitorBounds },
+        onMonitorChange: async (monitorIndex) => {
+          const nextDisplays = await collectDisplayInventory();
+          const nextBounds = nextDisplays[monitorIndex] as MonitorBounds | undefined;
+          return nextBounds
+            ? { ...config.captureProfile, ffmpegPath: config.ffmpegPath, monitorIndex, monitorBounds: nextBounds }
+            : undefined;
+        },
         onClosed: (reason) => {
           activeRemoteSessions.delete(session.sessionId);
           console.log(`sessao remota encerrada: ${session.sessionId} (${reason})`);

@@ -8,6 +8,7 @@ export interface RealtimeClientOptions {
   url?: string;
   capture?: CaptureProfile;
   captureFactory?: (profile?: CaptureProfile) => CaptureProcess;
+  onMonitorChange?: (monitorIndex: number) => Promise<CaptureProfile | undefined>;
   inputFactory?: () => RealtimeInputBridge;
   onFrame?: (frame: Buffer) => void;
   onReady?: (peerConnected: boolean) => void;
@@ -35,6 +36,7 @@ export interface RealtimeInputBridge {
 export interface RealtimeConnection {
   readonly socket: WebSocket;
   sendInput(event: RemoteInputEvent): void;
+  sendMonitor(monitorIndex: number): void;
   close(): void;
 }
 
@@ -61,6 +63,7 @@ export async function connectRemoteSession(
   let latencyMs: number | undefined;
   let relayDroppedFrames = 0;
   let relayDroppedBytes = 0;
+  let captureGeneration = 0;
   const latencySamples: number[] = [];
   let lastMetricsAt = 0;
 
@@ -122,7 +125,7 @@ export async function connectRemoteSession(
         return;
       }
 
-      let message: { type?: string; peerConnected?: boolean; reason?: string; sentAt?: number; relayDroppedFrames?: number; relayDroppedBytes?: number };
+      let message: { type?: string; peerConnected?: boolean; reason?: string; sentAt?: number; relayDroppedFrames?: number; relayDroppedBytes?: number; index?: number };
       try {
         message = JSON.parse(toBuffer(data).toString("utf8")) as typeof message;
       } catch {
@@ -143,17 +146,7 @@ export async function connectRemoteSession(
         if (session.role === "host") {
           try {
             input = options.inputFactory?.() ?? new WindowsInputBridge();
-            capture = options.captureFactory?.(options.capture) ?? startWindowsCapture(options.capture);
-            let captureError = "";
-            capture.process.stderr.setEncoding("utf8");
-            capture.process.stderr.on("data", (chunk: string) => {
-              captureError = `${captureError}${chunk}`.slice(-2000);
-            });
-            detachCapture = forwardCaptureFrames(capture.process.stdout, socket);
-            capture.process.once("error", (error) => closeWithReason(`captura: ${error.message}`));
-            capture.process.once("close", (code) => {
-              if (code !== null && code !== 0) closeWithReason(`captura encerrou (${code}): ${captureError.trim() || "erro do FFmpeg"}`);
-            });
+            startCapture(options.capture);
           } catch (error) {
             closeWithReason(error instanceof Error ? error.message : String(error));
             fail(error instanceof Error ? error : new Error(String(error)));
@@ -184,6 +177,12 @@ export async function connectRemoteSession(
         return;
       }
 
+      const requestedMonitorIndex = message.type === "monitor" ? message.index : undefined;
+      if (message.type === "monitor" && session.role === "host" && typeof requestedMonitorIndex === "number" && Number.isInteger(requestedMonitorIndex) && requestedMonitorIndex >= 0 && requestedMonitorIndex <= 16) {
+        void switchCaptureToMonitor(requestedMonitorIndex);
+        return;
+      }
+
       if (message.type === "input" && session.role === "host" && input) {
         try {
           input.send(validateInputEvent((message as { event: unknown }).event));
@@ -203,6 +202,41 @@ export async function connectRemoteSession(
     function closeWithReason(reason: string) {
       notifyClosed(reason);
       socket.close(1011, reason.slice(0, 120));
+    }
+
+    function startCapture(profile?: CaptureProfile) {
+      const nextCapture = options.captureFactory?.(profile) ?? startWindowsCapture(profile);
+      const previousCapture = capture;
+      const previousDetach = detachCapture;
+      const generation = ++captureGeneration;
+      let captureError = "";
+      nextCapture.process.stderr.setEncoding("utf8");
+      nextCapture.process.stderr.on("data", (chunk: string) => {
+        captureError = `${captureError}${chunk}`.slice(-2000);
+      });
+      const nextDetach = forwardCaptureFrames(nextCapture.process.stdout, socket);
+      nextCapture.process.once("error", (error) => {
+        if (captureGeneration === generation) closeWithReason(`captura: ${error.message}`);
+      });
+      nextCapture.process.once("close", (code) => {
+        if (captureGeneration === generation && code !== null && code !== 0) {
+          closeWithReason(`captura encerrou (${code}): ${captureError.trim() || "erro do FFmpeg"}`);
+        }
+      });
+      capture = nextCapture;
+      detachCapture = nextDetach;
+      previousDetach?.();
+      previousCapture?.stop();
+    }
+
+    async function switchCaptureToMonitor(monitorIndex: number) {
+      if (!options.onMonitorChange) return;
+      try {
+        const nextProfile = await options.onMonitorChange(monitorIndex);
+        if (nextProfile) startCapture(nextProfile);
+      } catch (error) {
+        closeWithReason(error instanceof Error ? error.message : String(error));
+      }
     }
 
     function cleanup() {
@@ -231,6 +265,12 @@ export async function connectRemoteSession(
       const safeEvent = validateInputEvent(event);
       if (socket.readyState !== WebSocket.OPEN) throw new Error("Sessao realtime encerrada");
       socket.send(JSON.stringify({ type: "input", event: safeEvent }));
+    },
+    sendMonitor(monitorIndex) {
+      if (session.role !== "client") throw new Error("Somente o cliente troca o monitor");
+      if (!Number.isInteger(monitorIndex) || monitorIndex < 0 || monitorIndex > 16) throw new Error("Monitor invalido");
+      if (socket.readyState !== WebSocket.OPEN) throw new Error("Sessao realtime encerrada");
+      socket.send(JSON.stringify({ type: "monitor", index: monitorIndex }));
     },
     close() {
       socket.close(1000, "client-closed");

@@ -144,6 +144,16 @@ interface AuditEvent {
   createdAt: string;
 }
 
+interface RemoteMonitor {
+  index: number;
+  name: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  primary: boolean;
+}
+
 interface InventorySnapshot {
   id: string;
   collectedAt: string;
@@ -209,15 +219,7 @@ interface InventorySnapshot {
       interactiveTaskInstalled?: boolean;
       interactiveProcessRunning?: boolean;
     };
-    displays?: Array<{
-      index: number;
-      name: string;
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-      primary: boolean;
-    }>;
+    displays?: RemoteMonitor[];
   };
 }
 
@@ -261,6 +263,7 @@ interface RemoteSessionDescriptor {
   deviceId: string;
   mode: "support" | "game";
   monitorIndex: number | null;
+  monitors?: RemoteMonitor[];
   role: "client";
   accessToken: string;
   expiresAt: string;
@@ -442,7 +445,6 @@ function App() {
   const [connectDevice, setConnectDevice] = React.useState<Device | null>(null);
   const [connectReason, setConnectReason] = React.useState("");
   const [connectMode, setConnectMode] = React.useState<"support" | "game">("support");
-  const [connectMonitorIndex, setConnectMonitorIndex] = React.useState<number | null>(null);
   const [connectionLoading, setConnectionLoading] = React.useState(false);
   const [onboardingOpen, setOnboardingOpen] = React.useState(false);
   const [onboardingCustomerId, setOnboardingCustomerId] = React.useState("");
@@ -715,8 +717,6 @@ function App() {
     setConnectDevice(device);
     setConnectReason("Atendimento tecnico");
     setConnectMode("support");
-    const displays = device.id === selectedDevice?.id ? latestInventory?.software.displays ?? [] : [];
-    setConnectMonitorIndex(displays.find((display) => display.primary)?.index ?? displays[0]?.index ?? 0);
   }
 
   async function confirmConnection() {
@@ -735,8 +735,7 @@ function App() {
       const session = await postJson<RemoteSessionResponse>("/remote-sessions", token, {
         deviceId: connectDevice.id,
         reason: connectReason.trim(),
-        mode: connectMode,
-        monitorIndex: connectMonitorIndex ?? undefined
+        mode: connectMode
       });
       setConnectDevice(null);
       setConnectReason("");
@@ -753,11 +752,13 @@ function App() {
     try {
       const approved = await postJson<RemoteSessionResponse>(`/remote-sessions/${session.id}/approve`, token);
       if (approved.connection?.desktopSession?.accessToken) {
+        const freshInventory = await getJson<InventorySnapshot[]>(`/devices/${session.deviceId}/inventory`, token).catch(() => []);
         setGameSession({
           sessionId: approved.connection.desktopSession.sessionId,
           deviceId: approved.connection.desktopSession.deviceId,
           mode: approved.connection.desktopSession.mode,
           monitorIndex: approved.connection.desktopSession.monitorIndex ?? null,
+          monitors: freshInventory[0]?.software.displays ?? [],
           role: "client",
           audio: approved.connection.desktopSession.audio ?? "off",
           accessToken: approved.connection.desktopSession.accessToken,
@@ -812,7 +813,7 @@ function App() {
       const consumed = await postJson<Omit<RemoteSessionDescriptor, "accessToken">>("/desktop-sessions/consume", token, {
         accessToken: gameSession.accessToken
       });
-      setGameSession({ ...consumed, accessToken: gameSession.accessToken });
+      setGameSession({ ...consumed, monitors: gameSession.monitors, accessToken: gameSession.accessToken });
       setGameSessionStarted(true);
       setStatusMessage("Sessao de jogo aberta no navegador.");
     } catch (error) {
@@ -1254,7 +1255,6 @@ function App() {
     onRefreshRateLimitDiagnostics={() => void refreshRateLimitDiagnostics()}
     connectDevice={connectDevice}
     connectReason={connectReason}
-    connectMonitorIndex={connectMonitorIndex}
     gameModeEnabled={gameModeEnabled}
     connectionLoading={connectionLoading}
     onboardingOpen={onboardingOpen}
@@ -1329,8 +1329,7 @@ function App() {
     onConnectReasonChange={setConnectReason}
     connectMode={connectMode}
     onConnectModeChange={setConnectMode}
-    onConnectMonitorIndexChange={setConnectMonitorIndex}
-    onCloseConnection={() => { setConnectDevice(null); setConnectReason(""); setConnectMode("support"); setConnectMonitorIndex(null); }}
+    onCloseConnection={() => { setConnectDevice(null); setConnectReason(""); setConnectMode("support"); }}
     onConfirmConnection={() => void confirmConnection()}
     onOpenOnboarding={openOnboarding}
     onCloseOnboarding={() => { setOnboardingOpen(false); setOnboardingKey(null); }}
@@ -1382,7 +1381,6 @@ interface OperationsConsoleProps {
   connectDevice: Device | null;
   connectReason: string;
   connectMode: "support" | "game";
-  connectMonitorIndex: number | null;
   gameModeEnabled: boolean;
   connectionLoading: boolean;
   onboardingOpen: boolean;
@@ -1456,7 +1454,6 @@ interface OperationsConsoleProps {
   onDisableTwoFactor: () => void;
   onConnectReasonChange: (value: string) => void;
   onConnectModeChange: (value: "support" | "game") => void;
-  onConnectMonitorIndexChange: (value: number | null) => void;
   onCloseConnection: () => void;
   onConfirmConnection: () => void;
   onOpenOnboarding: () => void;
@@ -1572,7 +1569,6 @@ function OperationsConsole(props: OperationsConsoleProps) {
     connectDevice,
     connectReason,
     connectMode,
-    connectMonitorIndex,
     gameModeEnabled,
     connectionLoading,
     onboardingOpen,
@@ -1583,7 +1579,6 @@ function OperationsConsole(props: OperationsConsoleProps) {
     agentInstallerAvailable,
     onConnectReasonChange,
     onConnectModeChange,
-    onConnectMonitorIndexChange,
     onCloseConnection,
     onConfirmConnection,
     onOpenOnboarding,
@@ -1603,7 +1598,6 @@ function OperationsConsole(props: OperationsConsoleProps) {
   const [moveCustomerId, setMoveCustomerId] = React.useState(selectedDevice?.customerId ?? "");
   const connectCapture = connectDevice?.id === selectedDevice?.id ? latestInventory?.software.capture : undefined;
   const connectSessions = connectDevice?.id === selectedDevice?.id ? latestInventory?.software.sessions : undefined;
-  const connectDisplays = connectDevice?.id === selectedDevice?.id ? latestInventory?.software.displays ?? [] : [];
   const connectGameReady = connectCapture?.gameModeReady === true && connectSessions?.interactiveSessionReady === true;
   const connectCaptureLabel = connectCapture
     ? `Captura pronta (${connectCapture.resolvedEncoder ?? connectCapture.encoder ?? "CPU"} / ${connectCapture.resolvedCaptureMethod ?? connectCapture.captureMethod ?? "auto"})${(connectCapture.resolvedEncoder ?? connectCapture.encoder) === "cpu" ? "; fallback CPU pode reduzir FPS e aumentar o uso do processador." : "."}`
@@ -1926,7 +1920,6 @@ function OperationsConsole(props: OperationsConsoleProps) {
               </div>
               <div className="connectionTarget"><span className={`deviceIcon ${connectDevice.status}`}><Monitor size={19} /></span><div><strong>{connectDevice.displayName}</strong><span>{connectDevice.customerName} / ID {connectDevice.remoteId}</span></div><span className={`status ${connectDevice.status}`}>{connectDevice.status === "online" ? "Online" : "Offline"}</span></div>
               <label className="reasonField"><span>Modo de acesso</span><select value={connectMode} onChange={(event) => onConnectModeChange(event.target.value as "support" | "game")}><option value="support">Suporte remoto (navegador)</option><option value="game" disabled={!gameModeEnabled || !connectGameReady}>Jogo (experimental{!gameModeEnabled ? " - desabilitado" : connectGameReady ? "" : " - inventario pendente"})</option></select></label>
-              <label className="reasonField"><span>Monitor</span><select value={connectMonitorIndex ?? 0} onChange={(event) => onConnectMonitorIndexChange(Number(event.target.value))}>{connectDisplays.length ? connectDisplays.map((display) => <option key={display.index} value={display.index}>{display.primary ? "Principal" : `Monitor ${display.index + 1}`} - {display.name} ({display.width}x{display.height})</option>) : <option value={0}>Monitor principal (detectado no agente)</option>}</select></label>
               <label className="reasonField"><span>Motivo do acesso</span><textarea value={connectReason} onChange={(event) => onConnectReasonChange(event.target.value)} rows={3} placeholder="Ex.: validar falha no caixa" autoFocus /></label>
               <p className="modalNote">A solicitacao sera registrada na atividade. O suporte abre a area de trabalho no navegador; o modo jogo experimental exige relay e captura ativos. {connectCapabilityMessage} {connectInputMessage}</p>
               <div className="modalActions"><button className="secondary" type="button" onClick={onCloseConnection}>Cancelar</button><button className="primary" type="button" onClick={onConfirmConnection} disabled={connectionLoading || connectReason.trim().length < 4 || (connectMode === "game" && !connectGameReady)}><Play size={16} />{connectionLoading ? "Registrando..." : "Solicitar acesso"}</button></div>
@@ -2052,6 +2045,7 @@ function countVideoSamples(segment: Uint8Array, expectedTrackId: number | undefi
 }
 
 function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }: { session: RemoteSessionDescriptor; realtimeUrl: string; started: boolean; onStartWeb: () => void; onClose: () => void }) {
+  const monitors = session.monitors ?? [];
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const socketRef = React.useRef<WebSocket | null>(null);
   const sourceBufferRef = React.useRef<SourceBuffer | null>(null);
@@ -2085,6 +2079,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
   const [nativeDownloaded, setNativeDownloaded] = React.useState(false);
   const [gamepadConnected, setGamepadConnected] = React.useState(false);
   const [controlActive, setControlActive] = React.useState(false);
+  const [activeMonitorIndex, setActiveMonitorIndex] = React.useState(() => session.monitorIndex ?? monitors.find((monitor) => monitor.primary)?.index ?? monitors[0]?.index ?? 0);
 
   React.useEffect(() => {
     const updatePointerLock = () => setControlActive(document.pointerLockElement === videoRef.current);
@@ -2267,6 +2262,9 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
         const frame = new Uint8Array(event.data as ArrayBuffer);
         clearFirstFrameTimer();
         setError(null);
+        setStatus((current) => current === "Trocando de monitor..."
+          ? "Conectado. Clique no video para capturar o mouse."
+          : current);
         if (frame.byteLength > 8 * 1024 * 1024) {
           setError("O frame recebido excede o limite permitido.");
           return;
@@ -2524,6 +2522,14 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
     void video.requestPointerLock?.();
   }
 
+  function switchMonitor(monitorIndex: number) {
+    const socket = socketRef.current;
+    if (!socket || socket.readyState !== WebSocket.OPEN || monitorIndex === activeMonitorIndex) return;
+    socket.send(JSON.stringify({ type: "monitor", index: monitorIndex }));
+    setActiveMonitorIndex(monitorIndex);
+    setStatus("Trocando de monitor...");
+  }
+
   return (
     <div className="gameSessionBackdrop" role="presentation">
       <section className="gameSessionPanel" role="dialog" aria-modal="true" aria-labelledby="game-session-title">
@@ -2531,6 +2537,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
           <div><p className="eyebrow">{session.mode === "game" ? <Gamepad2 size={14} /> : <Monitor size={14} />} {session.mode === "game" ? "Modo jogo experimental" : "Suporte remoto"}</p><h2 id="game-session-title">Sessao remota</h2><span>{status}</span></div>
           <span className="gameSessionHeaderActions">{started ? <button className="secondary compact" type="button" onClick={activateControl} title={controlActive ? "Teclado e mouse ativos" : "Ativar teclado e mouse"}><MousePointer2 size={14} />{controlActive ? "Controle ativo" : "Ativar controle"}</button> : null}<button className="iconButton" type="button" onClick={onClose} aria-label="Encerrar sessao" title="Encerrar sessao"><X size={17} /></button></span>
         </header>
+        {started && monitors.length > 0 ? <nav className="monitorTabs" aria-label="Monitores" role="tablist">{monitors.map((monitor) => <button key={monitor.index} className={monitor.index === activeMonitorIndex ? "monitorTab active" : "monitorTab"} type="button" role="tab" aria-selected={monitor.index === activeMonitorIndex} onClick={() => switchMonitor(monitor.index)}><Monitor size={15} />{monitor.primary ? "Principal" : `Monitor ${monitor.index + 1}`}<span>{monitor.name}</span></button>)}</nav> : null}
         {error ? <div className="gameSessionError">{error}</div> : null}
         {!started ? (
           <div className="gameLaunchChoice">

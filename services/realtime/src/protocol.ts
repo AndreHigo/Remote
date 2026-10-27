@@ -17,6 +17,7 @@ export interface ChannelTokenPayload {
 export type ClientMessage =
   | { type: "hello"; accessToken: string }
   | { type: "input"; event: Record<string, unknown> }
+  | { type: "monitor"; index: number }
   | { type: "ping"; sentAt?: number };
 
 export type ServerMessage =
@@ -86,6 +87,9 @@ export function parseControlMessage(data: Buffer | string): ClientMessage | null
     if (value.type === "ping") return typeof value.sentAt === "number" ? { type: "ping", sentAt: value.sentAt } : { type: "ping" };
     if (value.type === "input" && isRealtimeInputEvent(value.event)) {
       return { type: "input", event: value.event as Record<string, unknown> };
+    }
+    if (value.type === "monitor" && isIntegerInRange(value.index, 0, 16)) {
+      return { type: "monitor", index: value.index };
     }
     return null;
   } catch {
