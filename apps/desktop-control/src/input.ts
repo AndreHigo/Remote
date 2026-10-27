@@ -103,6 +103,10 @@ export class WindowsInputBridge {
     });
   }
 
+  get isOpen() {
+    return !this.closed && this.process.stdin.writable;
+  }
+
   send(value: unknown) {
     const event = validateInputEvent(value);
     if (!this.process.stdin.writable) throw new Error("Ponte de entrada encerrada");

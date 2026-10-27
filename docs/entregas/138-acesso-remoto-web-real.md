@@ -5,6 +5,8 @@
 - O modo de suporte deixou de retornar um descritor RustDesk e passou a usar o relay realtime do Remoto.
 - O agente desktop conecta sessoes aprovadas nos modos suporte e jogo.
 - O navegador recebe video H.264 por MediaSource e envia teclado/mouse pelo mesmo canal autenticado.
+- O pedido de sessao permite escolher o monitor; o agente captura a area correspondente no Windows.
+- O painel oferece um comando explicito para ativar o foco de teclado e mouse no video.
 - O fluxo local foi validado com o computador `DESKTOP-DB26883`: primeiro quadro recebido, 30 FPS, RTT de 1 ms e p95 de 2 ms.
 
 ## Fluxo atual
@@ -20,4 +22,5 @@
 - Atualizar o agente instalado em cada computador com o novo instalador.
 - Validar duas redes externas com API e relay publicados em HTTPS/WSS.
 - Testar jogos e anti-cheat individualmente; o transporte nao promete compatibilidade universal com drivers protegidos.
+- Validar a selecao em uma maquina com dois monitores reais e confirmar captura por `ddagrab` quando disponivel.
 - Assinar o instalador e configurar atualizacao segura.

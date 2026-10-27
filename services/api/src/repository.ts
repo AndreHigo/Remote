@@ -71,6 +71,7 @@ function toRemoteSessionView(session: {
   technicianName: string;
   reason: string;
   mode: string;
+    monitorIndex: number | null;
   status: string;
   requestedAt: Date;
   endedAt: Date | null;
@@ -82,6 +83,7 @@ function toRemoteSessionView(session: {
     technicianName: session.technicianName,
     reason: session.reason,
     mode: session.mode.toLowerCase(),
+    monitorIndex: session.monitorIndex,
     status: session.status.toLowerCase(),
     requestedAt: session.requestedAt.toISOString(),
     endedAt: toIso(session.endedAt)
@@ -939,7 +941,7 @@ export const repository = {
     return toCommandView(updated);
   },
 
-  async requestRemoteSession(input: { deviceId: string; reason: string; mode: RemoteSessionMode; user: AuthUser }) {
+  async requestRemoteSession(input: { deviceId: string; reason: string; mode: RemoteSessionMode; monitorIndex?: number; user: AuthUser }) {
     const device = await prisma.device.findFirst({
       where: { id: input.deviceId, archivedAt: null, customer: { workspaceId: input.user.workspaceId } }
     });
@@ -960,7 +962,8 @@ export const repository = {
           userId: input.user.id,
           technicianName: input.user.name,
           reason: input.reason,
-          mode: input.mode.toUpperCase() as "SUPPORT" | "GAME"
+          mode: input.mode.toUpperCase() as "SUPPORT" | "GAME",
+          monitorIndex: input.monitorIndex ?? null
         }
       }),
       prisma.auditEvent.create({
@@ -970,7 +973,7 @@ export const repository = {
           targetId: device.id,
           deviceId: device.id,
           userId: input.user.id,
-          metadata: { reason: input.reason, mode: input.mode }
+          metadata: { reason: input.reason, mode: input.mode, monitorIndex: input.monitorIndex ?? null }
         }
       })
     ]);
@@ -1037,6 +1040,7 @@ export const repository = {
       mode: current.mode.toLowerCase() as RemoteSessionMode,
       role: "client",
       audio: gameAudio,
+      monitorIndex: current.monitorIndex ?? undefined,
       remoteId: current.device.remoteId
     });
 
@@ -1073,6 +1077,7 @@ export const repository = {
             mode: session.mode.toLowerCase() as RemoteSessionMode,
             role: "client",
             audio: desktopToken.payload.audio ?? "off",
+            monitorIndex: desktopToken.payload.monitorIndex,
             remoteId: session.device.remoteId,
             accessToken: desktopToken.token,
             expiresAt: desktopToken.expiresAt.toISOString()
@@ -1223,6 +1228,7 @@ export const repository = {
         mode: session.mode.toLowerCase() as RemoteSessionMode,
         role: "host",
         audio: gameAudio,
+        monitorIndex: session.monitorIndex ?? undefined,
         remoteId: device.remoteId
       });
       return {
@@ -1231,6 +1237,7 @@ export const repository = {
         mode: session.mode.toLowerCase(),
         role: "host" as const,
         audio: hostToken.payload.audio ?? "off",
+        monitorIndex: hostToken.payload.monitorIndex,
         accessToken: hostToken.token,
         expiresAt: hostToken.expiresAt.toISOString()
       };

@@ -110,7 +110,8 @@ const twoFactorCodeSchema = z.object({
 const remoteSessionSchema = z.object({
   deviceId: z.string().min(1),
   reason: z.string().trim().min(4).max(500),
-  mode: z.enum(["support", "game"]).default("support")
+  mode: z.enum(["support", "game"]).default("support"),
+  monitorIndex: z.number().int().min(0).max(16).optional()
 });
 
 const desktopSessionConsumeSchema = z.object({
@@ -1049,6 +1050,7 @@ app.post(
       deviceId: parsed.data.deviceId,
       reason: parsed.data.reason,
       mode: parsed.data.mode,
+      monitorIndex: parsed.data.monitorIndex,
       user: (request as AuthenticatedRequest).user
     });
     if (!session) {

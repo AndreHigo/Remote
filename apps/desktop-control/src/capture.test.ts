@@ -18,6 +18,16 @@ test("captura usa CPU e baixa latencia por padrao acessivel", () => {
   assert.ok(args.includes("15"));
 });
 
+test("captura gdigrab pode limitar a tela por offset e tamanho", () => {
+  const args = buildWindowsCaptureArgs({ quality: "balanced", encoder: "cpu", monitorBounds: { x: 1920, y: 0, width: 2560, height: 1440 } }, "gdigrab");
+  assert.deepEqual(args.slice(4, 10), ["-offset_x", "1920", "-offset_y", "0", "-video_size", "2560x1440"]);
+});
+
+test("captura ddagrab pode selecionar o monitor pelo indice", () => {
+  const args = buildWindowsCaptureArgs({ quality: "balanced", encoder: "cpu", monitorIndex: 1 }, "ddagrab");
+  assert.ok(args.includes("ddagrab=framerate=60:draw_mouse=1:output_idx=1"));
+});
+
 test("perfil auto reduz a carga quando o host cai para CPU", () => {
   const args = buildWindowsCaptureArgs({ quality: "auto", encoder: "cpu" });
 

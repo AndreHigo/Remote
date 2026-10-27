@@ -144,6 +144,7 @@ model RemoteSession {
   technicianName String
   reason         String
   mode           RemoteSessionMode   @default(SUPPORT)
+  monitorIndex   Int?
   status         RemoteSessionStatus @default(REQUESTED)
   connectionTokenHash      String?
   connectionTokenExpiresAt DateTime?

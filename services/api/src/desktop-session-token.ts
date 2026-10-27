@@ -11,6 +11,7 @@ export interface DesktopSessionTokenPayload {
   role: "client" | "host";
   audio?: "off" | "system";
   remoteId?: string;
+  monitorIndex?: number;
   nonce: string;
   exp: number;
 }
@@ -46,6 +47,7 @@ export function verifyDesktopSessionToken(token: string): DesktopSessionTokenPay
     if (!payload.sessionId || !payload.deviceId || !payload.nonce || payload.exp <= Date.now()) return null;
     if (!["support", "game"].includes(payload.mode) || !["client", "host"].includes(payload.role)) return null;
     if (payload.audio !== undefined && !["off", "system"].includes(payload.audio)) return null;
+    if (payload.monitorIndex !== undefined && (!Number.isInteger(payload.monitorIndex) || payload.monitorIndex < 0 || payload.monitorIndex > 16)) return null;
     return payload;
   } catch {
     return null;

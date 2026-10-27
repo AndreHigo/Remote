@@ -7,6 +7,13 @@ export type VideoEncoder = "auto" | "cpu" | "nvidia" | "amd" | "intel";
 export type CaptureMethod = "auto" | "gdigrab" | "ddagrab";
 export type CaptureAudio = "off" | "system";
 
+export interface MonitorBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface CaptureProfile {
   quality: VideoQuality;
   encoder: VideoEncoder;
@@ -16,6 +23,8 @@ export interface CaptureProfile {
   height?: number;
   fps?: number;
   bitrateKbps?: number;
+  monitorIndex?: number;
+  monitorBounds?: MonitorBounds;
   ffmpegPath?: string;
 }
 
@@ -49,8 +58,16 @@ export function buildWindowsCaptureArgs(profile: CaptureProfile = defaultProfile
   const keyframeInterval = Math.max(15, Math.round(fps / 2));
   const args = ["-hide_banner", "-loglevel", "error", "-nostdin"];
   if (captureMethod === "ddagrab") {
-    args.push("-f", "lavfi", "-i", `ddagrab=framerate=${fps}:draw_mouse=1`);
+    const outputIndex = Number.isInteger(profile.monitorIndex) && (profile.monitorIndex ?? 0) >= 0 ? `:output_idx=${profile.monitorIndex}` : "";
+    args.push("-f", "lavfi", "-i", `ddagrab=framerate=${fps}:draw_mouse=1${outputIndex}`);
   } else {
+    if (profile.monitorBounds) {
+      args.push(
+        "-offset_x", String(profile.monitorBounds.x),
+        "-offset_y", String(profile.monitorBounds.y),
+        "-video_size", `${profile.monitorBounds.width}x${profile.monitorBounds.height}`
+      );
+    }
     args.push("-f", "gdigrab", "-framerate", String(fps), "-draw_mouse", "1", "-i", "desktop");
   }
 

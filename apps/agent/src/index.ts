@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { connectRemoteSession, type RealtimeConnection } from "@remoto/desktop-control/realtime";
-import { inspectFfmpegCapabilities, resolveFfmpegExecutable } from "@remoto/desktop-control/capture";
+import { inspectFfmpegCapabilities, resolveFfmpegExecutable, type MonitorBounds } from "@remoto/desktop-control/capture";
 import { resolveAgentEndpoints } from "./config.js";
 import { buildCaptureReadiness, readCaptureProfile } from "./capture-config.js";
 import { buildInputCapabilities } from "./input-capability.js";
@@ -76,6 +76,7 @@ interface RemoteSessionResponse {
   deviceId: string;
   mode: "support" | "game";
   role: "host";
+  monitorIndex?: number;
   accessToken: string;
   expiresAt: string;
 }
@@ -326,9 +327,12 @@ async function reportRemoteSessions(state: AgentState) {
   for (const session of sessions) {
     if (activeRemoteSessions.has(session.sessionId)) continue;
     try {
+      const monitorBounds = session.monitorIndex === undefined
+        ? undefined
+        : (await collectDisplayInventory())[session.monitorIndex] as MonitorBounds | undefined;
       const connection = await connectRemoteSession(session, {
         url: config.realtimeUrl,
-        capture: { ...config.captureProfile, ffmpegPath: config.ffmpegPath },
+        capture: { ...config.captureProfile, ffmpegPath: config.ffmpegPath, monitorIndex: session.monitorIndex, monitorBounds },
         onClosed: (reason) => {
           activeRemoteSessions.delete(session.sessionId);
           console.log(`sessao remota encerrada: ${session.sessionId} (${reason})`);
@@ -393,6 +397,7 @@ async function collectInventory() {
   const graphics = await collectGraphicsInventory();
   const identity = await collectDeviceIdentity();
   const interactiveSession = await collectInteractiveSessionCapability();
+  const displays = await collectDisplayInventory();
 
   return {
     hardware: {
@@ -437,6 +442,7 @@ async function collectInventory() {
         });
       })(),
       sessions: interactiveSession,
+      displays,
       input: buildInputCapabilities(),
       installed: []
     }
@@ -701,6 +707,31 @@ async function collectGraphicsInventory() {
     };
   } catch {
     return { adapters: [], encoding: "unavailable" };
+  }
+}
+
+async function collectDisplayInventory(): Promise<Array<MonitorBounds & { index: number; name: string; primary: boolean }>> {
+  if (process.platform !== "win32") return [];
+
+  try {
+    const { stdout } = await execFileAsync("powershell.exe", [
+      "-NoProfile",
+      "-Command",
+      "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Screen]::AllScreens | ForEach-Object { [pscustomobject]@{ name=$_.DeviceName; x=$_.Bounds.X; y=$_.Bounds.Y; width=$_.Bounds.Width; height=$_.Bounds.Height; primary=$_.Primary } } | ConvertTo-Json -Compress"
+    ]);
+    const parsed = JSON.parse(stdout.trim() || "[]");
+    const rows = Array.isArray(parsed) ? parsed : [parsed];
+    return rows.map((display, index) => ({
+      index,
+      name: String(display.name ?? `Monitor ${index + 1}`),
+      x: Number(display.x ?? 0),
+      y: Number(display.y ?? 0),
+      width: Number(display.width ?? 0),
+      height: Number(display.height ?? 0),
+      primary: display.primary === true
+    })).filter((display) => display.width > 0 && display.height > 0);
+  } catch {
+    return [];
   }
 }
 
