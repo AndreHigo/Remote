@@ -2067,6 +2067,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
   const fpsTimerRef = React.useRef<number | null>(null);
   const pendingMouseMotionRef = React.useRef({ dx: 0, dy: 0 });
   const mouseMotionFrameRef = React.useRef<number | null>(null);
+  const lastMousePositionRef = React.useRef<{ x: number; y: number } | null>(null);
   const [status, setStatus] = React.useState("Conectando ao computador...");
   const [error, setError] = React.useState<string | null>(null);
   const [latencyMs, setLatencyMs] = React.useState<number | null>(null);
@@ -2327,6 +2328,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
       if (mouseMotionFrameRef.current !== null) window.cancelAnimationFrame(mouseMotionFrameRef.current);
       mouseMotionFrameRef.current = null;
       pendingMouseMotionRef.current = { dx: 0, dy: 0 };
+      lastMousePositionRef.current = null;
       setLatencyMs(null);
       setLatencyP95Ms(null);
       setRelayDroppedFrames(0);
@@ -2396,10 +2398,29 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
   }, [started, session.sessionId]);
 
   React.useEffect(() => {
+    if (!started || !controlActive) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (isLocalInteractiveTarget(event.target)) return;
+      sendKey(event, "down");
+    };
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (isLocalInteractiveTarget(event.target)) return;
+      sendKey(event, "up");
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, [started, controlActive, session.sessionId]);
+
+  React.useEffect(() => {
     const releasePressedInputs = () => {
       if (mouseMotionFrameRef.current !== null) window.cancelAnimationFrame(mouseMotionFrameRef.current);
       mouseMotionFrameRef.current = null;
       pendingMouseMotionRef.current = { dx: 0, dy: 0 };
+      lastMousePositionRef.current = null;
       for (const button of pressedButtonsRef.current) {
         sendInput({ type: "mouse.button", button, action: "up" });
       }
@@ -2504,7 +2525,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
     setStatus("Relatorio de qualidade baixado.");
   }
 
-  function sendKey(event: React.KeyboardEvent<HTMLVideoElement>, action: "down" | "up") {
+  function sendKey(event: Pick<KeyboardEvent, "code" | "preventDefault">, action: "down" | "up") {
     const scanCode = scanCodes[event.code];
     if (!scanCode) return;
     event.preventDefault();
@@ -2526,6 +2547,15 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
     void Promise.resolve(video.requestPointerLock?.()).catch(() => {
       setStatus("Controle ativo. Este navegador nao usa captura exclusiva do mouse; use o video normalmente.");
     });
+  }
+
+  function handleVideoMouseMove(event: React.MouseEvent<HTMLVideoElement>) {
+    const pointerLocked = document.pointerLockElement === event.currentTarget;
+    const previous = lastMousePositionRef.current;
+    const dx = pointerLocked || !previous ? event.movementX : event.clientX - previous.x;
+    const dy = pointerLocked || !previous ? event.movementY : event.clientY - previous.y;
+    lastMousePositionRef.current = { x: event.clientX, y: event.clientY };
+    queueMouseMotion(dx, dy);
   }
 
   function switchMonitor(monitorIndex: number) {
@@ -2563,15 +2593,13 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
             playsInline
             muted={session.audio !== "system"}
             tabIndex={0}
-            onClick={(event) => { event.currentTarget.focus(); setControlActive(true); void Promise.resolve(event.currentTarget.requestPointerLock?.()).catch(() => undefined); }}
-            onPointerDown={(event) => { event.currentTarget.focus(); setControlActive(true); void Promise.resolve(event.currentTarget.requestPointerLock?.()).catch(() => undefined); }}
+            onClick={(event) => { event.currentTarget.focus(); lastMousePositionRef.current = { x: event.clientX, y: event.clientY }; setControlActive(true); void Promise.resolve(event.currentTarget.requestPointerLock?.()).catch(() => undefined); }}
+            onPointerDown={(event) => { event.currentTarget.focus(); lastMousePositionRef.current = { x: event.clientX, y: event.clientY }; setControlActive(true); void Promise.resolve(event.currentTarget.requestPointerLock?.()).catch(() => undefined); }}
             onContextMenu={(event) => event.preventDefault()}
-            onMouseMove={(event) => queueMouseMotion(event.movementX, event.movementY)}
+            onMouseMove={handleVideoMouseMove}
             onMouseDown={(event) => { const button = mouseButtons[event.button] ?? "left"; pressedButtonsRef.current.add(button); sendInput({ type: "mouse.button", button, action: "down" }); }}
             onMouseUp={(event) => { const button = mouseButtons[event.button] ?? "left"; pressedButtonsRef.current.delete(button); sendInput({ type: "mouse.button", button, action: "up" }); }}
             onWheel={(event) => sendInput({ type: "mouse.wheel", delta: Math.round(event.deltaY * -1) })}
-            onKeyDown={(event) => sendKey(event, "down")}
-            onKeyUp={(event) => sendKey(event, "up")}
           />
         )}
         <footer className="gameSessionFooter"><span>{started ? <>Video H.264 / relay autenticado / Entrada: teclado + mouse{session.mode === "game" ? ` / Gamepad: ${gamepadConnected ? "mapa experimental" : "conecte um controle"}` : " / Controle: desktop"}{latencyMs === null ? "" : ` / RTT ${latencyMs} ms`}{latencyP95Ms === null ? "" : ` / p95 ${latencyP95Ms} ms`}{firstFrameMs === null ? "" : ` / 1o frame ${firstFrameMs} ms`}{fps === null ? "" : ` / FPS ${fps}`}{droppedFrames > 0 ? ` / fila descartada ${droppedFrames}` : ""}{relayDroppedFrames > 0 ? ` / relay descartou ${relayDroppedFrames}` : ""}</> : "Sessao aprovada e aguardando sua escolha"}</span><div className="gameSessionFooterActions"><button className="secondary compact" type="button" onClick={downloadQualityReport} disabled={!started} title="Baixar relatorio JSON da sessao"><Download size={14} />Relatorio</button><button className="danger" type="button" onClick={onClose}>Encerrar sessao</button></div></footer>
@@ -2581,6 +2609,11 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
 }
 
 const mouseButtons = ["left", "middle", "right"] as const;
+
+function isLocalInteractiveTarget(target: EventTarget | null) {
+  return target instanceof HTMLElement && Boolean(target.closest("button, input, textarea, select, a, [contenteditable='true']"));
+}
+
 const gamepadButtonScanCodes = new Map<number, string>([
   [0, "Space"], [1, "Escape"], [2, "KeyR"], [3, "KeyE"], [4, "KeyQ"], [5, "KeyF"],
   [6, "ShiftLeft"], [7, "ControlLeft"], [8, "Backspace"], [9, "Enter"], [10, "AltLeft"], [11, "Tab"],
