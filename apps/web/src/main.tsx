@@ -2459,7 +2459,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
     const url = URL.createObjectURL(new Blob([`${JSON.stringify(report, null, 2)}\n`], { type: "application/json" }));
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `remoto-game-quality-${safeDeviceId}.json`;
+    anchor.download = `remoto-remote-quality-${safeDeviceId}.json`;
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
@@ -2484,18 +2484,18 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
     <div className="gameSessionBackdrop" role="presentation">
       <section className="gameSessionPanel" role="dialog" aria-modal="true" aria-labelledby="game-session-title">
         <header className="gameSessionHeader">
-          <div><p className="eyebrow"><Gamepad2 size={14} /> {session.mode === "game" ? "Modo jogo experimental" : "Suporte remoto"}</p><h2 id="game-session-title">Sessao remota</h2><span>{status}</span></div>
+          <div><p className="eyebrow">{session.mode === "game" ? <Gamepad2 size={14} /> : <Monitor size={14} />} {session.mode === "game" ? "Modo jogo experimental" : "Suporte remoto"}</p><h2 id="game-session-title">Sessao remota</h2><span>{status}</span></div>
           <button className="iconButton" type="button" onClick={onClose} aria-label="Encerrar sessao" title="Encerrar sessao"><X size={17} /></button>
         </header>
         {error ? <div className="gameSessionError">{error}</div> : null}
         {!started ? (
           <div className="gameLaunchChoice">
-            <Gamepad2 size={34} aria-hidden="true" />
-            <h3>Escolha como abrir esta sessao</h3>
-            <p>O token ainda nao foi usado. Abra a sessao no navegador ou baixe o descritor para usar um cliente nativo.</p>
+            {session.mode === "game" ? <Gamepad2 size={34} aria-hidden="true" /> : <Monitor size={34} aria-hidden="true" />}
+            <h3>{session.mode === "game" ? "Escolha como abrir esta sessao" : "Abrir suporte remoto"}</h3>
+            <p>{session.mode === "game" ? "O token ainda nao foi usado. Abra a sessao no navegador ou baixe o descritor para usar um cliente nativo." : "O suporte remoto abre diretamente no navegador com teclado e mouse."}</p>
             <div className="gameLaunchActions">
               <button className="primary" type="button" onClick={onStartWeb} disabled={nativeDownloaded}><Play size={16} />Abrir no navegador</button>
-              <button className="secondary" type="button" onClick={downloadNativeDescriptor} disabled={nativeDownloaded}><Download size={16} />{nativeDownloaded ? "Descritor baixado" : "Cliente nativo"}</button>
+              {session.mode === "game" ? <button className="secondary" type="button" onClick={downloadNativeDescriptor} disabled={nativeDownloaded}><Download size={16} />{nativeDownloaded ? "Descritor baixado" : "Cliente nativo"}</button> : null}
             </div>
           </div>
         ) : (
@@ -2516,7 +2516,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
             onKeyUp={(event) => sendKey(event, "up")}
           />
         )}
-        <footer className="gameSessionFooter"><span>{started ? <>Video H.264 / relay autenticado / Entrada: teclado + mouse / Gamepad: {gamepadConnected ? "mapa experimental" : "conecte um controle"}{latencyMs === null ? "" : ` / RTT ${latencyMs} ms`}{latencyP95Ms === null ? "" : ` / p95 ${latencyP95Ms} ms`}{firstFrameMs === null ? "" : ` / 1o frame ${firstFrameMs} ms`}{fps === null ? "" : ` / FPS ${fps}`}{droppedFrames > 0 ? ` / fila descartada ${droppedFrames}` : ""}{relayDroppedFrames > 0 ? ` / relay descartou ${relayDroppedFrames}` : ""}</> : "Sessao aprovada e aguardando sua escolha"}</span><div className="gameSessionFooterActions"><button className="secondary compact" type="button" onClick={downloadQualityReport} disabled={!started} title="Baixar relatorio JSON da sessao"><Download size={14} />Relatorio</button><button className="danger" type="button" onClick={onClose}>Encerrar sessao</button></div></footer>
+        <footer className="gameSessionFooter"><span>{started ? <>Video H.264 / relay autenticado / Entrada: teclado + mouse{session.mode === "game" ? ` / Gamepad: ${gamepadConnected ? "mapa experimental" : "conecte um controle"}` : " / Controle: desktop"}{latencyMs === null ? "" : ` / RTT ${latencyMs} ms`}{latencyP95Ms === null ? "" : ` / p95 ${latencyP95Ms} ms`}{firstFrameMs === null ? "" : ` / 1o frame ${firstFrameMs} ms`}{fps === null ? "" : ` / FPS ${fps}`}{droppedFrames > 0 ? ` / fila descartada ${droppedFrames}` : ""}{relayDroppedFrames > 0 ? ` / relay descartou ${relayDroppedFrames}` : ""}</> : "Sessao aprovada e aguardando sua escolha"}</span><div className="gameSessionFooterActions"><button className="secondary compact" type="button" onClick={downloadQualityReport} disabled={!started} title="Baixar relatorio JSON da sessao"><Download size={14} />Relatorio</button><button className="danger" type="button" onClick={onClose}>Encerrar sessao</button></div></footer>
       </section>
     </div>
   );
