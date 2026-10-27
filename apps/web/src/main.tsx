@@ -2697,6 +2697,12 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
       return;
     }
     setControlActive(true);
+    if (session.mode !== "game") {
+      setPointerLocked(false);
+      setStatus("Controle ativo. Mova e clique dentro do video remoto.");
+      video.focus();
+      return;
+    }
     setStatus("Capturando o mouse na sessao...");
     video.focus();
     const request = video.requestPointerLock();
@@ -2710,6 +2716,12 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
   function captureVideoPointer(video: HTMLVideoElement) {
     video.focus();
     lastMousePositionRef.current = null;
+    if (session.mode !== "game") {
+      setControlActive(true);
+      setPointerLocked(false);
+      setStatus("Controle ativo. Mova e clique dentro do video remoto.");
+      return;
+    }
     if (document.pointerLockElement === video) {
       setPointerLocked(true);
       setControlActive(true);
