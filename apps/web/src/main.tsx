@@ -2082,7 +2082,9 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
   const [activeMonitorIndex, setActiveMonitorIndex] = React.useState(() => session.monitorIndex ?? monitors.find((monitor) => monitor.primary)?.index ?? monitors[0]?.index ?? 0);
 
   React.useEffect(() => {
-    const updatePointerLock = () => setControlActive(document.pointerLockElement === videoRef.current);
+    const updatePointerLock = () => {
+      if (document.pointerLockElement === videoRef.current) setControlActive(true);
+    };
     document.addEventListener("pointerlockchange", updatePointerLock);
     document.addEventListener("pointerlockerror", updatePointerLock);
     return () => {
@@ -2518,8 +2520,12 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
   function activateControl() {
     const video = videoRef.current;
     if (!video) return;
+    setControlActive(true);
+    setStatus("Controle ativo. Use o video para enviar teclado e mouse.");
     video.focus();
-    void video.requestPointerLock?.();
+    void Promise.resolve(video.requestPointerLock?.()).catch(() => {
+      setStatus("Controle ativo. Este navegador nao usa captura exclusiva do mouse; use o video normalmente.");
+    });
   }
 
   function switchMonitor(monitorIndex: number) {
@@ -2557,8 +2563,8 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
             playsInline
             muted={session.audio !== "system"}
             tabIndex={0}
-            onClick={(event) => { event.currentTarget.focus(); void event.currentTarget.requestPointerLock?.(); }}
-            onPointerDown={(event) => { event.currentTarget.focus(); void event.currentTarget.requestPointerLock?.(); }}
+            onClick={(event) => { event.currentTarget.focus(); setControlActive(true); void Promise.resolve(event.currentTarget.requestPointerLock?.()).catch(() => undefined); }}
+            onPointerDown={(event) => { event.currentTarget.focus(); setControlActive(true); void Promise.resolve(event.currentTarget.requestPointerLock?.()).catch(() => undefined); }}
             onContextMenu={(event) => event.preventDefault()}
             onMouseMove={(event) => queueMouseMotion(event.movementX, event.movementY)}
             onMouseDown={(event) => { const button = mouseButtons[event.button] ?? "left"; pressedButtonsRef.current.add(button); sendInput({ type: "mouse.button", button, action: "down" }); }}

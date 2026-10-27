@@ -7,6 +7,7 @@
 - O navegador recebe video H.264 por MediaSource e envia teclado/mouse pelo mesmo canal autenticado.
 - A sessao exibe abas dos monitores detectados; o operador pode trocar a tela durante o acesso sem encerrar a sessao.
 - O painel oferece um comando explicito para ativar o foco de teclado e mouse no video.
+- O controle usa pointer lock quando o navegador permite e tem fallback para navegadores embutidos que bloqueiam captura exclusiva do mouse.
 - O fluxo local foi validado com o computador `DESKTOP-DB26883`: primeiro quadro recebido, 30 FPS, RTT de 1 ms e p95 de 2 ms.
 
 ## Fluxo atual
