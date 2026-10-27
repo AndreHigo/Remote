@@ -9,6 +9,10 @@ test("protocolo aceita hello, ping e entrada tipada", () => {
     type: "input",
     event: { type: "key", scanCode: 30, action: "down" }
   });
+  assert.deepEqual(parseControlMessage(JSON.stringify({ type: "input", event: { type: "mouse.absolute", x: 1680, y: 900 } })), {
+    type: "input",
+    event: { type: "mouse.absolute", x: 1680, y: 900 }
+  });
 });
 
 test("protocolo aceita troca de monitor dentro do limite", () => {

@@ -2,6 +2,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 
 export type RemoteInputEvent =
   | { type: "mouse.relative"; dx: number; dy: number }
+  | { type: "mouse.absolute"; x: number; y: number }
   | { type: "mouse.button"; button: "left" | "right" | "middle"; action: "down" | "up" }
   | { type: "mouse.wheel"; delta: number }
   | { type: "key"; scanCode: number; action: "down" | "up"; extended?: boolean };
@@ -42,6 +43,10 @@ export function validateInputEvent(value: unknown): RemoteInputEvent {
     return { type: event.type, dx: clamp(event.dx, -32768, 32767), dy: clamp(event.dy, -32768, 32767) };
   }
 
+  if (event.type === "mouse.absolute" && isFiniteNumber(event.x) && isFiniteNumber(event.y)) {
+    return { type: event.type, x: clamp(event.x, -32768, 32767), y: clamp(event.y, -32768, 32767) };
+  }
+
   if (
     event.type === "mouse.button" &&
     (event.button === "left" || event.button === "right" || event.button === "middle") &&
@@ -76,6 +81,8 @@ export function serializeInputEvent(value: RemoteInputEvent) {
   switch (event.type) {
     case "mouse.relative":
       return `m ${event.dx} ${event.dy}`;
+    case "mouse.absolute":
+      return `a ${event.x} ${event.y}`;
     case "mouse.button":
       return `b ${event.button} ${event.action}`;
     case "mouse.wheel":
@@ -157,7 +164,17 @@ public static class RemotoInput {
   [StructLayout(LayoutKind.Sequential)] public struct KEYBDINPUT { public ushort wVk; public ushort wScan; public uint dwFlags; public uint time; public IntPtr dwExtraInfo; }
   [StructLayout(LayoutKind.Sequential)] public struct HARDWAREINPUT { public uint uMsg; public ushort wParamL; public ushort wParamH; }
   [DllImport("user32.dll", SetLastError=true)] public static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
+  [DllImport("user32.dll")] public static extern int GetSystemMetrics(int nIndex);
   public static void Move(int dx, int dy) { SendMouse(dx, dy, 0, 0x0001); }
+  public static void Absolute(int x, int y) {
+    var left = GetSystemMetrics(76);
+    var top = GetSystemMetrics(77);
+    var width = Math.Max(1, GetSystemMetrics(78));
+    var height = Math.Max(1, GetSystemMetrics(79));
+    var absoluteX = Math.Max(0, Math.Min(65535, (int)Math.Round((x - left) * 65535.0 / Math.Max(1, width - 1))));
+    var absoluteY = Math.Max(0, Math.Min(65535, (int)Math.Round((y - top) * 65535.0 / Math.Max(1, height - 1))));
+    SendMouse(absoluteX, absoluteY, 0, 0x0001u | 0x8000u | 0x4000u);
+  }
   public static void Button(uint data, uint flags) { SendMouse(0, 0, data, flags); }
   public static void Wheel(int delta) { SendMouse(0, 0, unchecked((uint)delta), 0x0800); }
   public static void Key(ushort scan, bool up, bool extended) { var input = Base(); input.ki.wScan = scan; input.ki.dwFlags = 0x0008u | (up ? 0x0002u : 0u) | (extended ? 0x0001u : 0u); EnsureSent(SendInput(1, new[] { input }, Marshal.SizeOf(typeof(INPUT)))); }
@@ -172,6 +189,7 @@ while ($line = [Console]::In.ReadLine()) {
     $parts = $line -split ' '
     switch ($parts[0]) {
       'm' { if ($parts.Count -eq 3) { [RemotoInput]::Move([int]$parts[1], [int]$parts[2]) } }
+      'a' { if ($parts.Count -eq 3) { [RemotoInput]::Absolute([int]$parts[1], [int]$parts[2]) } }
       'b' {
         if ($parts.Count -eq 3) {
           $down = $parts[2] -eq 'down'

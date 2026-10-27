@@ -93,6 +93,9 @@ export function isRealtimeInputEvent(value: unknown): value is Record<string, un
   if (event.type === "mouse.relative") {
     return isFiniteNumber(event.dx) && event.dx >= -32768 && event.dx <= 32767 && isFiniteNumber(event.dy) && event.dy >= -32768 && event.dy <= 32767;
   }
+  if (event.type === "mouse.absolute") {
+    return isIntegerInRange(event.x, -32768, 32767) && isIntegerInRange(event.y, -32768, 32767);
+  }
   if (event.type === "mouse.button") {
     return (event.button === "left" || event.button === "right" || event.button === "middle") && (event.action === "down" || event.action === "up");
   }

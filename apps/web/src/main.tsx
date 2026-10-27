@@ -2095,6 +2095,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
   const pendingMouseMotionRef = React.useRef({ dx: 0, dy: 0 });
   const mouseMotionFrameRef = React.useRef<number | null>(null);
   const lastMousePositionRef = React.useRef<{ x: number; y: number } | null>(null);
+  const lastAbsoluteMousePointRef = React.useRef<{ x: number; y: number } | null>(null);
   const [status, setStatus] = React.useState("Conectando ao computador...");
   const [error, setError] = React.useState<string | null>(null);
   const [latencyMs, setLatencyMs] = React.useState<number | null>(null);
@@ -2409,6 +2410,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
       mouseMotionFrameRef.current = null;
       pendingMouseMotionRef.current = { dx: 0, dy: 0 };
       lastMousePositionRef.current = null;
+      lastAbsoluteMousePointRef.current = null;
       setLatencyMs(null);
       setLatencyP95Ms(null);
       setRelayDroppedFrames(0);
@@ -2530,6 +2532,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
     mouseMotionFrameRef.current = null;
     pendingMouseMotionRef.current = { dx: 0, dy: 0 };
     lastMousePositionRef.current = null;
+    lastAbsoluteMousePointRef.current = null;
     for (const button of pressedButtonsRef.current) {
       sendInput({ type: "mouse.button", button, action: "up" });
     }
@@ -2563,7 +2566,37 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
 
   function sendInput(event: Record<string, unknown>) {
     const socket = socketRef.current;
-    if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: "input", event }));
+    if (socket?.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ type: "input", event }));
+    }
+  }
+
+  function mapVideoPointToRemote(video: HTMLVideoElement, clientX: number, clientY: number) {
+    const monitor = monitors.find((item) => item.index === activeMonitorIndex)
+      ?? monitors.find((item) => item.primary)
+      ?? monitors[0];
+    if (!monitor || monitor.width <= 0 || monitor.height <= 0) return null;
+
+    const rect = video.getBoundingClientRect();
+    const scale = Math.min(rect.width / monitor.width, rect.height / monitor.height);
+    if (!Number.isFinite(scale) || scale <= 0) return null;
+
+    const renderedWidth = monitor.width * scale;
+    const renderedHeight = monitor.height * scale;
+    const renderedLeft = rect.left + (rect.width - renderedWidth) / 2;
+    const renderedTop = rect.top + (rect.height - renderedHeight) / 2;
+    const localX = Math.max(0, Math.min(monitor.width - 1, (clientX - renderedLeft) / scale));
+    const localY = Math.max(0, Math.min(monitor.height - 1, (clientY - renderedTop) / scale));
+    return { x: Math.round(monitor.x + localX), y: Math.round(monitor.y + localY) };
+  }
+
+  function sendAbsoluteMousePosition(video: HTMLVideoElement, clientX: number, clientY: number) {
+    const point = mapVideoPointToRemote(video, clientX, clientY);
+    if (!point) return;
+    const previous = lastAbsoluteMousePointRef.current;
+    if (previous?.x === point.x && previous.y === point.y) return;
+    lastAbsoluteMousePointRef.current = point;
+    sendInput({ type: "mouse.absolute", ...point });
   }
 
   function queueMouseMotion(dx: number, dy: number) {
@@ -2695,9 +2728,12 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
   function handleVideoMouseMove(event: React.MouseEvent<HTMLVideoElement>) {
     if (!controlActive) return;
     const pointerLocked = document.pointerLockElement === event.currentTarget;
-    const previous = lastMousePositionRef.current;
-    const dx = pointerLocked || !previous ? event.movementX : event.clientX - previous.x;
-    const dy = pointerLocked || !previous ? event.movementY : event.clientY - previous.y;
+    if (!pointerLocked) {
+      sendAbsoluteMousePosition(event.currentTarget, event.clientX, event.clientY);
+      return;
+    }
+    const dx = event.movementX;
+    const dy = event.movementY;
     lastMousePositionRef.current = { x: event.clientX, y: event.clientY };
     queueMouseMotion(dx, dy);
   }
@@ -2741,8 +2777,8 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
             onPointerDown={(event) => { event.stopPropagation(); event.currentTarget.focus(); }}
             onContextMenu={(event) => event.preventDefault()}
             onMouseMove={handleVideoMouseMove}
-            onMouseDown={(event) => { if (!controlActive) return; event.preventDefault(); event.stopPropagation(); const button = mouseButtons[event.button] ?? "left"; pressedButtonsRef.current.add(button); sendInput({ type: "mouse.button", button, action: "down" }); }}
-            onMouseUp={(event) => { if (!controlActive) return; event.preventDefault(); event.stopPropagation(); const button = mouseButtons[event.button] ?? "left"; pressedButtonsRef.current.delete(button); sendInput({ type: "mouse.button", button, action: "up" }); }}
+            onMouseDown={(event) => { if (!controlActive) return; event.preventDefault(); event.stopPropagation(); if (document.pointerLockElement !== event.currentTarget) sendAbsoluteMousePosition(event.currentTarget, event.clientX, event.clientY); const button = mouseButtons[event.button] ?? "left"; pressedButtonsRef.current.add(button); sendInput({ type: "mouse.button", button, action: "down" }); }}
+            onMouseUp={(event) => { if (!controlActive) return; event.preventDefault(); event.stopPropagation(); if (document.pointerLockElement !== event.currentTarget) sendAbsoluteMousePosition(event.currentTarget, event.clientX, event.clientY); const button = mouseButtons[event.button] ?? "left"; pressedButtonsRef.current.delete(button); sendInput({ type: "mouse.button", button, action: "up" }); }}
             onWheel={(event) => { if (controlActive) { event.preventDefault(); event.stopPropagation(); sendInput({ type: "mouse.wheel", delta: Math.round(event.deltaY * -1) }); } }}
           />
         )}

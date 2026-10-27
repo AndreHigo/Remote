@@ -8,6 +8,11 @@ test("entrada aceita somente eventos tipados e limita movimento", () => {
     dx: 32767,
     dy: -32768
   });
+  assert.deepEqual(validateInputEvent({ type: "mouse.absolute", x: 1680.4, y: 900.6 }), {
+    type: "mouse.absolute",
+    x: 1680,
+    y: 901
+  });
   assert.deepEqual(validateInputEvent({ type: "key", scanCode: 30, action: "down" }), {
     type: "key",
     scanCode: 30,
@@ -29,6 +34,7 @@ test("entrada rejeita comando arbitrario e scan code fora da faixa", () => {
 
 test("entrada usa protocolo tipado compacto para reduzir trabalho no host", () => {
   assert.equal(serializeInputEvent({ type: "mouse.relative", dx: -4, dy: 8 }), "m -4 8");
+  assert.equal(serializeInputEvent({ type: "mouse.absolute", x: 1680, y: 900 }), "a 1680 900");
   assert.equal(serializeInputEvent({ type: "mouse.button", button: "right", action: "down" }), "b right down");
   assert.equal(serializeInputEvent({ type: "mouse.wheel", delta: 120 }), "w 120");
   assert.equal(serializeInputEvent({ type: "key", scanCode: 30, action: "up", extended: true }), "k 30 up 1");
