@@ -2126,8 +2126,8 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
     };
     const handlePointerLockError = () => {
       setPointerLocked(false);
-      setControlActive(false);
-      setStatus("O navegador bloqueou a captura do mouse. Clique novamente em Capturar controle.");
+      setControlActive(true);
+      setStatus("Controle ativo. O navegador nao permitiu captura exclusiva; mantenha o cursor dentro do video.");
     };
     document.addEventListener("pointerlockchange", updatePointerLock);
     document.addEventListener("pointerlockerror", handlePointerLockError);
@@ -2525,26 +2525,27 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
     };
   }, [started, controlActive, session.sessionId, monitors, activeMonitorIndex]);
 
+  function releasePressedInputs() {
+    if (mouseMotionFrameRef.current !== null) window.cancelAnimationFrame(mouseMotionFrameRef.current);
+    mouseMotionFrameRef.current = null;
+    pendingMouseMotionRef.current = { dx: 0, dy: 0 };
+    lastMousePositionRef.current = null;
+    for (const button of pressedButtonsRef.current) {
+      sendInput({ type: "mouse.button", button, action: "up" });
+    }
+    pressedButtonsRef.current.clear();
+    for (const code of new Set([...pressedKeysRef.current, ...pressedGamepadKeysRef.current])) {
+      const scanCode = scanCodes[code];
+      if (!scanCode) continue;
+      const extended = extendedScanCodes.has(code);
+      sendInput({ type: "key", scanCode, action: "up", ...(extended ? { extended: true } : {}) });
+    }
+    pressedKeysRef.current.clear();
+    pressedGamepadKeysRef.current.clear();
+    monitorShortcutCodesRef.current.clear();
+  }
+
   React.useEffect(() => {
-    const releasePressedInputs = () => {
-      if (mouseMotionFrameRef.current !== null) window.cancelAnimationFrame(mouseMotionFrameRef.current);
-      mouseMotionFrameRef.current = null;
-      pendingMouseMotionRef.current = { dx: 0, dy: 0 };
-      lastMousePositionRef.current = null;
-      for (const button of pressedButtonsRef.current) {
-        sendInput({ type: "mouse.button", button, action: "up" });
-      }
-      pressedButtonsRef.current.clear();
-      for (const code of new Set([...pressedKeysRef.current, ...pressedGamepadKeysRef.current])) {
-        const scanCode = scanCodes[code];
-        if (!scanCode) continue;
-        const extended = extendedScanCodes.has(code);
-        sendInput({ type: "key", scanCode, action: "up", ...(extended ? { extended: true } : {}) });
-      }
-      pressedKeysRef.current.clear();
-      pressedGamepadKeysRef.current.clear();
-      monitorShortcutCodesRef.current.clear();
-    };
     const releaseOnPointerLockChange = () => {
       if (document.pointerLockElement !== videoRef.current) releasePressedInputs();
     };
@@ -2652,8 +2653,14 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
   function toggleControl() {
     const video = videoRef.current;
     if (!video) return;
-    if (document.pointerLockElement === video) {
-      document.exitPointerLock();
+    if (controlActive) {
+      releasePressedInputs();
+      if (document.pointerLockElement === video) document.exitPointerLock();
+      else {
+        setControlActive(false);
+        setPointerLocked(false);
+        setStatus("Controle liberado. Clique em Capturar controle para retomar.");
+      }
       return;
     }
     setControlActive(true);
@@ -2661,8 +2668,9 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
     video.focus();
     const request = video.requestPointerLock();
     if (request) void request.catch(() => {
-      setControlActive(false);
-      setStatus("O navegador recusou a captura. Clique novamente em Capturar controle.");
+      setPointerLocked(false);
+      setControlActive(true);
+      setStatus("Controle ativo. O navegador nao permitiu captura exclusiva; mantenha o cursor dentro do video.");
     });
   }
 
@@ -2674,11 +2682,13 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
       setControlActive(true);
       return;
     }
+    if (controlActive) return;
     setControlActive(true);
     const request = video.requestPointerLock();
     if (request) void request.catch(() => {
-      setControlActive(false);
-      setStatus("O navegador recusou a captura. Clique novamente em Capturar controle.");
+      setPointerLocked(false);
+      setControlActive(true);
+      setStatus("Controle ativo. O navegador nao permitiu captura exclusiva; mantenha o cursor dentro do video.");
     });
   }
 
@@ -2705,7 +2715,7 @@ function GameSessionPanel({ session, realtimeUrl, started, onStartWeb, onClose }
       <section className="gameSessionPanel" role="dialog" aria-modal="true" aria-labelledby="game-session-title">
         <header className="gameSessionHeader">
           <div><p className="eyebrow">{session.mode === "game" ? <Gamepad2 size={14} /> : <Monitor size={14} />} {session.mode === "game" ? "Modo jogo experimental" : "Suporte remoto"}</p><h2 id="game-session-title">Sessao remota</h2><span>{status}</span></div>
-          <span className="gameSessionHeaderActions">{started ? <button className="secondary compact" type="button" onClick={toggleControl} title={pointerLocked ? "Liberar teclado e mouse" : "Capturar teclado e mouse"}><MousePointer2 size={14} />{pointerLocked ? "Liberar controle" : controlActive ? "Capturando..." : "Capturar controle"}</button> : null}<button className="iconButton" type="button" onClick={onClose} aria-label="Encerrar sessao" title="Encerrar sessao"><X size={17} /></button></span>
+          <span className="gameSessionHeaderActions">{started ? <button className="secondary compact" type="button" onClick={toggleControl} title={controlActive ? "Liberar teclado e mouse" : "Capturar teclado e mouse"}><MousePointer2 size={14} />{controlActive ? "Liberar controle" : "Capturar controle"}</button> : null}<button className="iconButton" type="button" onClick={onClose} aria-label="Encerrar sessao" title="Encerrar sessao"><X size={17} /></button></span>
         </header>
         {started && monitors.length > 0 ? <nav className="monitorTabs" aria-label="Monitores" role="tablist">{monitors.map((monitor) => <button key={monitor.index} className={monitor.index === activeMonitorIndex ? "monitorTab active" : "monitorTab"} type="button" role="tab" aria-selected={monitor.index === activeMonitorIndex} onClick={() => switchMonitor(monitor.index)}><Monitor size={15} />{monitor.primary ? "Principal" : `Monitor ${monitor.index + 1}`}<span>{monitor.name}</span></button>)}</nav> : null}
         {error ? <div className="gameSessionError">{error}</div> : null}
